@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WCHS Bulldog Engineering | West Covina High School</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono&display=swap');
+        
+        :root {
+            --wchs-maroon: #7f1d1d;
+            --wchs-gold: #fbbf24;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        .hero-gradient {
+            background: linear-gradient(135deg, #450a0a 0%, #1a0505 100%);
+        }
+
+        .nav-link {
+            transition: all 0.3s ease;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -4px;
+            left: 0;
+            background-color: var(--wchs-gold);
+            transition: width 0.3s ease;
+        }
+
+        .nav-link:hover::after { width: 100%; }
+
+        .view-section {
+            display: none;
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        .view-section.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .pathway-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--wchs-gold);
+            box-shadow: 0 20px 40px -15px rgba(127, 29, 29, 0.2);
+        }
+
+        .gallery-item {
+            position: relative;
+            aspect-ratio: 1/1;
+            overflow: hidden;
+            border-radius: 1rem;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .gallery-item:hover img { transform: scale(1.05); }
+
+        .loader {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--wchs-maroon);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 bg-[#450a0a]/95 backdrop-blur-md text-white border-b border-amber-500/20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-20 items-center">
+                <div class="flex items-center gap-3 cursor-pointer" onclick="showView('home')">
+                    <div class="w-10 h-10 bg-amber-400 rounded-lg flex items-center justify-center text-maroon-900 shadow-lg shadow-amber-400/20">
+                        <i class="fas fa-dog text-xl text-red-900"></i>
+                    </div>
+                    <span class="font-extrabold text-xl tracking-tighter uppercase">Bulldog<span class="text-amber-400">Eng</span></span>
+                </div>
+                <div class="hidden lg:flex space-x-8 mono text-xs font-bold tracking-widest">
+                    <a onclick="showView('home')" class="nav-link">HOME</a>
+                    <a onclick="showView('engineering')" class="nav-link">ENGINEERING</a>
+                    <a onclick="showView('robotics')" class="nav-link">BUSINESS ROBOTICS</a>
+                    <a onclick="showView('architecture')" class="nav-link">ARCHITECTURE</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HOME VIEW -->
+    <main id="view-home" class="view-section active">
+        <section class="hero-gradient min-h-[60vh] flex items-center pt-20">
+            <div class="max-w-7xl mx-auto px-4 text-white">
+                <div class="inline-block px-4 py-1 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-full text-xs font-bold uppercase tracking-widest mb-6">WCHS CTE Pathways</div>
+                <h1 class="text-6xl md:text-8xl font-black tracking-tighter italic uppercase">The <span class="text-amber-400">Kennel.</span></h1>
+                <p class="text-xl text-slate-300 mt-4 max-w-xl">West Covina High School's premier hub for Engineering, Robotics, and Architectural Design.</p>
+            </div>
+        </section>
+
+        <!-- Dynamic Hub Grid -->
+        <section class="py-24 bg-white">
+            <div class="max-w-7xl mx-auto px-4">
+                <h2 class="text-3xl font-black uppercase mb-12 italic tracking-tighter text-maroon-900 border-l-4 border-amber-400 pl-4">Program Portfolios</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Engineering Column -->
+                    <div class="space-y-4">
+                        <div class="bg-maroon-900 p-6 rounded-2xl text-white">
+                            <h3 class="font-bold uppercase tracking-widest text-xs text-amber-400">Engineering Pathway</h3>
+                        </div>
+                        <div onclick="showView('robotics-intro')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                            <h4 class="font-bold uppercase text-sm">Robotics (Intro)</h4>
+                            <p class="text-[10px] text-slate-400 mt-1">Foundation Level</p>
+                        </div>
+                        <div onclick="showView('pre-eng')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                            <h4 class="font-bold uppercase text-sm">Pre-Engineering</h4>
+                            <p class="text-[10px] text-slate-400 mt-1">Foundation Level</p>
+                        </div>
+                        <div onclick="showView('engineering-adv')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                            <h4 class="font-bold uppercase text-sm">Engineering</h4>
+                            <p class="text-[10px] text-slate-400 mt-1">Advanced Level</p>
+                        </div>
+                        <div onclick="showView('honors-eng')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                            <h4 class="font-bold uppercase text-sm">Honors Engineering</h4>
+                            <p class="text-[10px] text-slate-400 mt-1">Capstone Level</p>
+                        </div>
+                    </div>
+
+                    <!-- Robotics Column -->
+                    <div class="space-y-4">
+                        <div class="bg-amber-500 p-6 rounded-2xl text-maroon-900">
+                            <h3 class="font-bold uppercase tracking-widest text-xs text-maroon-900">Business Robotics</h3>
+                        </div>
+                        <div onclick="showView('biz-robotics-1')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                            <h4 class="font-bold uppercase text-sm">Business Robotics I</h4>
+                        </div>
+                        <div onclick="showView('biz-robotics-2')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                            <h4 class="font-bold uppercase text-sm">Business Robotics II</h4>
+                        </div>
+                        <div onclick="showView('competitions')" class="p-6 bg-slate-900 rounded-2xl border border-slate-800 cursor-pointer hover:bg-slate-800 transition-all text-white">
+                            <h4 class="font-bold uppercase text-sm text-amber-400">Competitions</h4>
+                            <p class="text-[10px] opacity-60 mt-1">VEX & FIRST Robotics</p>
+                        </div>
+                    </div>
+
+                    <!-- Architecture Column -->
+                    <div class="space-y-4">
+                        <div class="bg-slate-900 p-6 rounded-2xl text-white">
+                            <h3 class="font-bold uppercase tracking-widest text-xs text-amber-400">Architecture</h3>
+                        </div>
+                        <div onclick="showView('cadd')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                            <h4 class="font-bold uppercase text-sm">Intro to CADD</h4>
+                        </div>
+                        <div onclick="showView('arch-design')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                            <h4 class="font-bold uppercase text-sm">Architectural Design</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- DYNAMIC GALLERY VIEW -->
+    <section id="view-gallery" class="view-section pt-32 pb-24 min-h-screen">
+        <div class="max-w-7xl mx-auto px-4">
+            <button onclick="showView('home')" class="mb-8 text-maroon-800 font-bold uppercase text-xs tracking-widest flex items-center gap-2">
+                <i class="fas fa-arrow-left"></i> Back to Hub
+            </button>
+            <div class="flex items-center justify-between mb-12">
+                <h2 id="gallery-title" class="text-5xl font-black uppercase italic tracking-tighter">Gallery</h2>
+                <div id="gallery-status" class="text-[10px] font-bold uppercase tracking-widest text-slate-400"></div>
+            </div>
+            <div id="dynamic-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <!-- Content Loaded via JS -->
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="py-20 bg-slate-950 text-slate-
