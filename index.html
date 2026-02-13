@@ -30,6 +30,7 @@
             transition: all 0.3s ease;
             position: relative;
             cursor: pointer;
+            z-index: 100;
         }
 
         .nav-link::after {
@@ -57,10 +58,18 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* Improved card interactivity */
+        .pathway-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            z-index: 10;
+        }
+
         .pathway-card:hover {
             transform: translateY(-8px);
             border-color: var(--wchs-gold);
             box-shadow: 0 20px 40px -15px rgba(127, 29, 29, 0.2);
+            background-color: white;
         }
 
         .gallery-item {
@@ -103,17 +112,17 @@
     <nav class="fixed w-full z-50 bg-[#450a0a]/95 backdrop-blur-md text-white border-b border-amber-500/20">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-20 items-center">
-                <div class="flex items-center gap-3 cursor-pointer" onclick="showView('home')">
-                    <div class="w-10 h-10 bg-amber-400 rounded-lg flex items-center justify-center text-maroon-900 shadow-lg shadow-amber-400/20">
+                <div class="flex items-center gap-3 cursor-pointer group" onclick="showView('home')">
+                    <div class="w-10 h-10 bg-amber-400 rounded-lg flex items-center justify-center text-maroon-900 shadow-lg shadow-amber-400/20 transition-transform group-hover:scale-110">
                         <i class="fas fa-dog text-xl text-red-900"></i>
                     </div>
                     <span class="font-extrabold text-xl tracking-tighter uppercase">Bulldog<span class="text-amber-400">Eng</span></span>
                 </div>
                 <div class="hidden lg:flex space-x-8 mono text-xs font-bold tracking-widest">
-                    <a onclick="showView('home')" class="nav-link">HOME</a>
-                    <a onclick="showView('engineering')" class="nav-link">ENGINEERING</a>
-                    <a onclick="showView('robotics')" class="nav-link">BUSINESS ROBOTICS</a>
-                    <a onclick="showView('architecture')" class="nav-link">ARCHITECTURE</a>
+                    <button onclick="showView('home')" class="nav-link bg-transparent border-none text-white/90">HOME</button>
+                    <button onclick="showView('engineering-adv')" class="nav-link bg-transparent border-none text-white/90">ENGINEERING</button>
+                    <button onclick="showView('biz-robotics-1')" class="nav-link bg-transparent border-none text-white/90">ROBOTICS</button>
+                    <button onclick="showView('cadd')" class="nav-link bg-transparent border-none text-white/90">ARCHITECTURE</button>
                 </div>
             </div>
         </div>
@@ -134,27 +143,28 @@
             <div class="max-w-7xl mx-auto px-4">
                 <h2 class="text-3xl font-black uppercase mb-12 italic tracking-tighter text-maroon-900 border-l-4 border-amber-400 pl-4">Program Portfolios</h2>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    
                     <!-- Engineering Column -->
                     <div class="space-y-4">
                         <div class="bg-maroon-900 p-6 rounded-2xl text-white">
                             <h3 class="font-bold uppercase tracking-widest text-xs text-amber-400">Engineering Pathway</h3>
                         </div>
-                        <div onclick="showView('robotics-intro')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                        <button onclick="showView('robotics-intro')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Robotics (Intro)</h4>
-                            <p class="text-[10px] text-slate-400 mt-1">Foundation Level</p>
-                        </div>
-                        <div onclick="showView('pre-eng')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                            <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Foundation Level</p>
+                        </button>
+                        <button onclick="showView('pre-eng')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Pre-Engineering</h4>
-                            <p class="text-[10px] text-slate-400 mt-1">Foundation Level</p>
-                        </div>
-                        <div onclick="showView('engineering-adv')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                            <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Foundation Level</p>
+                        </button>
+                        <button onclick="showView('engineering-adv')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Engineering</h4>
-                            <p class="text-[10px] text-slate-400 mt-1">Advanced Level</p>
-                        </div>
-                        <div onclick="showView('honors-eng')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                            <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Advanced Level</p>
+                        </button>
+                        <button onclick="showView('honors-eng')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Honors Engineering</h4>
-                            <p class="text-[10px] text-slate-400 mt-1">Capstone Level</p>
-                        </div>
+                            <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Capstone Level</p>
+                        </button>
                     </div>
 
                     <!-- Robotics Column -->
@@ -162,16 +172,16 @@
                         <div class="bg-amber-500 p-6 rounded-2xl text-maroon-900">
                             <h3 class="font-bold uppercase tracking-widest text-xs text-maroon-900">Business Robotics</h3>
                         </div>
-                        <div onclick="showView('biz-robotics-1')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                        <button onclick="showView('biz-robotics-1')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Business Robotics I</h4>
-                        </div>
-                        <div onclick="showView('biz-robotics-2')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                        </button>
+                        <button onclick="showView('biz-robotics-2')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Business Robotics II</h4>
-                        </div>
-                        <div onclick="showView('competitions')" class="p-6 bg-slate-900 rounded-2xl border border-slate-800 cursor-pointer hover:bg-slate-800 transition-all text-white">
+                        </button>
+                        <button onclick="showView('competitions')" class="w-full text-left p-6 bg-slate-900 rounded-2xl border border-slate-800 pathway-card text-white">
                             <h4 class="font-bold uppercase text-sm text-amber-400">Competitions</h4>
-                            <p class="text-[10px] opacity-60 mt-1">VEX & FIRST Robotics</p>
-                        </div>
+                            <p class="text-[10px] opacity-60 mt-1 uppercase tracking-widest">VEX & FIRST Robotics</p>
+                        </button>
                     </div>
 
                     <!-- Architecture Column -->
@@ -179,12 +189,12 @@
                         <div class="bg-slate-900 p-6 rounded-2xl text-white">
                             <h3 class="font-bold uppercase tracking-widest text-xs text-amber-400">Architecture</h3>
                         </div>
-                        <div onclick="showView('cadd')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                        <button onclick="showView('cadd')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Intro to CADD</h4>
-                        </div>
-                        <div onclick="showView('arch-design')" class="p-6 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:border-amber-400 transition-all">
+                        </button>
+                        <button onclick="showView('arch-design')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Architectural Design</h4>
-                        </div>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -194,7 +204,7 @@
     <!-- DYNAMIC GALLERY VIEW -->
     <section id="view-gallery" class="view-section pt-32 pb-24 min-h-screen">
         <div class="max-w-7xl mx-auto px-4">
-            <button onclick="showView('home')" class="mb-8 text-maroon-800 font-bold uppercase text-xs tracking-widest flex items-center gap-2">
+            <button onclick="showView('home')" class="mb-8 text-maroon-800 font-bold uppercase text-xs tracking-widest flex items-center gap-2 hover:translate-x-[-4px] transition-transform">
                 <i class="fas fa-arrow-left"></i> Back to Hub
             </button>
             <div class="flex items-center justify-between mb-12">
@@ -218,15 +228,10 @@
 
     <script>
         /**
-         * 1. PASTE YOUR DEPLOYED WEB APP URL HERE
-         * Example: "https://script.google.com/macros/s/AKfycb.../exec"
+         * CONFIGURATION
          */
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKbkB13PmrSaj9uC-ntfR6Xouad6lAW95HeucQaSizzFnmW89CHOLtrp51iwmW4Ko-mg/exec"; 
 
-        /**
-         * 2. PASTE YOUR 9 FOLDER IDs HERE
-         * Get these from the URL when viewing each folder in Google Drive.
-         */
         const FOLDER_CONFIG = {
             'robotics-intro': '1kajz9Bw_30Uxd-5RCectJkXzwJZjSWq4',
             'pre-eng': '12BMsv2Jms-HHprtoBQ3If3FXPjGNr42I',
@@ -239,7 +244,11 @@
             'arch-design': '1p9KTTrnexf8o8PnBzyiJvyopH-IgsL05'
         };
 
-        function showView(viewId) {
+        /**
+         * Global View Controller
+         */
+        window.showView = function(viewId) {
+            console.log("Switching to view:", viewId);
             const isGallery = FOLDER_CONFIG[viewId];
             
             // Hide all views
@@ -247,58 +256,56 @@
             
             if (isGallery) {
                 const target = document.getElementById('view-gallery');
-                target.classList.add('active');
-                document.getElementById('gallery-title').innerText = viewId.replace(/-/g, ' ');
-                loadGalleryFromDrive(viewId);
+                if (target) {
+                    target.classList.add('active');
+                    document.getElementById('gallery-title').innerText = viewId.replace(/-/g, ' ');
+                    loadGalleryFromDrive(viewId);
+                }
             } else {
-                document.getElementById('view-' + viewId)?.classList.add('active');
+                const homeTarget = document.getElementById('view-' + viewId);
+                if (homeTarget) homeTarget.classList.add('active');
             }
             window.scrollTo(0,0);
-        }
+        };
 
+        /**
+         * Gallery Engine
+         */
         async function loadGalleryFromDrive(slug) {
             const grid = document.getElementById('dynamic-grid');
             const status = document.getElementById('gallery-status');
             const folderId = FOLDER_CONFIG[slug];
             
-            if (!SCRIPT_URL) {
-                grid.innerHTML = '<div class="col-span-full text-center py-20"><p class="text-maroon-800 font-bold uppercase mb-2">Sync Pending</p><p class="text-slate-400 text-xs italic">The SCRIPT_URL is not yet configured in index.html.</p></div>';
-                status.innerText = "Script Not Configured";
-                return;
-            }
+            if (!grid) return;
 
             grid.innerHTML = '<div class="col-span-full py-20 flex justify-center"><div class="loader"></div></div>';
-            status.innerText = "Connecting to Drive...";
+            status.innerText = "Syncing with Lab...";
 
             try {
-                // Ensure the URL is properly formatted for parameters
-                const fetchUrl = SCRIPT_URL.includes('?') 
-                    ? `${SCRIPT_URL}&id=${folderId}` 
-                    : `${SCRIPT_URL}?id=${folderId}`;
+                // Formatting URL
+                const fetchUrl = SCRIPT_URL + "?id=" + folderId;
                 
                 const response = await fetch(fetchUrl);
-                const photos = await response.json();
+                if (!response.ok) throw new Error("Connection failed");
                 
+                const photos = await response.json();
                 if (photos.error) throw new Error(photos.error);
 
-                status.innerText = `${photos.length} Projects Loaded`;
+                status.innerText = photos.length + " Items Synchronized";
                 
                 grid.innerHTML = photos.length ? photos.map(p => `
                     <div class="gallery-item group">
-                        <img src="${p.url}" alt="Lab Photo" loading="lazy">
+                        <img src="${p.url}" alt="Project Photo" loading="lazy" onerror="this.parentElement.style.display='none'">
                         <div class="absolute inset-0 bg-maroon-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                              <i class="fas fa-expand text-white text-xl"></i>
                         </div>
                     </div>
-                `).join('') : '<p class="text-slate-400 italic col-span-full text-center py-20">The folder is currently empty.</p>';
+                `).join('') : '<p class="text-slate-400 italic col-span-full text-center py-20">This lab folder is currently empty.</p>';
 
             } catch (e) {
-                status.innerText = "Connection Failed";
-                grid.innerHTML = `<div class="col-span-full text-center py-20">
-                    <p class="text-red-900 font-bold uppercase text-xs mb-2">Sync Error</p>
-                    <p class="text-slate-400 text-[10px]">Ensure the script is deployed as "Anyone" and the folder is public.</p>
-                </div>`;
-                console.error("Gallery Load Error:", e);
+                console.error("Sync Error:", e);
+                status.innerText = "Offline";
+                grid.innerHTML = '<div class="col-span-full text-center py-20 text-red-900 font-bold uppercase text-xs">Sync Error: ' + e.message + '</div>';
             }
         }
     </script>
