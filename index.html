@@ -208,4 +208,99 @@
     </section>
 
     <!-- FOOTER -->
-    <footer class="py-20 bg-slate-950 text-slate-
+    <footer class="py-20 bg-slate-950 text-slate-500 text-center border-t border-white/5">
+        <div class="flex items-center justify-center gap-3 text-white mb-6">
+            <i class="fas fa-dog text-amber-400"></i>
+            <span class="font-extrabold text-xl tracking-tighter uppercase">Bulldog<span class="text-amber-400">Eng</span></span>
+        </div>
+        <p class="text-[10px] uppercase tracking-[0.4em] font-bold">West Covina High School • Bulldog Engineering</p>
+    </footer>
+
+    <script>
+        /**
+         * 1. PASTE YOUR DEPLOYED WEB APP URL HERE
+         * Example: "https://script.google.com/macros/s/AKfycb.../exec"
+         */
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKbkB13PmrSaj9uC-ntfR6Xouad6lAW95HeucQaSizzFnmW89CHOLtrp51iwmW4Ko-mg/exec"; 
+
+        /**
+         * 2. PASTE YOUR 9 FOLDER IDs HERE
+         * Get these from the URL when viewing each folder in Google Drive.
+         */
+        const FOLDER_CONFIG = {
+            'robotics-intro': '1kajz9Bw_30Uxd-5RCectJkXzwJZjSWq4',
+            'pre-eng': '12BMsv2Jms-HHprtoBQ3If3FXPjGNr42I',
+            'engineering-adv': '1wDlPWMaf0xeXiRp_2v1_kmUEH4JQh84n',
+            'honors-eng': '111NiCMMLa4GQZuFm6gKXBC_B3GsKWPkG',
+            'biz-robotics-1': '1HeZsBHNNtkRaWYFfOwe4d-RoCBF2IhNz',
+            'biz-robotics-2': '1gnPHqDx4KNc3tupN8N-WKBWRGc9gyip6',
+            'competitions': '1tiQqwCe8Ig7HTCMANFnCBU18y_7l3OYc',
+            'cadd': '12TL_Inphmwn-SfcpHWcIW7axcc3v2Uem',
+            'arch-design': '1p9KTTrnexf8o8PnBzyiJvyopH-IgsL05''
+        };
+
+        function showView(viewId) {
+            const isGallery = FOLDER_CONFIG[viewId];
+            
+            // Hide all views
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+            
+            if (isGallery) {
+                const target = document.getElementById('view-gallery');
+                target.classList.add('active');
+                document.getElementById('gallery-title').innerText = viewId.replace(/-/g, ' ');
+                loadGalleryFromDrive(viewId);
+            } else {
+                document.getElementById('view-' + viewId)?.classList.add('active');
+            }
+            window.scrollTo(0,0);
+        }
+
+        async function loadGalleryFromDrive(slug) {
+            const grid = document.getElementById('dynamic-grid');
+            const status = document.getElementById('gallery-status');
+            const folderId = FOLDER_CONFIG[slug];
+            
+            if (!SCRIPT_URL) {
+                grid.innerHTML = '<div class="col-span-full text-center py-20"><p class="text-maroon-800 font-bold uppercase mb-2">Sync Pending</p><p class="text-slate-400 text-xs italic">The SCRIPT_URL is not yet configured in index.html.</p></div>';
+                status.innerText = "Script Not Configured";
+                return;
+            }
+
+            grid.innerHTML = '<div class="col-span-full py-20 flex justify-center"><div class="loader"></div></div>';
+            status.innerText = "Connecting to Drive...";
+
+            try {
+                // Ensure the URL is properly formatted for parameters
+                const fetchUrl = SCRIPT_URL.includes('?') 
+                    ? `${SCRIPT_URL}&id=${folderId}` 
+                    : `${SCRIPT_URL}?id=${folderId}`;
+                
+                const response = await fetch(fetchUrl);
+                const photos = await response.json();
+                
+                if (photos.error) throw new Error(photos.error);
+
+                status.innerText = `${photos.length} Projects Loaded`;
+                
+                grid.innerHTML = photos.length ? photos.map(p => `
+                    <div class="gallery-item group">
+                        <img src="${p.url}" alt="Lab Photo" loading="lazy">
+                        <div class="absolute inset-0 bg-maroon-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                             <i class="fas fa-expand text-white text-xl"></i>
+                        </div>
+                    </div>
+                `).join('') : '<p class="text-slate-400 italic col-span-full text-center py-20">The folder is currently empty.</p>';
+
+            } catch (e) {
+                status.innerText = "Connection Failed";
+                grid.innerHTML = `<div class="col-span-full text-center py-20">
+                    <p class="text-red-900 font-bold uppercase text-xs mb-2">Sync Error</p>
+                    <p class="text-slate-400 text-[10px]">Ensure the script is deployed as "Anyone" and the folder is public.</p>
+                </div>`;
+                console.error("Gallery Load Error:", e);
+            }
+        }
+    </script>
+</body>
+</html>
