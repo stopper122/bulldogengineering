@@ -118,11 +118,11 @@
                     </div>
                     <span class="font-extrabold text-xl tracking-tighter uppercase">Bulldog<span class="text-amber-400">Eng</span></span>
                 </div>
-                <div class="hidden lg:flex space-x-8 mono text-xs font-bold tracking-widest">
+                <div class="hidden lg:flex space-x-8 mono text-[10px] font-bold tracking-widest">
                     <button onclick="showView('home')" class="nav-link bg-transparent border-none text-white/90">HOME</button>
-                    <button onclick="showView('engineering-adv')" class="nav-link bg-transparent border-none text-white/90">ENGINEERING</button>
-                    <button onclick="showView('biz-robotics-1')" class="nav-link bg-transparent border-none text-white/90">ROBOTICS</button>
-                    <button onclick="showView('cadd')" class="nav-link bg-transparent border-none text-white/90">ARCHITECTURE</button>
+                    <button onclick="showView('engineering')" class="nav-link bg-transparent border-none text-white/90">ENGINEERING</button>
+                    <button onclick="showView('business-robotics-i')" class="nav-link bg-transparent border-none text-white/90 uppercase">BUSINESS ROBOTICS</button>
+                    <button onclick="showView('architectural-design')" class="nav-link bg-transparent border-none text-white/90">ARCHITECTURE</button>
                 </div>
             </div>
         </div>
@@ -149,19 +149,19 @@
                         <div class="bg-maroon-900 p-6 rounded-2xl text-white">
                             <h3 class="font-bold uppercase tracking-widest text-xs text-amber-400">Engineering Pathway</h3>
                         </div>
-                        <button onclick="showView('robotics-intro')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
-                            <h4 class="font-bold uppercase text-sm">Robotics (Intro)</h4>
+                        <button onclick="showView('robotics')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                            <h4 class="font-bold uppercase text-sm">Robotics</h4>
                             <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Foundation Level</p>
                         </button>
-                        <button onclick="showView('pre-eng')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('pre-engineering')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Pre-Engineering</h4>
                             <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Foundation Level</p>
                         </button>
-                        <button onclick="showView('engineering-adv')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('engineering')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Engineering</h4>
                             <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Advanced Level</p>
                         </button>
-                        <button onclick="showView('honors-eng')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('honors-engineering')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Honors Engineering</h4>
                             <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Capstone Level</p>
                         </button>
@@ -172,10 +172,10 @@
                         <div class="bg-amber-500 p-6 rounded-2xl text-maroon-900">
                             <h3 class="font-bold uppercase tracking-widest text-xs text-maroon-900">Business Robotics</h3>
                         </div>
-                        <button onclick="showView('biz-robotics-1')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('business-robotics-i')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Business Robotics I</h4>
                         </button>
-                        <button onclick="showView('biz-robotics-2')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('business-robotics-ii')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Business Robotics II</h4>
                         </button>
                         <button onclick="showView('competitions')" class="w-full text-left p-6 bg-slate-900 rounded-2xl border border-slate-800 pathway-card text-white">
@@ -189,10 +189,10 @@
                         <div class="bg-slate-900 p-6 rounded-2xl text-white">
                             <h3 class="font-bold uppercase tracking-widest text-xs text-amber-400">Architecture</h3>
                         </div>
-                        <button onclick="showView('cadd')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('intro-to-cadd')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Intro to CADD</h4>
                         </button>
-                        <button onclick="showView('arch-design')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('architectural-design')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
                             <h4 class="font-bold uppercase text-sm">Architectural Design</h4>
                         </button>
                     </div>
@@ -233,15 +233,15 @@
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKbkB13PmrSaj9uC-ntfR6Xouad6lAW95HeucQaSizzFnmW89CHOLtrp51iwmW4Ko-mg/exec"; 
 
         const FOLDER_CONFIG = {
-            'robotics-intro': '1kajz9Bw_30Uxd-5RCectJkXzwJZjSWq4',
-            'pre-eng': '12BMsv2Jms-HHprtoBQ3If3FXPjGNr42I',
-            'engineering-adv': '1wDlPWMaf0xeXiRp_2v1_kmUEH4JQh84n',
-            'honors-eng': '111NiCMMLa4GQZuFm6gKXBC_B3GsKWPkG',
-            'biz-robotics-1': '1HeZsBHNNtkRaWYFfOwe4d-RoCBF2IhNz',
-            'biz-robotics-2': '1gnPHqDx4KNc3tupN8N-WKBWRGc9gyip6',
+            'robotics': '1kajz9Bw_30Uxd-5RCectJkXzwJZjSWq4',
+            'pre-engineering': '12BMsv2Jms-HHprtoBQ3If3FXPjGNr42I',
+            'engineering': '1wDlPWMaf0xeXiRp_2v1_kmUEH4JQh84n',
+            'honors-engineering': '111NiCMMLa4GQZuFm6gKXBC_B3GsKWPkG',
+            'business-robotics-i': '1HeZsBHNNtkRaWYFfOwe4d-RoCBF2IhNz',
+            'business-robotics-ii': '1gnPHqDx4KNc3tupN8N-WKBWRGc9gyip6',
             'competitions': '1tiQqwCe8Ig7HTCMANFnCBU18y_7l3OYc',
-            'cadd': '12TL_Inphmwn-SfcpHWcIW7axcc3v2Uem',
-            'arch-design': '1p9KTTrnexf8o8PnBzyiJvyopH-IgsL05'
+            'intro-to-cadd': '12TL_Inphmwn-SfcpHWcIW7axcc3v2Uem',
+            'architectural-design': '1p9KTTrnexf8o8PnBzyiJvyopH-IgsL05'
         };
 
         /**
@@ -258,7 +258,15 @@
                 const target = document.getElementById('view-gallery');
                 if (target) {
                     target.classList.add('active');
-                    document.getElementById('gallery-title').innerText = viewId.replace(/-/g, ' ');
+                    
+                    // Format the title nicely: business-robotics-i -> Business Robotics I
+                    const displayTitle = viewId.split('-').map(word => {
+                        if (word === 'i' || word === 'ii') return word.toUpperCase();
+                        if (word === 'cadd') return 'CADD';
+                        return word.charAt(0).toUpperCase() + word.slice(1);
+                    }).join(' ');
+                    
+                    document.getElementById('gallery-title').innerText = displayTitle;
                     loadGalleryFromDrive(viewId);
                 }
             } else {
