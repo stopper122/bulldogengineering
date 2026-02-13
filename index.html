@@ -26,6 +26,23 @@
             background: linear-gradient(135deg, #450a0a 0%, #1a0505 100%);
         }
 
+        /* Accessibility: Skip to Content Link */
+        .skip-link {
+            position: absolute;
+            top: -60px;
+            left: 0;
+            background: var(--wchs-gold);
+            color: #000;
+            padding: 12px 24px;
+            font-weight: bold;
+            z-index: 200;
+            transition: top 0.3s;
+            border-bottom-right-radius: 8px;
+        }
+        .skip-link:focus {
+            top: 0;
+        }
+
         .nav-link {
             transition: all 0.3s ease;
             position: relative;
@@ -72,6 +89,12 @@
             background-color: white;
         }
 
+        /* Accessibility: Focus indicators */
+        .pathway-card:focus-visible, .nav-link:focus-visible, button:focus-visible, a:focus-visible {
+            outline: 3px solid var(--wchs-gold);
+            outline-offset: 2px;
+        }
+
         .gallery-item {
             position: relative;
             aspect-ratio: 1/1;
@@ -108,21 +131,23 @@
 </head>
 <body class="bg-slate-50 text-slate-900">
 
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
     <!-- Navigation -->
-    <nav class="fixed w-full z-50 bg-[#450a0a]/95 backdrop-blur-md text-white border-b border-amber-500/20">
+    <nav class="fixed w-full z-50 bg-[#450a0a]/95 backdrop-blur-md text-white border-b border-amber-500/20" role="navigation" aria-label="Main Navigation Hub">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-20 items-center">
-                <div class="flex items-center gap-3 cursor-pointer group" onclick="showView('home')">
-                    <div class="w-10 h-10 bg-amber-400 rounded-lg flex items-center justify-center text-maroon-900 shadow-lg shadow-amber-400/20 transition-transform group-hover:scale-110">
+                <button class="flex items-center gap-3 cursor-pointer group bg-transparent border-none text-left p-0" onclick="showView('home')" aria-label="Go to Bulldog Engineering Home Page">
+                    <div class="w-10 h-10 bg-amber-400 rounded-lg flex items-center justify-center text-maroon-900 shadow-lg shadow-amber-400/20 transition-transform group-hover:scale-110" aria-hidden="true">
                         <i class="fas fa-dog text-xl text-red-900"></i>
                     </div>
-                    <span class="font-extrabold text-xl tracking-tighter uppercase">Bulldog<span class="text-amber-400">Eng</span></span>
-                </div>
+                    <span class="font-extrabold text-xl tracking-tighter uppercase text-white">Bulldog<span class="text-amber-400">Eng</span></span>
+                </button>
                 <div class="hidden lg:flex space-x-8 mono text-[10px] font-bold tracking-widest">
-                    <button onclick="showView('home')" class="nav-link bg-transparent border-none text-white/90">HOME</button>
-                    <button onclick="showView('engineering')" class="nav-link bg-transparent border-none text-white/90">ENGINEERING</button>
-                    <button onclick="showView('business-robotics-i')" class="nav-link bg-transparent border-none text-white/90 uppercase">BUSINESS ROBOTICS</button>
-                    <button onclick="showView('architectural-design')" class="nav-link bg-transparent border-none text-white/90">ARCHITECTURE</button>
+                    <button onclick="showView('home')" class="nav-link bg-transparent border-none text-white/90 uppercase" aria-label="Navigate to Home">HOME</button>
+                    <button onclick="showView('engineering')" class="nav-link bg-transparent border-none text-white/90 uppercase" aria-label="Navigate to Engineering Portfolio">ENGINEERING</button>
+                    <button onclick="showView('business-robotics-i')" class="nav-link bg-transparent border-none text-white/90 uppercase" aria-label="Navigate to Business Robotics Portfolio">BUSINESS ROBOTICS</button>
+                    <button onclick="showView('architectural-design')" class="nav-link bg-transparent border-none text-white/90 uppercase" aria-label="Navigate to Architecture Portfolio">ARCHITECTURE</button>
                 </div>
             </div>
         </div>
@@ -130,69 +155,74 @@
 
     <!-- HOME VIEW -->
     <main id="view-home" class="view-section active">
-        <section class="hero-gradient min-h-[60vh] flex items-center pt-20">
+        <section id="main-content" class="hero-gradient min-h-[60vh] flex items-center pt-20">
             <div class="max-w-7xl mx-auto px-4 text-white">
                 <div class="inline-block px-4 py-1 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-full text-xs font-bold uppercase tracking-widest mb-6">WCHS CTE Pathways</div>
                 <h1 class="text-6xl md:text-8xl font-black tracking-tighter italic uppercase">The <span class="text-amber-400">Kennel.</span></h1>
-                <p class="text-xl text-slate-300 mt-4 max-w-xl">West Covina High School's premier hub for Engineering, Robotics, and Architectural Design.</p>
+                <p class="text-xl text-slate-300 mt-4 max-w-xl leading-relaxed">West Covina High School's premier hub for Engineering, Robotics, and Architectural Design.</p>
+                <div class="mt-8">
+                    <a href="https://www.wchsbulldogs.net/" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-6 py-3 bg-amber-400 text-maroon-950 font-bold rounded-xl hover:bg-amber-300 transition-colors" aria-label="Visit the official West Covina High School Website (Opens in a new tab)">
+                        WCHS MAIN SITE <i class="fas fa-external-link-alt text-xs" aria-hidden="true"></i>
+                    </a>
+                </div>
             </div>
         </section>
 
         <!-- Dynamic Hub Grid -->
-        <section class="py-24 bg-white">
+        <section class="py-24 bg-white" aria-labelledby="portfolio-heading">
             <div class="max-w-7xl mx-auto px-4">
-                <h2 class="text-3xl font-black uppercase mb-12 italic tracking-tighter text-maroon-900 border-l-4 border-amber-400 pl-4">Program Portfolios</h2>
+                <h2 id="portfolio-heading" class="text-3xl font-black uppercase mb-12 italic tracking-tighter text-maroon-900 border-l-4 border-amber-400 pl-4">Program Portfolios</h2>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     
                     <!-- Engineering Column -->
-                    <div class="space-y-4">
+                    <div class="space-y-4" role="region" aria-label="Engineering Course Track">
                         <div class="bg-maroon-900 p-6 rounded-2xl text-white">
                             <h3 class="font-bold uppercase tracking-widest text-xs text-amber-400">Engineering Pathway</h3>
                         </div>
-                        <button onclick="showView('robotics')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('robotics')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card" aria-label="View Robotics Portfolio Gallery">
                             <h4 class="font-bold uppercase text-sm">Robotics</h4>
                             <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Foundation Level</p>
                         </button>
-                        <button onclick="showView('pre-engineering')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('pre-engineering')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card" aria-label="View Pre-Engineering Portfolio Gallery">
                             <h4 class="font-bold uppercase text-sm">Pre-Engineering</h4>
                             <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Foundation Level</p>
                         </button>
-                        <button onclick="showView('engineering')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('engineering')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card" aria-label="View Engineering Portfolio Gallery">
                             <h4 class="font-bold uppercase text-sm">Engineering</h4>
                             <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Advanced Level</p>
                         </button>
-                        <button onclick="showView('honors-engineering')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('honors-engineering')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card" aria-label="View Honors Engineering Portfolio Gallery">
                             <h4 class="font-bold uppercase text-sm">Honors Engineering</h4>
                             <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Capstone Level</p>
                         </button>
                     </div>
 
                     <!-- Robotics Column -->
-                    <div class="space-y-4">
+                    <div class="space-y-4" role="region" aria-label="Business Robotics Course Track">
                         <div class="bg-amber-500 p-6 rounded-2xl text-maroon-900">
                             <h3 class="font-bold uppercase tracking-widest text-xs text-maroon-900">Business Robotics</h3>
                         </div>
-                        <button onclick="showView('business-robotics-i')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('business-robotics-i')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card" aria-label="View Business Robotics I Portfolio Gallery">
                             <h4 class="font-bold uppercase text-sm">Business Robotics I</h4>
                         </button>
-                        <button onclick="showView('business-robotics-ii')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('business-robotics-ii')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card" aria-label="View Business Robotics II Portfolio Gallery">
                             <h4 class="font-bold uppercase text-sm">Business Robotics II</h4>
                         </button>
-                        <button onclick="showView('competitions')" class="w-full text-left p-6 bg-slate-900 rounded-2xl border border-slate-800 pathway-card text-white">
+                        <button onclick="showView('competitions')" class="w-full text-left p-6 bg-slate-900 rounded-2xl border border-slate-800 pathway-card text-white" aria-label="View Competition Highlights and Photos">
                             <h4 class="font-bold uppercase text-sm text-amber-400">Competitions</h4>
                             <p class="text-[10px] opacity-60 mt-1 uppercase tracking-widest">VEX & FIRST Robotics</p>
                         </button>
                     </div>
 
                     <!-- Architecture Column -->
-                    <div class="space-y-4">
+                    <div class="space-y-4" role="region" aria-label="Architecture Course Track">
                         <div class="bg-slate-900 p-6 rounded-2xl text-white">
                             <h3 class="font-bold uppercase tracking-widest text-xs text-amber-400">Architecture</h3>
                         </div>
-                        <button onclick="showView('intro-to-cadd')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('intro-to-cadd')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card" aria-label="View Intro to CADD Portfolio Gallery">
                             <h4 class="font-bold uppercase text-sm">Intro to CADD</h4>
                         </button>
-                        <button onclick="showView('architectural-design')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card">
+                        <button onclick="showView('architectural-design')" class="w-full text-left p-6 bg-slate-50 rounded-2xl border border-slate-200 pathway-card" aria-label="View Architectural Design Portfolio Gallery">
                             <h4 class="font-bold uppercase text-sm">Architectural Design</h4>
                         </button>
                     </div>
@@ -202,15 +232,15 @@
     </main>
 
     <!-- DYNAMIC GALLERY VIEW -->
-    <section id="view-gallery" class="view-section pt-32 pb-24 min-h-screen">
+    <section id="view-gallery" class="view-section pt-32 pb-24 min-h-screen" aria-live="polite">
         <div class="max-w-7xl mx-auto px-4">
-            <button onclick="showView('home')" class="mb-8 text-maroon-800 font-bold uppercase text-xs tracking-widest flex items-center gap-2 hover:translate-x-[-4px] transition-transform">
-                <i class="fas fa-arrow-left"></i> Back to Hub
+            <button onclick="showView('home')" class="mb-8 text-maroon-800 font-bold uppercase text-xs tracking-widest flex items-center gap-2 hover:translate-x-[-4px] transition-transform" aria-label="Return to Program Portfolios Hub">
+                <i class="fas fa-arrow-left" aria-hidden="true"></i> Back to Hub
             </button>
             <div class="mb-12">
                 <h2 id="gallery-title" class="text-5xl font-black uppercase italic tracking-tighter mb-4">Gallery</h2>
                 <p id="gallery-description" class="text-slate-600 max-w-3xl mb-8 leading-relaxed"></p>
-                <div id="gallery-status" class="text-[10px] font-bold uppercase tracking-widest text-slate-400"></div>
+                <div id="gallery-status" class="text-[10px] font-bold uppercase tracking-widest text-slate-400" aria-live="status"></div>
             </div>
             <div id="dynamic-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 <!-- Content Loaded via JS -->
@@ -219,12 +249,15 @@
     </section>
 
     <!-- FOOTER -->
-    <footer class="py-20 bg-slate-950 text-slate-500 text-center border-t border-white/5">
+    <footer class="py-20 bg-slate-950 text-slate-500 text-center border-t border-white/5" role="contentinfo">
         <div class="flex items-center justify-center gap-3 text-white mb-6">
-            <i class="fas fa-dog text-amber-400"></i>
+            <i class="fas fa-dog text-amber-400" aria-hidden="true"></i>
             <span class="font-extrabold text-xl tracking-tighter uppercase">Bulldog<span class="text-amber-400">Eng</span></span>
         </div>
         <p class="text-[10px] uppercase tracking-[0.4em] font-bold">West Covina High School • Bulldog Engineering</p>
+        <p class="text-[10px] mt-4 uppercase tracking-[0.2em]">
+            <a href="https://www.wchsbulldogs.net/" target="_blank" rel="noopener noreferrer" class="hover:text-amber-400 transition-colors" aria-label="Visit official West Covina High School website (opens in a new tab)">Visit Official School Site</a>
+        </p>
     </footer>
 
     <script>
@@ -272,7 +305,6 @@
                 if (target) {
                     target.classList.add('active');
                     
-                    // Format the title nicely: business-robotics-i -> Business Robotics I
                     const displayTitle = viewId.split('-').map(word => {
                         if (word === 'i' || word === 'ii') return word.toUpperCase();
                         if (word === 'cadd') return 'CADD';
@@ -280,12 +312,9 @@
                     }).join(' ');
                     
                     document.getElementById('gallery-title').innerText = displayTitle;
+                    document.getElementById('gallery-description').innerText = DESCRIPTION_CONFIG[viewId] || "Explore student work from this course.";
                     
-                    // Set the description
-                    const description = DESCRIPTION_CONFIG[viewId] || "Explore the student work from this course.";
-                    document.getElementById('gallery-description').innerText = description;
-                    
-                    loadGalleryFromDrive(viewId);
+                    loadGalleryFromDrive(viewId, displayTitle);
                 }
             } else {
                 const homeTarget = document.getElementById('view-' + viewId);
@@ -297,32 +326,29 @@
         /**
          * Gallery Engine
          */
-        async function loadGalleryFromDrive(slug) {
+        async function loadGalleryFromDrive(slug, title) {
             const grid = document.getElementById('dynamic-grid');
             const status = document.getElementById('gallery-status');
             const folderId = FOLDER_CONFIG[slug];
             
             if (!grid) return;
 
-            grid.innerHTML = '<div class="col-span-full py-20 flex justify-center"><div class="loader"></div></div>';
+            grid.innerHTML = '<div class="col-span-full py-20 flex justify-center"><div class="loader" role="status" aria-label="Loading student projects"></div></div>';
             status.innerText = "Syncing with Lab...";
 
             try {
-                // Formatting URL
                 const fetchUrl = SCRIPT_URL + "?id=" + folderId;
-                
                 const response = await fetch(fetchUrl);
                 if (!response.ok) throw new Error("Connection failed");
-                
                 const photos = await response.json();
                 if (photos.error) throw new Error(photos.error);
 
                 status.innerText = photos.length + " Items Synchronized";
                 
-                grid.innerHTML = photos.length ? photos.map(p => `
+                grid.innerHTML = photos.length ? photos.map((p, index) => `
                     <div class="gallery-item group">
-                        <img src="${p.url}" alt="Project Photo" loading="lazy" onerror="this.parentElement.style.display='none'">
-                        <div class="absolute inset-0 bg-maroon-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <img src="${p.url}" alt="Student engineering project photo ${index + 1} from the ${title} course" loading="lazy" onerror="this.parentElement.style.display='none'">
+                        <div class="absolute inset-0 bg-maroon-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" aria-hidden="true">
                              <i class="fas fa-expand text-white text-xl"></i>
                         </div>
                     </div>
