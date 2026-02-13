@@ -207,8 +207,9 @@
             <button onclick="showView('home')" class="mb-8 text-maroon-800 font-bold uppercase text-xs tracking-widest flex items-center gap-2 hover:translate-x-[-4px] transition-transform">
                 <i class="fas fa-arrow-left"></i> Back to Hub
             </button>
-            <div class="flex items-center justify-between mb-12">
-                <h2 id="gallery-title" class="text-5xl font-black uppercase italic tracking-tighter">Gallery</h2>
+            <div class="mb-12">
+                <h2 id="gallery-title" class="text-5xl font-black uppercase italic tracking-tighter mb-4">Gallery</h2>
+                <p id="gallery-description" class="text-slate-600 max-w-3xl mb-8 leading-relaxed"></p>
                 <div id="gallery-status" class="text-[10px] font-bold uppercase tracking-widest text-slate-400"></div>
             </div>
             <div id="dynamic-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -244,6 +245,18 @@
             'architectural-design': '1p9KTTrnexf8o8PnBzyiJvyopH-IgsL05'
         };
 
+        const DESCRIPTION_CONFIG = {
+            'robotics': 'This introductory course focuses on the foundational concepts of robotics, including mechanical drive-trains, basic sensor integration, and logic-based programming. Students work with VEX systems to solve initial engineering challenges.',
+            'pre-engineering': 'A cornerstone of the program, Pre-Engineering introduces students to technical sketching, the formal engineering design process, and professional-grade 3D CAD modeling. It serves as the prerequisite for all advanced pathways.',
+            'engineering': 'Students in this advanced course tackle complex systems challenges, focusing on mechanical assembly, applied physics, and manufacturing. The course bridges the gap between digital design and physical prototyping.',
+            'honors-engineering': 'The elite capstone of the Engineering pathway. Senior students execute an independent, professional-level Research and Development project, identifying a real-world problem and designing a verified technical solution.',
+            'business-robotics-i': 'Merging technical skill with enterprise leadership, Level I introduces students to automated systems while teaching the logistics of running a technical organization, project management, and professional communication.',
+            'business-robotics-ii': 'Advanced competition robotics. Students lead technical departments, manage organizational budgets, and pursue industry partnerships while executing complex, high-stakes hardware builds.',
+            'competitions': 'Highlights from the front lines of VEX and FIRST Robotics competitions. This gallery showcases the grit, teamwork, and technical problem-solving required for Bulldog success on a global stage.',
+            'intro-to-cadd': 'Students master the basics of Computer-Aided Design and Drafting, learning to create precise technical blueprints and foundational 3D models for both residential and industrial applications.',
+            'architectural-design': 'An advanced focus on structural theory, urban planning, and environmental sustainability. Students develop a professional portfolio featuring detailed architectural renders and site design analysis.'
+        };
+
         /**
          * Global View Controller
          */
@@ -267,6 +280,11 @@
                     }).join(' ');
                     
                     document.getElementById('gallery-title').innerText = displayTitle;
+                    
+                    // Set the description
+                    const description = DESCRIPTION_CONFIG[viewId] || "Explore the student work from this course.";
+                    document.getElementById('gallery-description').innerText = description;
+                    
                     loadGalleryFromDrive(viewId);
                 }
             } else {
