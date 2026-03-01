@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Tower Lab</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #2c3e50; color: white; }
+        canvas { background: #ecf0f1; border: 5px solid #95a5a6; cursor: crosshair; border-radius: 8px; }
+        .ui { margin: 20px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; border-radius: 5px; border: none; background: #3498db; color: white; }
+        button:hover { background: #2980b9; }
+    </style>
+</head>
+<body>
+    <h1>🗼 Tower Stress Tester</h1>
+    <div class="ui">
+        <button onclick="clearCanvas()">Reset</button>
+        <button onclick="runTest()" style="background:#e67e22">Apply 500kg Load</button>
+        <p>Click to place joints. They connect automatically. Nodes at the bottom are "Anchors".</p>
+    </div>
+    <canvas id="canvas" width="600" height="400"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let nodes = []; let beams = []; let testing = false;
+
+        canvas.onclick = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const isAnchor = y > 380;
+            const newNode = { x, y, fixed: isAnchor };
+            
+            if (nodes.length > 0) {
+                beams.push({ a: nodes[nodes.length - 1], b: newNode, stress: 0 });
+            }
+            nodes.push(newNode);
+            render();
+        };
+
+        function runTest() {
+            testing = true;
+            beams.forEach(b => {
+                // Mock stress calculation: stress increases with height (y) 
+                // and distance from the center load.
+                let loadFactor = (400 - b.a.y) / 400; 
+                b.stress = loadFactor * (Math.random() * 1.5);
+            });
+            render();
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Draw Ground
+            ctx.fillStyle = "#7f8c8d";
+            ctx.fillRect(0, 390, 600, 10);
+
+            beams.forEach(b => {
+                ctx.beginPath();
+                ctx.moveTo(b.a.x, b.a.y);
+                ctx.lineTo(b.b.x, b.b.y);
+                ctx.lineWidth = 5;
+                // Color mapping: Blue (Low) -> Yellow (Mid) -> Red (Snap!)
+                ctx.strokeStyle = !testing ? "#34495e" : 
+                                 b.stress > 0.8 ? "#e74c3c" : 
+                                 b.stress > 0.4 ? "#f1c40f" : "#2ecc71";
+                ctx.stroke();
+            });
+
+            nodes.forEach(n => {
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, 6, 0, 7);
+                ctx.fillStyle = n.fixed ? "#c0392b" : "#3498db";
+                ctx.fill();
+            });
+        }
+
+        function clearCanvas() { nodes = []; beams = []; testing = false; render(); }
+        render();
+    </script>
+</body>
+</html>
