@@ -1,81 +1,167 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Simple Tower Lab</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tower Stress & Efficiency Lab</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #2c3e50; color: white; }
-        canvas { background: #ecf0f1; border: 5px solid #95a5a6; cursor: crosshair; border-radius: 8px; }
-        .ui { margin: 20px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; border-radius: 5px; border: none; background: #3498db; color: white; }
-        button:hover { background: #2980b9; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #2c3e50; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px;
+        }
+        .header { margin-bottom: 20px; text-align: center; }
+        canvas { 
+            background: #ecf0f1; border: 4px solid #95a5a6; border-radius: 8px; cursor: crosshair; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .controls { 
+            background: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 12px; margin: 20px; width: 600px;
+        }
+        .legend { display: flex; justify-content: space-around; margin-top: 15px; font-size: 0.9em; }
+        .score-panel { font-size: 1.2em; font-weight: bold; color: #f1c40f; margin-bottom: 10px; }
+        button { 
+            padding: 12px 24px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 6px; 
+            border: none; transition: 0.2s; margin: 0 5px;
+        }
+        .btn-reset { background: #95a5a6; color: white; }
+        .btn-test { background: #e67e22; color: white; }
+        button:hover { opacity: 0.8; transform: translateY(-2px); }
+        .hint { font-size: 0.8em; color: #bdc3c7; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <h1>🗼 Tower Stress Tester</h1>
-    <div class="ui">
-        <button onclick="clearCanvas()">Reset</button>
-        <button onclick="runTest()" style="background:#e67e22">Apply 500kg Load</button>
-        <p>Click to place joints. They connect automatically. Nodes at the bottom are "Anchors".</p>
+
+    <div class="header">
+        <h1>🗼 Tower Stress Lab</h1>
+        <div class="score-panel" id="scoreDisplay">Build a tower to calculate efficiency!</div>
     </div>
-    <canvas id="canvas" width="600" height="400"></canvas>
+
+    <canvas id="canvas" width="600" height="450"></canvas>
+
+    <div class="controls">
+        <button class="btn-reset" onclick="reset()">Reset Design</button>
+        <button class="btn-test" id="testBtn" onclick="toggleTest()">Apply 500kg Load</button>
+
+        <div class="legend">
+            <span><b style="color:#2ecc71">■</b> Stable</span>
+            <span><b style="color:#f1c40f">■</b> High Stress</span>
+            <span><b style="color:#e74c3c">■</b> Failure Imminent</span>
+            <span><b style="color:#c0392b">●</b> Ground Anchor</span>
+        </div>
+        <p class="hint">Click to place joints. Connect them to build upward. Anchors must be on the grey ground.</p>
+    </div>
 
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        let nodes = []; let beams = []; let testing = false;
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const testBtn = document.getElementById('testBtn');
 
-        canvas.onclick = (e) => {
+        let nodes = [];
+        let beams = [];
+        let testing = false;
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (testing) return;
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-            const isAnchor = y > 380;
-            const newNode = { x, y, fixed: isAnchor };
             
+            // If y is near the bottom, it's an anchor
+            const isAnchor = y > 430;
+            const newNode = { x, y: isAnchor ? 440 : y, fixed: isAnchor };
+
+            // Auto-connect to the previous node
             if (nodes.length > 0) {
                 beams.push({ a: nodes[nodes.length - 1], b: newNode, stress: 0 });
             }
             nodes.push(newNode);
+            updateScore();
             render();
-        };
+        });
 
-        function runTest() {
-            testing = true;
-            beams.forEach(b => {
-                // Mock stress calculation: stress increases with height (y) 
-                // and distance from the center load.
-                let loadFactor = (400 - b.a.y) / 400; 
-                b.stress = loadFactor * (Math.random() * 1.5);
-            });
+        function toggleTest() {
+            if (nodes.length < 2) return alert("Build something first!");
+            testing = !testing;
+            testBtn.innerText = testing ? "Remove Load" : "Apply 500kg Load";
+            if (testing) calculatePhysics();
             render();
+        }
+
+        function calculatePhysics() {
+            beams.forEach(beam => {
+                // Simplified stress: Height of the beam + Beam length (Buckling risk)
+                const length = Math.sqrt(Math.pow(beam.a.x - beam.b.x, 2) + Math.pow(beam.a.y - beam.b.y, 2));
+                const heightFactor = (450 - ((beam.a.y + beam.b.y) / 2)) / 450;
+                beam.stress = (heightFactor * 0.7) + (length / 300);
+            });
+        }
+
+        function updateScore() {
+            if (nodes.length < 2) return;
+            
+            const materialUsed = beams.length * 10; // 10g per beam
+            const highestY = Math.min(...nodes.map(n => n.y));
+            const height = Math.round(440 - highestY);
+            
+            // Efficiency = Height / Weight
+            const efficiency = (height / materialUsed).toFixed(2);
+            scoreDisplay.innerHTML = `Height: ${height}m | Material: ${materialUsed}g | Efficiency: ${efficiency}`;
         }
 
         function render() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // Draw Ground
-            ctx.fillStyle = "#7f8c8d";
-            ctx.fillRect(0, 390, 600, 10);
 
+            // Draw Ground
+            ctx.fillStyle = "#bdc3c7";
+            ctx.fillRect(0, 440, 600, 10);
+
+            // Draw Beams
             beams.forEach(b => {
                 ctx.beginPath();
                 ctx.moveTo(b.a.x, b.a.y);
                 ctx.lineTo(b.b.x, b.b.y);
-                ctx.lineWidth = 5;
-                // Color mapping: Blue (Low) -> Yellow (Mid) -> Red (Snap!)
-                ctx.strokeStyle = !testing ? "#34495e" : 
-                                 b.stress > 0.8 ? "#e74c3c" : 
-                                 b.stress > 0.4 ? "#f1c40f" : "#2ecc71";
+                ctx.lineWidth = 6;
+                
+                if (!testing) {
+                    ctx.strokeStyle = "#34495e";
+                } else {
+                    if (b.stress > 0.85) ctx.strokeStyle = "#e74c3c";
+                    else if (b.stress > 0.5) ctx.strokeStyle = "#f1c40f";
+                    else ctx.strokeStyle = "#2ecc71";
+                }
                 ctx.stroke();
             });
 
+            // Draw Load (Weight)
+            if (testing && nodes.length > 0) {
+                const topNode = nodes.reduce((prev, curr) => prev.y < curr.y ? prev : curr);
+                ctx.fillStyle = "#2c3e50";
+                ctx.fillRect(topNode.x - 30, topNode.y - 60, 60, 60);
+                ctx.fillStyle = "white";
+                ctx.font = "bold 14px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("500kg", topNode.x, topNode.y - 25);
+            }
+
+            // Draw Nodes
             nodes.forEach(n => {
                 ctx.beginPath();
-                ctx.arc(n.x, n.y, 6, 0, 7);
+                ctx.arc(n.x, n.y, 6, 0, Math.PI * 2);
                 ctx.fillStyle = n.fixed ? "#c0392b" : "#3498db";
                 ctx.fill();
             });
         }
 
-        function clearCanvas() { nodes = []; beams = []; testing = false; render(); }
+        function reset() {
+            nodes = [];
+            beams = [];
+            testing = false;
+            testBtn.innerText = "Apply 500kg Load";
+            scoreDisplay.innerText = "Build a tower to calculate efficiency!";
+            render();
+        }
+
         render();
     </script>
 </body>
