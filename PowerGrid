@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Power Grid Scoring Sheet</title>
+<style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background:#111; color:white; }
+    h1 { text-align:center; }
+    .container { display:flex; gap:20px; flex-wrap:wrap; }
+    .team { flex:1; min-width:300px; background:#1e1e1e; padding:15px; border-radius:10px; }
+    input { width:60px; font-size:18px; margin-left:10px; }
+    .score { font-size:28px; font-weight:bold; margin-top:15px; }
+    button { margin-top:10px; padding:10px; font-size:16px; }
+    .auto { background:#2a3d66; padding:10px; border-radius:8px; margin-bottom:10px; }
+    .driver { background:#2d5a3a; padding:10px; border-radius:8px; margin-bottom:10px; }
+    .endgame { background:#663a2a; padding:10px; border-radius:8px; }
+</style>
+</head>
+<body>
+
+<h1>POWER GRID: FIRST CONTACT – Scoring</h1>
+
+<div class="container">
+
+<div class="team" id="teamA">
+<h2>Team A</h2>
+<div class="auto">
+<h3>Autonomous</h3>
+Leave Tile (10): <input type="number" id="a_leave" min="0" max="1"><br>
+Enter Neutral (5): <input type="number" id="a_neutral" min="0" max="1"><br>
+Small Cubes (8): <input type="number" id="a_small_auto"><br>
+Large Cubes (12): <input type="number" id="a_large_auto"><br>
+Tennis Balls (15): <input type="number" id="a_tennis_auto"><br>
+Plush Bots (20): <input type="number" id="a_plush_auto"><br>
+Ultra Core Scored (35): <input type="number" id="a_ultra_auto" min="0" max="1"><br>
+</div>
+
+<div class="driver">
+<h3>Driver</h3>
+Plush in Zone (15): <input type="number" id="a_plush"><br>
+Ultra Core (25): <input type="number" id="a_ultra"><br>
+Large Cubes Tower (5): <input type="number" id="a_large_tower"><br>
+Small Cubes Zone (3): <input type="number" id="a_small"><br>
+Tennis Balls Zone (8): <input type="number" id="a_tennis"><br>
+Pom-poms (1): <input type="number" id="a_poms"><br>
+</div>
+
+<div class="endgame">
+<h3>Endgame</h3>
+Ultra Core Endgame (35): <input type="number" id="a_ultra_end" min="0" max="1"><br>
+Parked (10): <input type="number" id="a_park" min="0" max="1"><br>
+Tower Intact (10): <input type="number" id="a_tower_intact" min="0" max="1"><br>
+</div>
+
+<div class="score">Total: <span id="scoreA">0</span></div>
+<button onclick="calculate()">Update Score</button>
+</div>
+
+<div class="team" id="teamB">
+<h2>Team B</h2>
+<div class="auto">
+<h3>Autonomous</h3>
+Leave Tile (10): <input type="number" id="b_leave" min="0" max="1"><br>
+Enter Neutral (5): <input type="number" id="b_neutral" min="0" max="1"><br>
+Small Cubes (8): <input type="number" id="b_small_auto"><br>
+Large Cubes (12): <input type="number" id="b_large_auto"><br>
+Tennis Balls (15): <input type="number" id="b_tennis_auto"><br>
+Plush Bots (20): <input type="number" id="b_plush_auto"><br>
+Ultra Core Scored (35): <input type="number" id="b_ultra_auto" min="0" max="1"><br>
+</div>
+
+<div class="driver">
+<h3>Driver</h3>
+Plush in Zone (15): <input type="number" id="b_plush"><br>
+Ultra Core (25): <input type="number" id="b_ultra"><br>
+Large Cubes Tower (5): <input type="number" id="b_large_tower"><br>
+Small Cubes Zone (3): <input type="number" id="b_small"><br>
+Tennis Balls Zone (8): <input type="number" id="b_tennis"><br>
+Pom-poms (1): <input type="number" id="b_poms"><br>
+</div>
+
+<div class="endgame">
+<h3>Endgame</h3>
+Ultra Core Endgame (35): <input type="number" id="b_ultra_end" min="0" max="1"><br>
+Parked (10): <input type="number" id="b_park" min="0" max="1"><br>
+Tower Intact (10): <input type="number" id="b_tower_intact" min="0" max="1"><br>
+</div>
+
+<div class="score">Total: <span id="scoreB">0</span></div>
+</div>
+
+</div>
+
+<script>
+function val(id){ return parseInt(document.getElementById(id).value) || 0; }
+
+function calculate(){
+    let scoreA =
+        val('a_leave')*10 +
+        val('a_neutral')*5 +
+        val('a_small_auto')*8 +
+        val('a_large_auto')*12 +
+        val('a_tennis_auto')*15 +
+        val('a_plush_auto')*20 +
+        val('a_ultra_auto')*35 +
+        val('a_plush')*15 +
+        val('a_ultra')*25 +
+        val('a_large_tower')*5 +
+        val('a_small')*3 +
+        val('a_tennis')*8 +
+        val('a_poms')*1 +
+        val('a_ultra_end')*35 +
+        val('a_park')*10 +
+        val('a_tower_intact')*10;
+
+    let scoreB =
+        val('b_leave')*10 +
+        val('b_neutral')*5 +
+        val('b_small_auto')*8 +
+        val('b_large_auto')*12 +
+        val('b_tennis_auto')*15 +
+        val('b_plush_auto')*20 +
+        val('b_ultra_auto')*35 +
+        val('b_plush')*15 +
+        val('b_ultra')*25 +
+        val('b_large_tower')*5 +
+        val('b_small')*3 +
+        val('b_tennis')*8 +
+        val('b_poms')*1 +
+        val('b_ultra_end')*35 +
+        val('b_park')*10 +
+        val('b_tower_intact')*10;
+
+    document.getElementById('scoreA').innerText = scoreA;
+    document.getElementById('scoreB').innerText = scoreB;
+}
+</script>
+
+</body>
+</html>
