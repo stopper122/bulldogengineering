@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Power Grid Full Competition Manager</title>
+<title>Power Grid Competition Manager</title>
 <style>
 body { font-family: Arial; margin:0; padding:15px; background:#0f172a; color:white; }
 h1 { text-align:center; }
@@ -12,6 +12,7 @@ input[type='number'] { width:60px; }
 button { padding:8px 12px; margin:5px; border:none; border-radius:6px; cursor:pointer; }
 .primary { background:#3b82f6; color:white; }
 .secondary { background:#475569; color:white; }
+.danger { background:#b91c1c; color:white; }
 table { width:100%; border-collapse:collapse; margin-top:10px; }
 th, td { border:1px solid #334155; padding:6px; text-align:center; }
 th { background:#1e293b; }
@@ -28,6 +29,7 @@ h3 { margin-bottom:5px; }
 <h2>1. Enter Team Names (9 Teams)</h2>
 <div id="teamInputs"></div>
 <button class="primary" onclick="generateSchedule()">Generate Schedule</button>
+<button class="danger" onclick="fullReset()">FULL RESET EVENT</button>
 </div>
 
 <div class="section">
@@ -83,7 +85,7 @@ Tower Intact (10) <input type="checkbox" id="b_tower_intact"><br>
 </div>
 
 <button class="primary" onclick="calculateAndSave()">Save Match Score</button>
-<button class="secondary" onclick="resetScoring()">Reset</button>
+<button class="secondary" onclick="resetScoring()">Reset Current Match Form</button>
 <button class="secondary" onclick="exportCSV()">Export CSV</button>
 </div>
 
@@ -99,106 +101,139 @@ Tower Intact (10) <input type="checkbox" id="b_tower_intact"><br>
 let teams=[];
 let schedule=[];
 
-for(let i=0;i<9;i++){
- document.getElementById('teamInputs').innerHTML += `Team ${i+1}: <input id='team${i}'><br>`;
+// Restore from localStorage if exists
+window.onload = function(){
+  const saved = localStorage.getItem('powerGridData');
+  if(saved){
+    const data = JSON.parse(saved);
+    teams = data.teams || [];
+    schedule = data.schedule || [];
+    renderTeamInputs();
+    populateMatchSelect();
+    renderTable();
+  } else {
+    renderTeamInputs();
+  }
+};
+
+function saveToStorage(){
+  localStorage.setItem('powerGridData', JSON.stringify({teams, schedule}));
+}
+
+function renderTeamInputs(){
+  const container = document.getElementById('teamInputs');
+  container.innerHTML='';
+  for(let i=0;i<9;i++){
+    const value = teams[i] || '';
+    container.innerHTML += `Team ${i+1}: <input id='team${i}' value="${value}"><br>`;
+  }
 }
 
 function generateSchedule(){
- teams=[];
- for(let i=0;i<9;i++){
-   teams.push(document.getElementById('team'+i).value || `Team ${i+1}`);
- }
- schedule=[];
- let temp=[...teams];
- if(temp.length%2!==0) temp.push("BYE");
- let n=temp.length;
- for(let r=0;r<n-1;r++){
-   for(let i=0;i<n/2;i++){
-     let A=temp[i]; let B=temp[n-1-i];
-     if(A!="BYE"&&B!="BYE"){
-       schedule.push({match:schedule.length+1,teamA:A,teamB:B,scoreA:'',scoreB:'',winner:''});
-     }
-   }
-   temp.splice(1,0,temp.pop());
- }
- populateMatchSelect();
- renderTable();
+  teams=[];
+  for(let i=0;i<9;i++){
+    teams.push(document.getElementById('team'+i).value || `Team ${i+1}`);
+  }
+  schedule=[];
+  let temp=[...teams];
+  if(temp.length%2!==0) temp.push("BYE");
+  let n=temp.length;
+  for(let r=0;r<n-1;r++){
+    for(let i=0;i<n/2;i++){
+      let A=temp[i]; let B=temp[n-1-i];
+      if(A!="BYE"&&B!="BYE"){
+        schedule.push({match:schedule.length+1,teamA:A,teamB:B,scoreA:'',scoreB:'',winner:''});
+      }
+    }
+    temp.splice(1,0,temp.pop());
+  }
+  saveToStorage();
+  populateMatchSelect();
+  renderTable();
 }
 
 function populateMatchSelect(){
- let sel=document.getElementById('matchSelect');
- sel.innerHTML='';
- schedule.forEach(m=>{
-   let opt=document.createElement('option');
-   opt.value=m.match;
-   opt.text=`Match ${m.match}: ${m.teamA} vs ${m.teamB}`;
-   sel.appendChild(opt);
- });
- sel.onchange=loadMatch;
- loadMatch();
+  let sel=document.getElementById('matchSelect');
+  sel.innerHTML='';
+  schedule.forEach(m=>{
+    let opt=document.createElement('option');
+    opt.value=m.match;
+    opt.text=`Match ${m.match}: ${m.teamA} vs ${m.teamB}`;
+    sel.appendChild(opt);
+  });
+  sel.onchange=loadMatch;
+  loadMatch();
 }
 
 function loadMatch(){
- let m=schedule.find(x=>x.match==document.getElementById('matchSelect').value);
- if(!m) return;
- document.getElementById('matchLabel').innerText=`${m.teamA} vs ${m.teamB}`;
- document.getElementById('teamAName').innerText=m.teamA;
- document.getElementById('teamBName').innerText=m.teamB;
- resetScoring();
+  let m=schedule.find(x=>x.match==document.getElementById('matchSelect').value);
+  if(!m) return;
+  document.getElementById('matchLabel').innerText=`${m.teamA} vs ${m.teamB}`;
+  document.getElementById('teamAName').innerText=m.teamA;
+  document.getElementById('teamBName').innerText=m.teamB;
+  resetScoring();
 }
 
 function calculateScore(prefix){
- return (document.getElementById(prefix+'_leave').checked?10:0)+
- (parseInt(document.getElementById(prefix+'_small_auto').value)||0)*8+
- (parseInt(document.getElementById(prefix+'_large_auto').value)||0)*12+
- (parseInt(document.getElementById(prefix+'_plush_auto').value)||0)*20+
- (document.getElementById(prefix+'_ultra_auto').checked?35:0)+
- (parseInt(document.getElementById(prefix+'_plush').value)||0)*15+
- (document.getElementById(prefix+'_ultra').checked?25:0)+
- (parseInt(document.getElementById(prefix+'_small').value)||0)*3+
- (parseInt(document.getElementById(prefix+'_large_tower').value)||0)*5+
- (document.getElementById(prefix+'_ultra_end').checked?35:0)+
- (document.getElementById(prefix+'_park').checked?10:0)+
- (document.getElementById(prefix+'_tower_intact').checked?10:0);
+  return (document.getElementById(prefix+'_leave').checked?10:0)+
+  (parseInt(document.getElementById(prefix+'_small_auto').value)||0)*8+
+  (parseInt(document.getElementById(prefix+'_large_auto').value)||0)*12+
+  (parseInt(document.getElementById(prefix+'_plush_auto').value)||0)*20+
+  (document.getElementById(prefix+'_ultra_auto').checked?35:0)+
+  (parseInt(document.getElementById(prefix+'_plush').value)||0)*15+
+  (document.getElementById(prefix+'_ultra').checked?25:0)+
+  (parseInt(document.getElementById(prefix+'_small').value)||0)*3+
+  (parseInt(document.getElementById(prefix+'_large_tower').value)||0)*5+
+  (document.getElementById(prefix+'_ultra_end').checked?35:0)+
+  (document.getElementById(prefix+'_park').checked?10:0)+
+  (document.getElementById(prefix+'_tower_intact').checked?10:0);
 }
 
 function calculateAndSave(){
- let m=schedule.find(x=>x.match==document.getElementById('matchSelect').value);
- if(!m) return;
- m.scoreA=calculateScore('a');
- m.scoreB=calculateScore('b');
- m.winner=m.scoreA>m.scoreB?m.teamA:m.scoreB>m.scoreA?m.teamB:'Tie';
- document.getElementById('scoreA').innerText=m.scoreA;
- document.getElementById('scoreB').innerText=m.scoreB;
- renderTable();
+  let m=schedule.find(x=>x.match==document.getElementById('matchSelect').value);
+  if(!m) return;
+  m.scoreA=calculateScore('a');
+  m.scoreB=calculateScore('b');
+  m.winner=m.scoreA>m.scoreB?m.teamA:m.scoreB>m.scoreA?m.teamB:'Tie';
+  document.getElementById('scoreA').innerText=m.scoreA;
+  document.getElementById('scoreB').innerText=m.scoreB;
+  saveToStorage();
+  renderTable();
 }
 
 function renderTable(){
- let tb=document.querySelector('#resultsTable tbody');
- tb.innerHTML='';
- schedule.forEach(m=>{
-   tb.innerHTML+=`<tr><td>${m.match}</td><td>${m.teamA}</td><td>${m.scoreA} - ${m.scoreB}</td><td>${m.teamB}</td><td>${m.winner}</td></tr>`;
- });
+  let tb=document.querySelector('#resultsTable tbody');
+  tb.innerHTML='';
+  schedule.forEach(m=>{
+    tb.innerHTML+=`<tr><td>${m.match}</td><td>${m.teamA}</td><td>${m.scoreA} - ${m.scoreB}</td><td>${m.teamB}</td><td>${m.winner}</td></tr>`;
+  });
 }
 
 function resetScoring(){
- document.querySelectorAll('input[type=number]').forEach(i=>i.value='');
- document.querySelectorAll('input[type=checkbox]').forEach(i=>i.checked=false);
- document.getElementById('scoreA').innerText=0;
- document.getElementById('scoreB').innerText=0;
+  document.querySelectorAll('input[type=number]').forEach(i=>i.value='');
+  document.querySelectorAll('input[type=checkbox]').forEach(i=>i.checked=false);
+  document.getElementById('scoreA').innerText=0;
+  document.getElementById('scoreB').innerText=0;
 }
 
 function exportCSV(){
- let csv='Match,Team A,Score A,Team B,Score B,Winner\n';
- schedule.forEach(m=>{
-   csv+=`${m.match},${m.teamA},${m.scoreA},${m.teamB},${m.scoreB},${m.winner}\n`;
- });
- let blob=new Blob([csv],{type:'text/csv'});
- let url=URL.createObjectURL(blob);
- let a=document.createElement('a');
- a.href=url;
- a.download='power_grid_results.csv';
- a.click();
+  let csv='Match,Team A,Score A,Team B,Score B,Winner\n';
+  schedule.forEach(m=>{
+    csv+=`${m.match},${m.teamA},${m.scoreA},${m.teamB},${m.scoreB},${m.winner}\n`;
+  });
+  let blob=new Blob([csv],{type:'text/csv'});
+  let url=URL.createObjectURL(blob);
+  let a=document.createElement('a');
+  a.href=url;
+  a.download='power_grid_results.csv';
+  a.click();
+}
+
+function fullReset(){
+  if(confirm('This will erase the entire event. Continue?')){
+    localStorage.removeItem('powerGridData');
+    location.reload();
+  }
 }
 </script>
 
