@@ -3,137 +3,202 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Power Grid Scoring Sheet</title>
+<title>Power Grid Full Competition Manager</title>
 <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background:#111; color:white; }
-    h1 { text-align:center; }
-    .container { display:flex; gap:20px; flex-wrap:wrap; }
-    .team { flex:1; min-width:300px; background:#1e1e1e; padding:15px; border-radius:10px; }
-    input { width:60px; font-size:18px; margin-left:10px; }
-    .score { font-size:28px; font-weight:bold; margin-top:15px; }
-    button { margin-top:10px; padding:10px; font-size:16px; }
-    .auto { background:#2a3d66; padding:10px; border-radius:8px; margin-bottom:10px; }
-    .driver { background:#2d5a3a; padding:10px; border-radius:8px; margin-bottom:10px; }
-    .endgame { background:#663a2a; padding:10px; border-radius:8px; }
+body { font-family: Arial; margin:0; padding:15px; background:#0f172a; color:white; }
+h1 { text-align:center; }
+.section { margin-bottom:20px; padding:15px; background:#1e293b; border-radius:10px; }
+input[type='number'] { width:60px; }
+button { padding:8px 12px; margin:5px; border:none; border-radius:6px; cursor:pointer; }
+.primary { background:#3b82f6; color:white; }
+.secondary { background:#475569; color:white; }
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+th, td { border:1px solid #334155; padding:6px; text-align:center; }
+th { background:#1e293b; }
+.flex { display:flex; gap:20px; flex-wrap:wrap; }
+.teamBox { flex:1; min-width:320px; background:#111827; padding:10px; border-radius:8px; }
+h3 { margin-bottom:5px; }
 </style>
 </head>
 <body>
 
-<h1>POWER GRID: FIRST CONTACT – Scoring</h1>
+<h1>POWER GRID – Competition Manager</h1>
 
-<div class="container">
-
-<div class="team" id="teamA">
-<h2>Team A</h2>
-<div class="auto">
-<h3>Autonomous</h3>
-Leave Tile (10): <input type="number" id="a_leave" min="0" max="1"><br>
-Enter Neutral (5): <input type="number" id="a_neutral" min="0" max="1"><br>
-Small Cubes (8): <input type="number" id="a_small_auto"><br>
-Large Cubes (12): <input type="number" id="a_large_auto"><br>
-Tennis Balls (15): <input type="number" id="a_tennis_auto"><br>
-Plush Bots (20): <input type="number" id="a_plush_auto"><br>
-Ultra Core Scored (35): <input type="number" id="a_ultra_auto" min="0" max="1"><br>
+<div class="section">
+<h2>1. Enter Team Names (9 Teams)</h2>
+<div id="teamInputs"></div>
+<button class="primary" onclick="generateSchedule()">Generate Schedule</button>
 </div>
 
-<div class="driver">
-<h3>Driver</h3>
-Plush in Zone (15): <input type="number" id="a_plush"><br>
-Ultra Core (25): <input type="number" id="a_ultra"><br>
-Large Cubes Tower (5): <input type="number" id="a_large_tower"><br>
-Small Cubes Zone (3): <input type="number" id="a_small"><br>
-Tennis Balls Zone (8): <input type="number" id="a_tennis"><br>
-Pom-poms (1): <input type="number" id="a_poms"><br>
+<div class="section">
+<h2>2. Select Match</h2>
+<select id="matchSelect"></select>
+<div><strong id="matchLabel"></strong></div>
 </div>
 
-<div class="endgame">
-<h3>Endgame</h3>
-Ultra Core Endgame (35): <input type="number" id="a_ultra_end" min="0" max="1"><br>
-Parked (10): <input type="number" id="a_park" min="0" max="1"><br>
-Tower Intact (10): <input type="number" id="a_tower_intact" min="0" max="1"><br>
+<div class="section">
+<h2>3. Detailed Scoring Sheet</h2>
+<div class="flex">
+
+<div class="teamBox">
+<h3 id="teamAName">Team A</h3>
+Autonomous:<br>
+Leave Tile (10) <input type="checkbox" id="a_leave"><br>
+Small Cubes (8) <input type="number" id="a_small_auto" min="0"><br>
+Large Cubes (12) <input type="number" id="a_large_auto" min="0"><br>
+Plush (20) <input type="number" id="a_plush_auto" min="0"><br>
+Ultra Auto (35) <input type="checkbox" id="a_ultra_auto"><br><br>
+Driver:<br>
+Plush (15) <input type="number" id="a_plush" min="0"><br>
+Ultra (25) <input type="checkbox" id="a_ultra"><br>
+Small Cubes (3) <input type="number" id="a_small" min="0"><br>
+Large Tower (5) <input type="number" id="a_large_tower" min="0"><br><br>
+Endgame:<br>
+Ultra End (35) <input type="checkbox" id="a_ultra_end"><br>
+Park (10) <input type="checkbox" id="a_park"><br>
+Tower Intact (10) <input type="checkbox" id="a_tower_intact"><br>
+<h3>Total: <span id="scoreA">0</span></h3>
 </div>
 
-<div class="score">Total: <span id="scoreA">0</span></div>
-<button onclick="calculate()">Update Score</button>
+<div class="teamBox">
+<h3 id="teamBName">Team B</h3>
+Autonomous:<br>
+Leave Tile (10) <input type="checkbox" id="b_leave"><br>
+Small Cubes (8) <input type="number" id="b_small_auto" min="0"><br>
+Large Cubes (12) <input type="number" id="b_large_auto" min="0"><br>
+Plush (20) <input type="number" id="b_plush_auto" min="0"><br>
+Ultra Auto (35) <input type="checkbox" id="b_ultra_auto"><br><br>
+Driver:<br>
+Plush (15) <input type="number" id="b_plush" min="0"><br>
+Ultra (25) <input type="checkbox" id="b_ultra"><br>
+Small Cubes (3) <input type="number" id="b_small" min="0"><br>
+Large Tower (5) <input type="number" id="b_large_tower" min="0"><br><br>
+Endgame:<br>
+Ultra End (35) <input type="checkbox" id="b_ultra_end"><br>
+Park (10) <input type="checkbox" id="b_park"><br>
+Tower Intact (10) <input type="checkbox" id="b_tower_intact"><br>
+<h3>Total: <span id="scoreB">0</span></h3>
 </div>
 
-<div class="team" id="teamB">
-<h2>Team B</h2>
-<div class="auto">
-<h3>Autonomous</h3>
-Leave Tile (10): <input type="number" id="b_leave" min="0" max="1"><br>
-Enter Neutral (5): <input type="number" id="b_neutral" min="0" max="1"><br>
-Small Cubes (8): <input type="number" id="b_small_auto"><br>
-Large Cubes (12): <input type="number" id="b_large_auto"><br>
-Tennis Balls (15): <input type="number" id="b_tennis_auto"><br>
-Plush Bots (20): <input type="number" id="b_plush_auto"><br>
-Ultra Core Scored (35): <input type="number" id="b_ultra_auto" min="0" max="1"><br>
 </div>
 
-<div class="driver">
-<h3>Driver</h3>
-Plush in Zone (15): <input type="number" id="b_plush"><br>
-Ultra Core (25): <input type="number" id="b_ultra"><br>
-Large Cubes Tower (5): <input type="number" id="b_large_tower"><br>
-Small Cubes Zone (3): <input type="number" id="b_small"><br>
-Tennis Balls Zone (8): <input type="number" id="b_tennis"><br>
-Pom-poms (1): <input type="number" id="b_poms"><br>
+<button class="primary" onclick="calculateAndSave()">Save Match Score</button>
+<button class="secondary" onclick="resetScoring()">Reset</button>
+<button class="secondary" onclick="exportCSV()">Export CSV</button>
 </div>
 
-<div class="endgame">
-<h3>Endgame</h3>
-Ultra Core Endgame (35): <input type="number" id="b_ultra_end" min="0" max="1"><br>
-Parked (10): <input type="number" id="b_park" min="0" max="1"><br>
-Tower Intact (10): <input type="number" id="b_tower_intact" min="0" max="1"><br>
-</div>
-
-<div class="score">Total: <span id="scoreB">0</span></div>
-</div>
-
+<div class="section">
+<h2>4. Results Table</h2>
+<table id="resultsTable">
+<thead><tr><th>Match</th><th>Team A</th><th>Score</th><th>Team B</th><th>Winner</th></tr></thead>
+<tbody></tbody>
+</table>
 </div>
 
 <script>
-function val(id){ return parseInt(document.getElementById(id).value) || 0; }
+let teams=[];
+let schedule=[];
 
-function calculate(){
-    let scoreA =
-        val('a_leave')*10 +
-        val('a_neutral')*5 +
-        val('a_small_auto')*8 +
-        val('a_large_auto')*12 +
-        val('a_tennis_auto')*15 +
-        val('a_plush_auto')*20 +
-        val('a_ultra_auto')*35 +
-        val('a_plush')*15 +
-        val('a_ultra')*25 +
-        val('a_large_tower')*5 +
-        val('a_small')*3 +
-        val('a_tennis')*8 +
-        val('a_poms')*1 +
-        val('a_ultra_end')*35 +
-        val('a_park')*10 +
-        val('a_tower_intact')*10;
+for(let i=0;i<9;i++){
+ document.getElementById('teamInputs').innerHTML += `Team ${i+1}: <input id='team${i}'><br>`;
+}
 
-    let scoreB =
-        val('b_leave')*10 +
-        val('b_neutral')*5 +
-        val('b_small_auto')*8 +
-        val('b_large_auto')*12 +
-        val('b_tennis_auto')*15 +
-        val('b_plush_auto')*20 +
-        val('b_ultra_auto')*35 +
-        val('b_plush')*15 +
-        val('b_ultra')*25 +
-        val('b_large_tower')*5 +
-        val('b_small')*3 +
-        val('b_tennis')*8 +
-        val('b_poms')*1 +
-        val('b_ultra_end')*35 +
-        val('b_park')*10 +
-        val('b_tower_intact')*10;
+function generateSchedule(){
+ teams=[];
+ for(let i=0;i<9;i++){
+   teams.push(document.getElementById('team'+i).value || `Team ${i+1}`);
+ }
+ schedule=[];
+ let temp=[...teams];
+ if(temp.length%2!==0) temp.push("BYE");
+ let n=temp.length;
+ for(let r=0;r<n-1;r++){
+   for(let i=0;i<n/2;i++){
+     let A=temp[i]; let B=temp[n-1-i];
+     if(A!="BYE"&&B!="BYE"){
+       schedule.push({match:schedule.length+1,teamA:A,teamB:B,scoreA:'',scoreB:'',winner:''});
+     }
+   }
+   temp.splice(1,0,temp.pop());
+ }
+ populateMatchSelect();
+ renderTable();
+}
 
-    document.getElementById('scoreA').innerText = scoreA;
-    document.getElementById('scoreB').innerText = scoreB;
+function populateMatchSelect(){
+ let sel=document.getElementById('matchSelect');
+ sel.innerHTML='';
+ schedule.forEach(m=>{
+   let opt=document.createElement('option');
+   opt.value=m.match;
+   opt.text=`Match ${m.match}: ${m.teamA} vs ${m.teamB}`;
+   sel.appendChild(opt);
+ });
+ sel.onchange=loadMatch;
+ loadMatch();
+}
+
+function loadMatch(){
+ let m=schedule.find(x=>x.match==document.getElementById('matchSelect').value);
+ if(!m) return;
+ document.getElementById('matchLabel').innerText=`${m.teamA} vs ${m.teamB}`;
+ document.getElementById('teamAName').innerText=m.teamA;
+ document.getElementById('teamBName').innerText=m.teamB;
+ resetScoring();
+}
+
+function calculateScore(prefix){
+ return (document.getElementById(prefix+'_leave').checked?10:0)+
+ (parseInt(document.getElementById(prefix+'_small_auto').value)||0)*8+
+ (parseInt(document.getElementById(prefix+'_large_auto').value)||0)*12+
+ (parseInt(document.getElementById(prefix+'_plush_auto').value)||0)*20+
+ (document.getElementById(prefix+'_ultra_auto').checked?35:0)+
+ (parseInt(document.getElementById(prefix+'_plush').value)||0)*15+
+ (document.getElementById(prefix+'_ultra').checked?25:0)+
+ (parseInt(document.getElementById(prefix+'_small').value)||0)*3+
+ (parseInt(document.getElementById(prefix+'_large_tower').value)||0)*5+
+ (document.getElementById(prefix+'_ultra_end').checked?35:0)+
+ (document.getElementById(prefix+'_park').checked?10:0)+
+ (document.getElementById(prefix+'_tower_intact').checked?10:0);
+}
+
+function calculateAndSave(){
+ let m=schedule.find(x=>x.match==document.getElementById('matchSelect').value);
+ if(!m) return;
+ m.scoreA=calculateScore('a');
+ m.scoreB=calculateScore('b');
+ m.winner=m.scoreA>m.scoreB?m.teamA:m.scoreB>m.scoreA?m.teamB:'Tie';
+ document.getElementById('scoreA').innerText=m.scoreA;
+ document.getElementById('scoreB').innerText=m.scoreB;
+ renderTable();
+}
+
+function renderTable(){
+ let tb=document.querySelector('#resultsTable tbody');
+ tb.innerHTML='';
+ schedule.forEach(m=>{
+   tb.innerHTML+=`<tr><td>${m.match}</td><td>${m.teamA}</td><td>${m.scoreA} - ${m.scoreB}</td><td>${m.teamB}</td><td>${m.winner}</td></tr>`;
+ });
+}
+
+function resetScoring(){
+ document.querySelectorAll('input[type=number]').forEach(i=>i.value='');
+ document.querySelectorAll('input[type=checkbox]').forEach(i=>i.checked=false);
+ document.getElementById('scoreA').innerText=0;
+ document.getElementById('scoreB').innerText=0;
+}
+
+function exportCSV(){
+ let csv='Match,Team A,Score A,Team B,Score B,Winner\n';
+ schedule.forEach(m=>{
+   csv+=`${m.match},${m.teamA},${m.scoreA},${m.teamB},${m.scoreB},${m.winner}\n`;
+ });
+ let blob=new Blob([csv],{type:'text/csv'});
+ let url=URL.createObjectURL(blob);
+ let a=document.createElement('a');
+ a.href=url;
+ a.download='power_grid_results.csv';
+ a.click();
 }
 </script>
 
