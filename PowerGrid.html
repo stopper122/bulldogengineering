@@ -87,7 +87,7 @@ Tower Intact (10) <input type="checkbox" id="b_tower_intact"><br>
 
 <button class="primary" onclick="saveMatch()">Save Match Score</button>
 <button class="secondary" onclick="resetScoring()">Reset Current Match Form</button>
-<button class="secondary" onclick="exportCSV()">Export CSV</button>
+<button class="secondary" onclick="exportExcel()">Export Full Excel Workbook</button>
 </div>
 
 <div class="section">
@@ -256,17 +256,47 @@ function resetScoring(){
  updateLiveScore();
 }
 
-function exportCSV(){
- let csv='Match,Team A,Score A,Team B,Score B,Winner\n';
- schedule.forEach(m=>{
-   csv+=`${m.match},${m.teamA},${m.scoreA},${m.teamB},${m.scoreB},${m.winner}\n`;
- });
- let blob=new Blob([csv],{type:'text/csv'});
- let url=URL.createObjectURL(blob);
- let a=document.createElement('a');
- a.href=url;
- a.download='power_grid_results.csv';
- a.click();
+// EXPORT FULL MULTI-SHEET EXCEL WORKBOOK
+function exportExcel(){
+ let xml = `<?xml version="1.0"?>\n` +
+`<?mso-application progid="Excel.Sheet"?>\n` +
+`<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n` +
+` xmlns:o="urn:schemas-microsoft-com:office:office"\n` +
+` xmlns:x="urn:schemas-microsoft-com:office:excel"\n` +
+` xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">`;
+
+// Summary Sheet
+xml += `<Worksheet ss:Name="Summary"><Table>`;
+xml += `<Row><Cell><Data ss:Type="String">Match</Data></Cell><Cell><Data ss:Type="String">Team A</Data></Cell><Cell><Data ss:Type="String">Score A</Data></Cell><Cell><Data ss:Type="String">Team B</Data></Cell><Cell><Data ss:Type="String">Score B</Data></Cell><Cell><Data ss:Type="String">Winner</Data></Cell></Row>`;
+schedule.forEach(m=>{
+ xml += `<Row>`+
+ `<Cell><Data ss:Type="Number">${m.match}</Data></Cell>`+
+ `<Cell><Data ss:Type="String">${m.teamA}</Data></Cell>`+
+ `<Cell><Data ss:Type="Number">${m.scoreA}</Data></Cell>`+
+ `<Cell><Data ss:Type="String">${m.teamB}</Data></Cell>`+
+ `<Cell><Data ss:Type="Number">${m.scoreB}</Data></Cell>`+
+ `<Cell><Data ss:Type="String">${m.winner}</Data></Cell>`+
+ `</Row>`;
+});
+xml += `</Table></Worksheet>`;
+
+// Individual Match Sheets
+schedule.forEach(m=>{
+ xml += `<Worksheet ss:Name="Match ${m.match}"><Table>`;
+ xml += `<Row><Cell><Data ss:Type="String">${m.teamA}</Data></Cell><Cell><Data ss:Type="String">${m.teamB}</Data></Cell></Row>`;
+ xml += `<Row><Cell><Data ss:Type="String">Score A: ${m.scoreA}</Data></Cell><Cell><Data ss:Type="String">Score B: ${m.scoreB}</Data></Cell></Row>`;
+ xml += `<Row><Cell><Data ss:Type="String">Winner: ${m.winner}</Data></Cell></Row>`;
+ xml += `</Table></Worksheet>`;
+});
+
+xml += `</Workbook>`;
+
+let blob = new Blob([xml], {type: 'application/vnd.ms-excel'});
+let url = URL.createObjectURL(blob);
+let a = document.createElement('a');
+a.href = url;
+a.download = 'power_grid_full_results.xls';
+a.click();
 }
 
 function fullReset(){
