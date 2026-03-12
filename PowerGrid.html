@@ -19,6 +19,7 @@ th { background:#1e293b; }
 .flex { display:flex; gap:20px; flex-wrap:wrap; }
 .teamBox { flex:1; min-width:320px; background:#111827; padding:10px; border-radius:8px; }
 h3 { margin-bottom:5px; }
+.liveScore { font-size:22px; font-weight:bold; color:#22c55e; }
 </style>
 </head>
 <body>
@@ -39,7 +40,7 @@ h3 { margin-bottom:5px; }
 </div>
 
 <div class="section">
-<h2>3. Detailed Scoring Sheet</h2>
+<h2>3. Detailed Scoring Sheet (Live Scoring)</h2>
 <div class="flex">
 
 <div class="teamBox">
@@ -59,7 +60,7 @@ Endgame:<br>
 Ultra End (35) <input type="checkbox" id="a_ultra_end"><br>
 Park (10) <input type="checkbox" id="a_park"><br>
 Tower Intact (10) <input type="checkbox" id="a_tower_intact"><br>
-<h3>Total: <span id="scoreA">0</span></h3>
+<h3 class="liveScore">Total: <span id="scoreA">0</span></h3>
 </div>
 
 <div class="teamBox">
@@ -79,12 +80,12 @@ Endgame:<br>
 Ultra End (35) <input type="checkbox" id="b_ultra_end"><br>
 Park (10) <input type="checkbox" id="b_park"><br>
 Tower Intact (10) <input type="checkbox" id="b_tower_intact"><br>
-<h3>Total: <span id="scoreB">0</span></h3>
+<h3 class="liveScore">Total: <span id="scoreB">0</span></h3>
 </div>
 
 </div>
 
-<button class="primary" onclick="calculateAndSave()">Save Match Score</button>
+<button class="primary" onclick="saveMatch()">Save Match Score</button>
 <button class="secondary" onclick="resetScoring()">Reset Current Match Form</button>
 <button class="secondary" onclick="exportCSV()">Export CSV</button>
 </div>
@@ -101,139 +102,178 @@ Tower Intact (10) <input type="checkbox" id="b_tower_intact"><br>
 let teams=[];
 let schedule=[];
 
-// Restore from localStorage if exists
-window.onload = function(){
-  const saved = localStorage.getItem('powerGridData');
-  if(saved){
-    const data = JSON.parse(saved);
-    teams = data.teams || [];
-    schedule = data.schedule || [];
-    renderTeamInputs();
-    populateMatchSelect();
-    renderTable();
-  } else {
-    renderTeamInputs();
-  }
+window.onload=function(){
+ const saved=localStorage.getItem('powerGridData');
+ if(saved){
+   const data=JSON.parse(saved);
+   teams=data.teams||[];
+   schedule=data.schedule||[];
+ }
+ renderTeamInputs();
+ populateMatchSelect();
+ renderTable();
+ addLiveListeners();
 };
 
 function saveToStorage(){
-  localStorage.setItem('powerGridData', JSON.stringify({teams, schedule}));
+ localStorage.setItem('powerGridData',JSON.stringify({teams,schedule}));
 }
 
 function renderTeamInputs(){
-  const container = document.getElementById('teamInputs');
-  container.innerHTML='';
-  for(let i=0;i<9;i++){
-    const value = teams[i] || '';
-    container.innerHTML += `Team ${i+1}: <input id='team${i}' value="${value}"><br>`;
-  }
+ const container=document.getElementById('teamInputs');
+ container.innerHTML='';
+ for(let i=0;i<9;i++){
+   const value=teams[i]||'';
+   container.innerHTML+=`Team ${i+1}: <input id='team${i}' value="${value}"><br>`;
+ }
 }
 
 function generateSchedule(){
-  teams=[];
-  for(let i=0;i<9;i++){
-    teams.push(document.getElementById('team'+i).value || `Team ${i+1}`);
-  }
-  schedule=[];
-  let temp=[...teams];
-  if(temp.length%2!==0) temp.push("BYE");
-  let n=temp.length;
-  for(let r=0;r<n-1;r++){
-    for(let i=0;i<n/2;i++){
-      let A=temp[i]; let B=temp[n-1-i];
-      if(A!="BYE"&&B!="BYE"){
-        schedule.push({match:schedule.length+1,teamA:A,teamB:B,scoreA:'',scoreB:'',winner:''});
-      }
-    }
-    temp.splice(1,0,temp.pop());
-  }
-  saveToStorage();
-  populateMatchSelect();
-  renderTable();
+ teams=[];
+ for(let i=0;i<9;i++){
+   teams.push(document.getElementById('team'+i).value||`Team ${i+1}`);
+ }
+ schedule=[];
+ let temp=[...teams];
+ if(temp.length%2!==0) temp.push("BYE");
+ let n=temp.length;
+ for(let r=0;r<n-1;r++){
+   for(let i=0;i<n/2;i++){
+     let A=temp[i]; let B=temp[n-1-i];
+     if(A!="BYE"&&B!="BYE"){
+       schedule.push({match:schedule.length+1,teamA:A,teamB:B,scoreA:0,scoreB:0,breakdownA:{},breakdownB:{},winner:''});
+     }
+   }
+   temp.splice(1,0,temp.pop());
+ }
+ saveToStorage();
+ populateMatchSelect();
+ renderTable();
 }
 
 function populateMatchSelect(){
-  let sel=document.getElementById('matchSelect');
-  sel.innerHTML='';
-  schedule.forEach(m=>{
-    let opt=document.createElement('option');
-    opt.value=m.match;
-    opt.text=`Match ${m.match}: ${m.teamA} vs ${m.teamB}`;
-    sel.appendChild(opt);
-  });
-  sel.onchange=loadMatch;
-  loadMatch();
+ let sel=document.getElementById('matchSelect');
+ sel.innerHTML='';
+ schedule.forEach(m=>{
+   let opt=document.createElement('option');
+   opt.value=m.match;
+   opt.text=`Match ${m.match}: ${m.teamA} vs ${m.teamB}`;
+   sel.appendChild(opt);
+ });
+ sel.onchange=loadMatch;
+ loadMatch();
 }
 
 function loadMatch(){
-  let m=schedule.find(x=>x.match==document.getElementById('matchSelect').value);
-  if(!m) return;
-  document.getElementById('matchLabel').innerText=`${m.teamA} vs ${m.teamB}`;
-  document.getElementById('teamAName').innerText=m.teamA;
-  document.getElementById('teamBName').innerText=m.teamB;
-  resetScoring();
+ let m=schedule.find(x=>x.match==document.getElementById('matchSelect').value);
+ if(!m) return;
+ document.getElementById('matchLabel').innerText=`${m.teamA} vs ${m.teamB}`;
+ document.getElementById('teamAName').innerText=m.teamA;
+ document.getElementById('teamBName').innerText=m.teamB;
+ loadBreakdown(m);
 }
 
 function calculateScore(prefix){
-  return (document.getElementById(prefix+'_leave').checked?10:0)+
-  (parseInt(document.getElementById(prefix+'_small_auto').value)||0)*8+
-  (parseInt(document.getElementById(prefix+'_large_auto').value)||0)*12+
-  (parseInt(document.getElementById(prefix+'_plush_auto').value)||0)*20+
-  (document.getElementById(prefix+'_ultra_auto').checked?35:0)+
-  (parseInt(document.getElementById(prefix+'_plush').value)||0)*15+
-  (document.getElementById(prefix+'_ultra').checked?25:0)+
-  (parseInt(document.getElementById(prefix+'_small').value)||0)*3+
-  (parseInt(document.getElementById(prefix+'_large_tower').value)||0)*5+
-  (document.getElementById(prefix+'_ultra_end').checked?35:0)+
-  (document.getElementById(prefix+'_park').checked?10:0)+
-  (document.getElementById(prefix+'_tower_intact').checked?10:0);
+ return (document.getElementById(prefix+'_leave').checked?10:0)+
+ (parseInt(document.getElementById(prefix+'_small_auto').value)||0)*8+
+ (parseInt(document.getElementById(prefix+'_large_auto').value)||0)*12+
+ (parseInt(document.getElementById(prefix+'_plush_auto').value)||0)*20+
+ (document.getElementById(prefix+'_ultra_auto').checked?35:0)+
+ (parseInt(document.getElementById(prefix+'_plush').value)||0)*15+
+ (document.getElementById(prefix+'_ultra').checked?25:0)+
+ (parseInt(document.getElementById(prefix+'_small').value)||0)*3+
+ (parseInt(document.getElementById(prefix+'_large_tower').value)||0)*5+
+ (document.getElementById(prefix+'_ultra_end').checked?35:0)+
+ (document.getElementById(prefix+'_park').checked?10:0)+
+ (document.getElementById(prefix+'_tower_intact').checked?10:0);
 }
 
-function calculateAndSave(){
-  let m=schedule.find(x=>x.match==document.getElementById('matchSelect').value);
-  if(!m) return;
-  m.scoreA=calculateScore('a');
-  m.scoreB=calculateScore('b');
-  m.winner=m.scoreA>m.scoreB?m.teamA:m.scoreB>m.scoreA?m.teamB:'Tie';
-  document.getElementById('scoreA').innerText=m.scoreA;
-  document.getElementById('scoreB').innerText=m.scoreB;
-  saveToStorage();
-  renderTable();
+function updateLiveScore(){
+ document.getElementById('scoreA').innerText=calculateScore('a');
+ document.getElementById('scoreB').innerText=calculateScore('b');
+}
+
+function addLiveListeners(){
+ document.querySelectorAll('input').forEach(input=>{
+   input.addEventListener('input',updateLiveScore);
+   input.addEventListener('change',updateLiveScore);
+ });
+}
+
+function saveMatch(){
+ let m=schedule.find(x=>x.match==document.getElementById('matchSelect').value);
+ if(!m) return;
+ m.scoreA=calculateScore('a');
+ m.scoreB=calculateScore('b');
+ m.breakdownA=collectBreakdown('a');
+ m.breakdownB=collectBreakdown('b');
+ m.winner=m.scoreA>m.scoreB?m.teamA:m.scoreB>m.scoreA?m.teamB:'Tie';
+ saveToStorage();
+ renderTable();
+}
+
+function collectBreakdown(prefix){
+ let data={};
+ document.querySelectorAll(`[id^=${prefix}_]`).forEach(el=>{
+   if(el.type==='checkbox') data[el.id]=el.checked;
+   else data[el.id]=el.value;
+ });
+ return data;
+}
+
+function loadBreakdown(match){
+ resetScoring();
+ if(match.breakdownA){
+   for(let key in match.breakdownA){
+     let el=document.getElementById(key);
+     if(!el) continue;
+     if(el.type==='checkbox') el.checked=match.breakdownA[key];
+     else el.value=match.breakdownA[key];
+   }
+ }
+ if(match.breakdownB){
+   for(let key in match.breakdownB){
+     let el=document.getElementById(key);
+     if(!el) continue;
+     if(el.type==='checkbox') el.checked=match.breakdownB[key];
+     else el.value=match.breakdownB[key];
+   }
+ }
+ updateLiveScore();
 }
 
 function renderTable(){
-  let tb=document.querySelector('#resultsTable tbody');
-  tb.innerHTML='';
-  schedule.forEach(m=>{
-    tb.innerHTML+=`<tr><td>${m.match}</td><td>${m.teamA}</td><td>${m.scoreA} - ${m.scoreB}</td><td>${m.teamB}</td><td>${m.winner}</td></tr>`;
-  });
+ let tb=document.querySelector('#resultsTable tbody');
+ tb.innerHTML='';
+ schedule.forEach(m=>{
+   tb.innerHTML+=`<tr><td>${m.match}</td><td>${m.teamA}</td><td>${m.scoreA} - ${m.scoreB}</td><td>${m.teamB}</td><td>${m.winner}</td></tr>`;
+ });
 }
 
 function resetScoring(){
-  document.querySelectorAll('input[type=number]').forEach(i=>i.value='');
-  document.querySelectorAll('input[type=checkbox]').forEach(i=>i.checked=false);
-  document.getElementById('scoreA').innerText=0;
-  document.getElementById('scoreB').innerText=0;
+ document.querySelectorAll('input[type=number]').forEach(i=>i.value='');
+ document.querySelectorAll('input[type=checkbox]').forEach(i=>i.checked=false);
+ updateLiveScore();
 }
 
 function exportCSV(){
-  let csv='Match,Team A,Score A,Team B,Score B,Winner\n';
-  schedule.forEach(m=>{
-    csv+=`${m.match},${m.teamA},${m.scoreA},${m.teamB},${m.scoreB},${m.winner}\n`;
-  });
-  let blob=new Blob([csv],{type:'text/csv'});
-  let url=URL.createObjectURL(blob);
-  let a=document.createElement('a');
-  a.href=url;
-  a.download='power_grid_results.csv';
-  a.click();
+ let csv='Match,Team A,Score A,Team B,Score B,Winner\n';
+ schedule.forEach(m=>{
+   csv+=`${m.match},${m.teamA},${m.scoreA},${m.teamB},${m.scoreB},${m.winner}\n`;
+ });
+ let blob=new Blob([csv],{type:'text/csv'});
+ let url=URL.createObjectURL(blob);
+ let a=document.createElement('a');
+ a.href=url;
+ a.download='power_grid_results.csv';
+ a.click();
 }
 
 function fullReset(){
-  if(confirm('This will erase the entire event. Continue?')){
-    localStorage.removeItem('powerGridData');
-    location.reload();
-  }
+ if(confirm('Erase entire event?')){
+   localStorage.removeItem('powerGridData');
+   location.reload();
+ }
 }
 </script>
 
