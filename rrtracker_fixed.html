@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hall Pass Tracker (Fixed)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-6">
+
+<h1 class="text-xl font-bold mb-4">Hall Pass Tracker (Fixed)</h1>
+
+<input type="file" id="csv" />
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+// ✅ YOUR FIXED FIREBASE CONFIG
+const firebaseConfig = {
+  apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
+  authDomain: "rrtracker-de70e.firebaseapp.com",
+  projectId: "rrtracker-de70e",
+  storageBucket: "rrtracker-de70e.firebasestorage.app",
+  messagingSenderId: "1057987490614",
+  appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
+  measurementId: "G-X31008YT0P"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// ✅ FIXED CSV HANDLER
+document.getElementById("csv").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  const text = await file.text();
+  const lines = text.split("\n");
+
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i].trim();
+    if (!row) continue;
+
+    const cols = row.split(",").map(c => c.trim().replace(/^"|"$/g, ''));
+
+    const period = cols[0];
+    const first = cols[1];
+    const last = cols[2];
+    const studentId = cols[3];
+
+    if (!studentId) continue;
+
+    await addDoc(collection(db, "students"), {
+      name: first + " " + last,
+      studentId,
+      period,
+      passesUsed: 0,
+      created: Date.now()
+    });
+  }
+
+  alert("Upload complete!");
+});
+</script>
+
+</body>
+</html>
