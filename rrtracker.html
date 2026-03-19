@@ -43,6 +43,14 @@
             </div>
         </header>
 
+        <!-- Connection Status -->
+        <div id="loading-overlay" class="fixed inset-0 bg-white z-[60] flex items-center justify-center">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                <p class="text-slate-600 font-medium">Connecting to secure storage...</p>
+            </div>
+        </div>
+
         <!-- Stats Overview -->
         <div id="stats-bar" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 hidden">
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
@@ -132,7 +140,7 @@
             <div class="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
             </div>
-            <h3 class="text-xl font-bold text-slate-700">No Roster Uploaded</h3>
+            <h3 class="text-xl font-bold text-slate-700">No Roster Found</h3>
             <p class="text-slate-500 mb-6 text-sm">Upload a CSV or add your first student manually.</p>
             <div class="flex justify-center gap-3">
                 <button onclick="openAddStudentModal()" class="bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition">Add Student</button>
@@ -175,74 +183,231 @@
         Action successful
     </div>
 
-    <script>
-        // State Management
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global State & Config
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-tracker-v1';
+
         let students = [];
         let activePasses = [];
         let currentPeriod = null;
-        let viewMode = 'list'; // 'list' or 'log'
+        let viewMode = 'list';
         const PASS_LIMIT = 7;
         const OVERTIME_THRESHOLD = 7 * 60; // 7 minutes in seconds
 
-        // Timer Interval
-        setInterval(updateActiveTimers, 1000);
+        // UI Accessors
+        window.openAddStudentModal = () => {
+            document.getElementById('modal-container').classList.remove('hidden');
+            if (currentPeriod) document.getElementById('m-period').value = currentPeriod;
+        };
+        window.closeModal = () => {
+            document.getElementById('modal-container').classList.add('hidden');
+            document.querySelectorAll('#modal-container input').forEach(i => i.value = '');
+        };
+        window.toggleView = (mode) => {
+            viewMode = mode;
+            updateUI();
+        };
 
-        function handleCSV(event) {
+        // Firebase Auth Init
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth error:", error);
+                showToast("Connection error. Try refreshing.");
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setupListeners();
+            }
+        });
+
+        // Firestore Listeners
+        function setupListeners() {
+            const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
+            const passesRef = collection(db, 'artifacts', appId, 'public', 'data', 'active_passes');
+
+            // Listen for students
+            onSnapshot(studentsRef, (snapshot) => {
+                students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                refreshState();
+                document.getElementById('loading-overlay').classList.add('hidden');
+            }, (err) => console.error("Students sync error:", err));
+
+            // Listen for active passes
+            onSnapshot(passesRef, (snapshot) => {
+                activePasses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                updateUI();
+            }, (err) => console.error("Passes sync error:", err));
+        }
+
+        // Data Persistence Logic
+        window.saveStudent = async () => {
+            const first = document.getElementById('m-first').value.trim();
+            const last = document.getElementById('m-last').value.trim();
+            const studentId = document.getElementById('m-id').value.trim() || `id-${Date.now()}`;
+            const prd = document.getElementById('m-period').value.trim();
+
+            if (!first || !last || !prd) {
+                showToast("Please fill in Name and Period.");
+                return;
+            }
+
+            const studentData = {
+                name: `${first} ${last}`,
+                customId: studentId,
+                period: prd,
+                passesUsed: 0,
+                history: []
+            };
+
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), studentData);
+                closeModal();
+                showToast("Student added.");
+            } catch (e) {
+                showToast("Error saving student.");
+            }
+        };
+
+        window.removeStudent = async (docId) => {
+            if (confirm("Remove this student from the roster?")) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', docId));
+                    showToast("Student removed.");
+                } catch (e) {
+                    showToast("Error removing student.");
+                }
+            }
+        };
+
+        window.adjustPass = async (docId, delta) => {
+            const student = students.find(s => s.id === docId);
+            if (!student) return;
+            const newVal = Math.max(0, Math.min(PASS_LIMIT, student.passesUsed + delta));
+            
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', docId), {
+                    passesUsed: newVal
+                });
+            } catch (e) {
+                showToast("Update failed.");
+            }
+        };
+
+        window.togglePass = async (docId) => {
+            const student = students.find(s => s.id === docId);
+            if (!student) return;
+
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', docId), {
+                    studentId: docId,
+                    studentName: student.name,
+                    startTime: Date.now()
+                });
+            } catch (e) {
+                showToast("Error starting pass.");
+            }
+        };
+
+        window.endPass = async (docId) => {
+            const pass = activePasses.find(ap => ap.studentId === docId);
+            if (!pass) return;
+
+            const durationSeconds = Math.floor((Date.now() - pass.startTime) / 1000);
+            const student = students.find(s => s.id === docId);
+            if (!student) return;
+
+            const isOvertime = durationSeconds >= OVERTIME_THRESHOLD;
+            const newHistory = [...(student.history || []), {
+                timestamp: Date.now(),
+                dateTime: new Date().toLocaleString(),
+                duration: durationSeconds,
+                deducted: isOvertime
+            }];
+
+            try {
+                const batch = writeBatch(db);
+                batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', docId));
+                batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', docId), {
+                    passesUsed: isOvertime ? student.passesUsed + 1 : student.passesUsed,
+                    history: newHistory
+                });
+                await batch.commit();
+                if (isOvertime) showToast(`Pass deducted for ${student.name}`);
+            } catch (e) {
+                showToast("Error ending pass.");
+            }
+        };
+
+        window.handleCSV = async (event) => {
             const file = event.target.files[0];
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async (e) => {
                 const text = e.target.result;
-                parseCSV(text);
+                const lines = text.split(/\r?\n/).filter(line => line.trim());
+                if (lines.length < 2) return;
+
+                const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/["']/g, ""));
+                const fNameIdx = headers.indexOf('first name');
+                const lNameIdx = headers.indexOf('last name');
+                const idIdx = headers.indexOf('student id');
+                const prdIdx = headers.indexOf('period');
+
+                if (fNameIdx === -1 || lNameIdx === -1 || prdIdx === -1) {
+                    showToast("CSV Headers must include: Period, First Name, Last Name");
+                    return;
+                }
+
+                showToast("Uploading roster...");
+                const batch = writeBatch(db);
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = lines[i].split(',').map(c => c.trim().replace(/["']/g, ""));
+                    if (cols.length < 3) continue;
+                    const sId = cols[idIdx] || `gen-${Date.now()}-${i}`;
+                    
+                    const sRef = doc(db, 'artifacts', appId, 'public', 'data', 'students', sId);
+                    batch.set(sRef, {
+                        name: `${cols[fNameIdx]} ${cols[lNameIdx]}`.trim(),
+                        customId: sId,
+                        period: cols[prdIdx] || "1",
+                        passesUsed: 0,
+                        history: []
+                    });
+                }
+                await batch.commit();
+                showToast("Roster uploaded.");
             };
             reader.readAsText(file);
-        }
+        };
 
-        function parseCSV(text) {
-            const lines = text.split(/\r?\n/).filter(line => line.trim());
-            if (lines.length < 2) return;
-
-            const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/["']/g, ""));
-            const fNameIdx = headers.indexOf('first name');
-            const lNameIdx = headers.indexOf('last name');
-            const idIdx = headers.indexOf('student id');
-            const prdIdx = headers.indexOf('period');
-
-            if (fNameIdx === -1 || lNameIdx === -1 || prdIdx === -1) {
-                showToast("Missing required headers: Period, First Name, Last Name, Student ID");
-                return;
-            }
-
-            const newStudents = [];
-            for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split(',').map(c => c.trim().replace(/["']/g, ""));
-                if (cols.length < 3) continue;
-
-                newStudents.push({
-                    name: `${cols[fNameIdx]} ${cols[lNameIdx]}`.trim(),
-                    id: cols[idIdx] || `gen-${Date.now()}-${i}`,
-                    period: cols[prdIdx] || "1",
-                    passesUsed: 0,
-                    history: []
-                });
-            }
-
-            students = [...students, ...newStudents];
-            refreshState();
-        }
-
+        // UI Core Logic
         function refreshState() {
             if (students.length > 0) {
                 const periods = [...new Set(students.map(s => s.period))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
-                if (!currentPeriod) currentPeriod = periods[0];
+                if (!currentPeriod || !periods.includes(currentPeriod)) currentPeriod = periods[0];
                 updateUI();
+            } else {
+                document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('main-content').classList.add('hidden');
+                document.getElementById('stats-bar').classList.add('hidden');
             }
-        }
-
-        function toggleView(mode) {
-            viewMode = mode;
-            updateUI();
         }
 
         function updateUI() {
@@ -252,7 +417,6 @@
             document.getElementById('main-content').classList.remove('hidden');
             document.getElementById('stats-bar').classList.remove('hidden');
 
-            // Toggle Containers
             document.getElementById('student-list-container').style.display = viewMode === 'list' ? 'block' : 'none';
             document.getElementById('master-log-container').style.display = viewMode === 'log' ? 'block' : 'none';
             document.getElementById('view-log-btn').innerText = viewMode === 'log' ? 'View Student List' : 'View Master Log';
@@ -272,15 +436,11 @@
             const periods = [...new Set(students.map(s => s.period))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
             const container = document.getElementById('period-tabs');
             container.innerHTML = '';
-
             periods.forEach(p => {
                 const btn = document.createElement('button');
                 btn.innerText = `Period ${p}`;
                 btn.className = `px-4 py-2 rounded-full whitespace-nowrap font-medium transition ${currentPeriod === p ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`;
-                btn.onclick = () => {
-                    currentPeriod = p;
-                    updateUI();
-                };
+                btn.onclick = () => { currentPeriod = p; updateUI(); };
                 container.appendChild(btn);
             });
         }
@@ -294,7 +454,6 @@
                 const isOut = activePasses.some(ap => ap.studentId === s.id);
                 const tr = document.createElement('tr');
                 tr.className = isOut ? 'bg-indigo-50/50' : '';
-                
                 tr.innerHTML = `
                     <td class="px-6 py-4">
                         <div class="flex items-center gap-3">
@@ -303,7 +462,7 @@
                             </button>
                             <div>
                                 <div class="font-bold text-slate-800">${s.name}</div>
-                                <div class="text-xs text-slate-400">ID: ${s.id}</div>
+                                <div class="text-xs text-slate-400">ID: ${s.customId || s.id}</div>
                             </div>
                         </div>
                     </td>
@@ -320,11 +479,7 @@
                         </div>
                     </td>
                     <td class="px-6 py-4 text-right">
-                        <button 
-                            onclick="togglePass('${s.id}')" 
-                            disabled="${isOut}"
-                            class="px-4 py-2 rounded-lg text-sm font-semibold transition ${isOut ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white'}"
-                        >
+                        <button onclick="togglePass('${s.id}')" ${isOut ? 'disabled' : ''} class="px-4 py-2 rounded-lg text-sm font-semibold transition ${isOut ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white'}">
                             ${isOut ? 'Out of Room' : 'Start Pass'}
                         </button>
                     </td>
@@ -336,8 +491,7 @@
         function renderMasterLog() {
             const list = document.getElementById('master-log-list');
             list.innerHTML = '';
-            
-            const allTrips = students.flatMap(s => s.history.map(h => ({...h, studentName: s.name, period: s.period})));
+            const allTrips = students.flatMap(s => (s.history || []).map(h => ({...h, studentName: s.name, period: s.period})));
             allTrips.sort((a, b) => b.timestamp - a.timestamp);
 
             if (allTrips.length === 0) {
@@ -365,97 +519,17 @@
         function renderStats() {
             document.getElementById('stat-total').innerText = students.length;
             document.getElementById('stat-out').innerText = activePasses.length;
-            
-            const totalTrips = students.reduce((acc, s) => acc + s.history.length, 0);
+            const totalTrips = students.reduce((acc, s) => acc + (s.history?.length || 0), 0);
             document.getElementById('stat-trips').innerText = totalTrips;
-
-            const rem = (students.length * PASS_LIMIT) - students.reduce((acc, s) => acc + s.passesUsed, 0);
+            const rem = (students.length * PASS_LIMIT) - students.reduce((acc, s) => acc + (s.passesUsed || 0), 0);
             document.getElementById('stat-passes').innerText = rem;
         }
 
-        function togglePass(studentId) {
-            const student = students.find(s => s.id === studentId);
-            if (!student) return;
-
-            activePasses.push({
-                studentId: studentId,
-                studentName: student.name,
-                startTime: Date.now()
-            });
-            updateUI();
-        }
-
-        function endPass(studentId) {
-            const index = activePasses.findIndex(ap => ap.studentId === studentId);
-            if (index === -1) return;
-
-            const pass = activePasses[index];
-            const durationSeconds = Math.floor((Date.now() - pass.startTime) / 1000);
-            const student = students.find(s => s.id === studentId);
-
-            const isOvertime = durationSeconds >= OVERTIME_THRESHOLD;
-            if (isOvertime) student.passesUsed++;
-
-            student.history.push({
-                timestamp: Date.now(),
-                dateTime: new Date().toLocaleString(),
-                duration: durationSeconds,
-                deducted: isOvertime
-            });
-
-            activePasses.splice(index, 1);
-            if (isOvertime) showToast(`Pass deducted for ${student.name}`);
-            updateUI();
-        }
-
-        function adjustPass(sid, delta) {
-            const student = students.find(s => s.id === sid);
-            if (!student) return;
-            student.passesUsed = Math.max(0, Math.min(PASS_LIMIT, student.passesUsed + delta));
-            updateUI();
-        }
-
-        function removeStudent(sid) {
-            if (confirm("Remove this student from the roster?")) {
-                students = students.filter(s => s.id !== sid);
-                activePasses = activePasses.filter(ap => ap.studentId !== sid);
-                updateUI();
-            }
-        }
-
-        function saveStudent() {
-            const first = document.getElementById('m-first').value.trim();
-            const last = document.getElementById('m-last').value.trim();
-            const id = document.getElementById('m-id').value.trim() || `id-${Date.now()}`;
-            const prd = document.getElementById('m-period').value.trim();
-
-            if (!first || !last || !prd) {
-                showToast("Please fill in Name and Period.");
-                return;
-            }
-
-            students.push({
-                name: `${first} ${last}`,
-                id: id,
-                period: prd,
-                passesUsed: 0,
-                history: []
-            });
-
-            closeModal();
-            refreshState();
-        }
-
-        function updateActiveTimers() {
-            if (activePasses.length === 0) {
-                document.getElementById('active-timers-section').classList.add('hidden');
-                return;
-            }
-            document.getElementById('active-timers-section').classList.remove('hidden');
-            renderActiveTimers();
-        }
-
         function renderActiveTimers() {
+            const section = document.getElementById('active-timers-section');
+            if (activePasses.length === 0) { section.classList.add('hidden'); return; }
+            section.classList.remove('hidden');
+
             const container = document.getElementById('active-timers-list');
             container.innerHTML = '';
             activePasses.forEach(pass => {
@@ -482,16 +556,6 @@
             });
         }
 
-        function openAddStudentModal() {
-            document.getElementById('modal-container').classList.remove('hidden');
-            if (currentPeriod) document.getElementById('m-period').value = currentPeriod;
-        }
-
-        function closeModal() {
-            document.getElementById('modal-container').classList.add('hidden');
-            document.querySelectorAll('#modal-container input').forEach(i => i.value = '');
-        }
-
         function showToast(message) {
             const toast = document.getElementById('toast');
             toast.innerText = message;
@@ -502,6 +566,14 @@
                 toast.classList.remove('opacity-100', 'translate-y-0');
             }, 3000);
         }
+
+        // Live Timer Refresh
+        setInterval(() => {
+            if (activePasses.length > 0) renderActiveTimers();
+        }, 1000);
+
+        // Start
+        initAuth();
     </script>
 </body>
 </html>
