@@ -46,7 +46,7 @@
             <div class="flex gap-2">
                 <button onclick="openModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition shadow-sm text-sm font-bold">+ Add Student</button>
                 <button onclick="document.getElementById('csv-input').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition shadow-sm text-sm font-bold">Upload CSV</button>
-                <input type="file" id="csv-input" accept=".csv" class="hidden" onchange="handleCSV(event)">
+                <input type="file" id="csv-input" accept=".csv" class="hidden" onclick="this.value=null" onchange="handleCSV(event)">
             </div>
         </header>
 
@@ -121,7 +121,7 @@
 
     <!-- Add Student Modal -->
     <div id="modal" class="fixed inset-0 z-[110] flex items-center justify-center p-4 hidden modal-bg">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-sm p-6">
             <h3 class="text-xl font-bold mb-4">New Student</h3>
             <div class="space-y-4">
                 <input type="text" id="m-first" placeholder="First Name" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
@@ -140,7 +140,6 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Your specific Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
             authDomain: "rrtracker-de70e.firebaseapp.com",
@@ -154,28 +153,23 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        
-        // Root path for all data to ensure it stays organized in your project
         const appId = 'hall-pass-tracker-main';
 
-        // Local State
         let students = [];
         let activePasses = [];
         let currentPeriod = null;
         let isLogView = false;
         let isSynced = false;
+        let currentUser = null;
         const LIMIT = 7;
         const OVERTIME = 7 * 60;
 
-        // AUTH & INITIALIZATION
         const init = async () => {
-            // Safety timeout: if auth takes > 3.5s, let the user in (Offline/Cache mode)
             setTimeout(() => {
                 if (!isSynced) hideLoader();
             }, 3500);
 
             try {
-                // We use anonymous auth for your project so anyone with the URL can access
                 await signInAnonymously(auth);
             } catch (e) {
                 console.warn("Auth connection issue. The app will work locally.");
@@ -184,6 +178,7 @@
         };
 
         onAuthStateChanged(auth, (user) => {
+            currentUser = user;
             if (user) {
                 document.getElementById('sync-indicator').className = "w-2 h-2 rounded-full bg-emerald-500";
                 document.getElementById('sync-text').innerText = "Live Cloud Active";
@@ -192,15 +187,13 @@
         });
 
         function setupSync() {
-            // Path structure: artifacts/{appId}/public/data/{collection}
             const sPath = collection(db, 'artifacts', appId, 'public', 'data', 'students');
             const pPath = collection(db, 'artifacts', appId, 'public', 'data', 'active_passes');
 
-            // Listen for student list changes
             onSnapshot(sPath, (snap) => {
                 students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 if (!currentPeriod && students.length > 0) {
-                    currentPeriod = [...new Set(students.map(s => s.period))].sort()[0];
+                    currentPeriod = [...new Set(students.map(s => s.period))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}))[0];
                 }
                 isSynced = true;
                 render();
@@ -210,7 +203,6 @@
                 hideLoader();
             });
 
-            // Listen for active pass changes
             onSnapshot(pPath, (snap) => {
                 activePasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
@@ -222,7 +214,6 @@
             document.getElementById('app-container').classList.remove('opacity-0');
         };
 
-        // UI Handlers
         window.saveStudent = async () => {
             const f = document.getElementById('m-first').value.trim();
             const l = document.getElementById('m-last').value.trim();
@@ -237,9 +228,13 @@
                 history: []
             };
 
-            try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), studentData);
-            } catch (e) {
+            if (currentUser) {
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), studentData);
+                } catch (e) {
+                    console.error("Save failed", e);
+                }
+            } else {
                 students.push({ id, ...studentData });
                 render();
             }
@@ -250,9 +245,13 @@
 
         window.removeStudent = async (id) => {
             if (confirm("Permanently delete this student and their history?")) {
-                try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id));
-                } catch (e) {
+                if (currentUser) {
+                    try {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id));
+                    } catch (e) {
+                        console.error("Delete failed", e);
+                    }
+                } else {
                     students = students.filter(s => s.id !== id);
                     render();
                 }
@@ -261,10 +260,15 @@
 
         window.adjust = async (id, delta) => {
             const s = students.find(x => x.id === id);
+            if (!s) return;
             const newVal = Math.max(0, Math.min(LIMIT, (s.passesUsed || 0) + delta));
-            try {
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), { passesUsed: newVal });
-            } catch (e) {
+            if (currentUser) {
+                try {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), { passesUsed: newVal });
+                } catch (e) {
+                    console.error("Adjust failed", e);
+                }
+            } else {
                 s.passesUsed = newVal;
                 render();
             }
@@ -272,13 +276,18 @@
 
         window.startPass = async (id) => {
             const s = students.find(x => x.id === id);
-            try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', id), {
-                    studentId: id,
-                    name: s.name,
-                    start: Date.now()
-                });
-            } catch (e) {
+            if (!s) return;
+            if (currentUser) {
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', id), {
+                        studentId: id,
+                        name: s.name,
+                        start: Date.now()
+                    });
+                } catch (e) {
+                    console.error("Start pass failed", e);
+                }
+            } else {
                 activePasses.push({ studentId: id, name: s.name, start: Date.now() });
                 render();
             }
@@ -292,17 +301,21 @@
             const dur = Math.floor((Date.now() - p.start) / 1000);
             const penalize = dur >= OVERTIME;
             
-            try {
-                const batch = writeBatch(db);
-                batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', id));
-                batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), {
-                    passesUsed: (s.passesUsed || 0) + (penalize ? 1 : 0),
-                    history: [...(s.history || []), { 
-                        dur, penalize, date: new Date().toLocaleString(), ts: Date.now(), period: s.period 
-                    }]
-                });
-                await batch.commit();
-            } catch (e) {
+            if (currentUser) {
+                try {
+                    const batch = writeBatch(db);
+                    batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', id));
+                    batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), {
+                        passesUsed: (s.passesUsed || 0) + (penalize ? 1 : 0),
+                        history: [...(s.history || []), { 
+                            dur, penalize, date: new Date().toLocaleString(), ts: Date.now(), period: s.period 
+                        }]
+                    });
+                    await batch.commit();
+                } catch (e) {
+                    console.error("End pass failed", e);
+                }
+            } else {
                 activePasses = activePasses.filter(x => x.studentId !== id);
                 s.passesUsed = (s.passesUsed || 0) + (penalize ? 1 : 0);
                 s.history.push({ dur, penalize, date: new Date().toLocaleString(), ts: Date.now(), period: s.period });
@@ -312,23 +325,70 @@
 
         window.handleCSV = async (e) => {
             const file = e.target.files[0];
+            if (!file) return;
+
             const reader = new FileReader();
             reader.onload = async (ev) => {
-                const lines = ev.target.result.split('\n').filter(l => l.trim());
+                const text = ev.target.result;
+                // Handle different line endings and split by new line
+                const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+                
+                if (lines.length < 2) {
+                    alert("The CSV file appears to be empty or missing data.");
+                    return;
+                }
+
+                // Show a simple loading indicator or message if desired
+                const originalText = document.querySelector('button[onclick*="csv-input"]').innerText;
+                document.querySelector('button[onclick*="csv-input"]').innerText = "Uploading...";
+
                 try {
                     const batch = writeBatch(db);
-                    lines.slice(1).forEach((line, i) => {
-                        const parts = line.split(',').map(x => x.trim().replace(/['"]/g, ''));
-                        const p = parts[0], f = parts[1], l = parts[2];
-                        if (!f || !l) return;
+                    let count = 0;
+
+                    // Skip header row
+                    for (let i = 1; i < lines.length; i++) {
+                        // Handle comma separation and cleanup quotes/whitespace
+                        const parts = lines[i].split(',').map(x => x.trim().replace(/^["']|["']$/g, ''));
+                        
+                        // Expected format: Period, First, Last (based on previous logic)
+                        const period = parts[0] || "1";
+                        const first = parts[1];
+                        const last = parts[2];
+
+                        if (!first || !last) continue;
+
                         const id = `s_csv_${Date.now()}_${i}`;
-                        batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), {
-                            name: `${f} ${l}`, period: p || "1", passesUsed: 0, history: []
+                        const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', id);
+                        
+                        batch.set(ref, {
+                            name: `${first} ${last}`,
+                            period: period,
+                            passesUsed: 0,
+                            history: []
                         });
-                    });
-                    await batch.commit();
-                } catch (e) {
-                    alert("Bulk upload failed. Ensure Firestore rules are enabled.");
+                        count++;
+
+                        // Firestore batch limit is 500
+                        if (count >= 499) break; 
+                    }
+
+                    if (count > 0) {
+                        if (currentUser) {
+                            await batch.commit();
+                            alert(`Successfully uploaded ${count} students.`);
+                        } else {
+                            alert("Please wait for cloud connection before uploading CSV.");
+                        }
+                    } else {
+                        alert("No valid student data found in CSV. Expected format: Period, First Name, Last Name");
+                    }
+                } catch (err) {
+                    console.error("Bulk upload error:", err);
+                    alert("Failed to upload students. Check your internet connection or CSV format.");
+                } finally {
+                    document.querySelector('button[onclick*="csv-input"]').innerText = originalText;
+                    e.target.value = ''; // Reset input
                 }
             };
             reader.readAsText(file);
@@ -376,14 +436,14 @@
                 return `
                     <div class="p-4 rounded-xl border flex items-center justify-between ${isOver ? 'overtime border-red-300' : 'bg-white border-slate-200'}">
                         <div>
-                            <span class="font-bold text-slate-700 block">${p.name}</span>
-                            <span class="text-[10px] text-slate-400 uppercase font-bold">In Progress</span>
+                            <span class="font-bold text-slate-700 block text-sm">${p.name}</span>
+                            <span class="text-[10px] text-slate-400 uppercase font-bold tracking-tight">Active Pass</span>
                         </div>
                         <div class="flex items-center gap-4">
                             <span class="font-mono font-bold text-lg ${isOver ? 'text-red-600' : 'text-indigo-600'}">
                                 ${Math.floor(elapsed/60)}:${(elapsed%60).toString().padStart(2,'0')}
                             </span>
-                            <button onclick="endPass('${p.studentId}')" class="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">RETURN</button>
+                            <button onclick="endPass('${p.studentId}')" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm hover:bg-slate-800 transition">RETURN</button>
                         </div>
                     </div>
                 `;
@@ -391,7 +451,7 @@
         }
 
         function renderTabs() {
-            const pds = [...new Set(students.map(s => s.period))].sort();
+            const pds = [...new Set(students.map(s => s.period))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
             const container = document.getElementById('period-tabs');
             if (pds.length === 0) { container.innerHTML = ''; return; }
             container.innerHTML = pds.map(p => `
