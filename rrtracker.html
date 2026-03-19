@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hall Pass Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- EmailJS for automatic notifications -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <style>
         .timer-badge { font-variant-numeric: tabular-nums; }
         @keyframes pulse-red {
@@ -13,6 +15,14 @@
         }
         .overtime { animation: pulse-red 2s infinite; }
         .modal-bg { background-color: rgba(0,0,0,0.5); }
+        
+        /* Dynamic Row Colors */
+        .usage-safe { background-color: rgba(16, 185, 129, 0.05); }     /* Emerald 5% */
+        .usage-warning { background-color: rgba(245, 158, 11, 0.08); }  /* Amber 8% */
+        .usage-critical { background-color: rgba(249, 115, 22, 0.1); }  /* Orange 10% */
+        .usage-danger { background-color: rgba(239, 68, 68, 0.12); }    /* Red 12% */
+        
+        tr { transition: background-color 0.3s ease; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-900 font-sans">
@@ -21,14 +31,7 @@
     <div id="loading-overlay" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500 text-center px-6">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-6"></div>
         <h2 id="loading-status" class="text-xl font-bold text-slate-800 mb-2">Connecting to Your Secure Storage...</h2>
-        <p class="text-sm text-slate-500 mb-8">Initializing rrtracker-de70e...</p>
-        
-        <div class="max-w-xs w-full bg-slate-50 border border-slate-200 rounded-xl p-4 mb-8">
-            <p class="text-xs text-slate-400 leading-relaxed">
-                Syncing with your classroom database. If this screen persists, you can bypass and use local storage.
-            </p>
-        </div>
-
+        <p class="text-sm text-slate-500 mb-8">Initializing Cloud Sync...</p>
         <button id="force-btn" onclick="hideLoader()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl shadow-lg shadow-indigo-200 transition-all font-bold">
             Launch Tracker Anyway
         </button>
@@ -44,7 +47,7 @@
                 </div>
             </div>
             <div class="flex gap-2">
-                <button onclick="openModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition shadow-sm text-sm font-bold">+ Add Student</button>
+                <button onclick="openModal('add')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition shadow-sm text-sm font-bold">+ Add Student</button>
                 <button id="csv-btn" onclick="document.getElementById('csv-input').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition shadow-sm text-sm font-bold">Upload CSV</button>
                 <input type="file" id="csv-input" accept=".csv" class="hidden" onclick="this.value=null" onchange="handleCSV(event)">
             </div>
@@ -70,7 +73,7 @@
             </div>
         </div>
 
-        <!-- Active Timers -->
+        <!-- Active Pass Display -->
         <section id="timers-section" class="mb-10 hidden">
             <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                 <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
@@ -79,7 +82,7 @@
             <div id="timers-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
         </section>
 
-        <!-- Main Content -->
+        <!-- Main View -->
         <section id="main-view">
             <div class="flex items-center justify-between mb-4">
                 <div id="period-tabs" class="flex gap-2 overflow-x-auto pb-2"></div>
@@ -98,7 +101,7 @@
                     <tbody id="student-list" class="divide-y divide-slate-100"></tbody>
                 </table>
                 <div id="empty-msg" class="p-20 text-center text-slate-400 hidden">
-                    No students in this period yet. Click "+ Add Student" or upload a CSV.
+                    No students in this period.
                 </div>
             </div>
 
@@ -110,7 +113,7 @@
                             <th class="px-6 py-4">Period</th>
                             <th class="px-6 py-4">Date</th>
                             <th class="px-6 py-4">Duration</th>
-                            <th class="px-6 py-4">Type</th>
+                            <th class="px-6 py-4">Status</th>
                         </tr>
                     </thead>
                     <tbody id="log-list" class="divide-y divide-slate-100"></tbody>
@@ -119,14 +122,24 @@
         </section>
     </div>
 
-    <!-- Add Student Modal -->
+    <!-- Student Modal -->
     <div id="modal" class="fixed inset-0 z-[110] flex items-center justify-center p-4 hidden modal-bg">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 class="text-xl font-bold mb-4">New Student</h3>
+            <h3 id="modal-title" class="text-xl font-bold mb-4">New Student</h3>
+            <input type="hidden" id="m-id">
             <div class="space-y-4">
-                <input type="text" id="m-first" placeholder="First Name" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                <input type="text" id="m-last" placeholder="Last Name" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                <input type="text" id="m-period" placeholder="Period (e.g. 1)" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Full Name</label>
+                    <input type="text" id="m-name" class="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Class Period</label>
+                    <input type="text" id="m-period" class="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex items-center gap-2 py-2">
+                    <input type="checkbox" id="m-notify" class="w-4 h-4 text-indigo-600 rounded">
+                    <label for="m-notify" class="text-sm text-slate-600">Email alert on every pass</label>
+                </div>
             </div>
             <div class="flex justify-end gap-3 mt-8">
                 <button onclick="closeModal()" class="text-slate-400 font-bold px-4">Cancel</button>
@@ -140,14 +153,17 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // CONFIGURATION: Replace empty string with your EmailJS Public Key
+        const EMAILJS_PUBLIC_KEY = ""; 
+        if (EMAILJS_PUBLIC_KEY) emailjs.init(EMAILJS_PUBLIC_KEY);
+
         const firebaseConfig = {
             apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
             authDomain: "rrtracker-de70e.firebaseapp.com",
             projectId: "rrtracker-de70e",
             storageBucket: "rrtracker-de70e.firebasestorage.app",
             messagingSenderId: "1057987490614",
-            appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
-            measurementId: "G-X31008YT0P"
+            appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -165,33 +181,20 @@
         const OVERTIME = 7 * 60;
 
         const init = async () => {
-            // Force hide loader after 3s even if auth is slow
             setTimeout(() => { if (!isSynced) hideLoader(); }, 3000);
-
             onAuthStateChanged(auth, (user) => {
                 currentUser = user;
                 if (user) {
                     document.getElementById('sync-indicator').className = "w-2 h-2 rounded-full bg-emerald-500";
                     document.getElementById('sync-text').innerText = "Live Cloud Active";
                     setupSync();
-                } else {
-                    document.getElementById('sync-text').innerText = "Offline Mode";
                 }
             });
-
-            try {
-                await signInAnonymously(auth);
-            } catch (e) {
-                console.warn("Offline initialization active.");
-                hideLoader();
-            }
+            try { await signInAnonymously(auth); } catch (e) { hideLoader(); }
         };
 
         function setupSync() {
-            const sPath = collection(db, 'artifacts', appId, 'public', 'data', 'students');
-            const pPath = collection(db, 'artifacts', appId, 'public', 'data', 'active_passes');
-
-            onSnapshot(sPath, (snap) => {
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'students'), (snap) => {
                 students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 if (!currentPeriod && students.length > 0) {
                     currentPeriod = [...new Set(students.map(s => s.period))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}))[0];
@@ -199,12 +202,8 @@
                 isSynced = true;
                 render();
                 hideLoader();
-            }, (err) => {
-                console.error("Firestore Error:", err);
-                hideLoader();
             });
-
-            onSnapshot(pPath, (snap) => {
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'active_passes'), (snap) => {
                 activePasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
             });
@@ -215,62 +214,51 @@
             document.getElementById('app-container').classList.remove('opacity-0');
         };
 
+        window.openModal = (mode, id = null) => {
+            const s = students.find(x => x.id === id);
+            document.getElementById('modal-title').innerText = mode === 'add' ? 'New Student' : 'Edit Student';
+            document.getElementById('m-id').value = id || '';
+            document.getElementById('m-name').value = s ? s.name : '';
+            document.getElementById('m-period').value = s ? s.period : (currentPeriod || '');
+            document.getElementById('m-notify').checked = s ? !!s.notify : false;
+            document.getElementById('modal').classList.remove('hidden');
+        };
+
+        window.closeModal = () => document.getElementById('modal').classList.add('hidden');
+
         window.saveStudent = async () => {
-            const f = document.getElementById('m-first').value.trim();
-            const l = document.getElementById('m-last').value.trim();
-            const p = document.getElementById('m-period').value.trim();
-            if (!f || !l || !p) return;
-
-            const id = `student_${Date.now()}`;
-            const studentData = { name: `${f} ${l}`, period: p, passesUsed: 0, history: [] };
-
+            const name = document.getElementById('m-name').value.trim();
+            const period = document.getElementById('m-period').value.trim();
+            const notify = document.getElementById('m-notify').checked;
+            const existingId = document.getElementById('m-id').value;
+            if (!name || !period) return;
+            const id = existingId || `student_${Date.now()}`;
+            
             if (currentUser) {
-                try {
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), studentData);
-                } catch (e) { console.error(e); }
-            } else {
-                students.push({ id, ...studentData });
-                render();
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'students', id);
+                if (existingId) await updateDoc(docRef, { name, period, notify });
+                else await setDoc(docRef, { name, period, notify, passesUsed: 0, history: [] });
             }
             closeModal();
-            ['m-first', 'm-last', 'm-period'].forEach(id => document.getElementById(id).value = '');
-        };
-
-        window.removeStudent = async (id) => {
-            if (confirm("Permanently delete this student?")) {
-                if (currentUser) {
-                    try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id)); } catch (e) {}
-                } else {
-                    students = students.filter(s => s.id !== id);
-                    render();
-                }
-            }
-        };
-
-        window.adjust = async (id, delta) => {
-            const s = students.find(x => x.id === id);
-            if (!s) return;
-            const newVal = Math.max(0, Math.min(LIMIT, (s.passesUsed || 0) + delta));
-            if (currentUser) {
-                try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), { passesUsed: newVal }); } catch (e) {}
-            } else {
-                s.passesUsed = newVal;
-                render();
-            }
         };
 
         window.startPass = async (id) => {
             const s = students.find(x => x.id === id);
             if (!s) return;
+            
+            // Trigger Email if configured
+            if (s.notify && EMAILJS_PUBLIC_KEY) {
+                emailjs.send("default_service", "template_id_placeholder", {
+                    student_name: s.name,
+                    period: s.period,
+                    time: new Date().toLocaleTimeString()
+                }).catch(e => console.error("Email failed:", e));
+            }
+
             if (currentUser) {
-                try {
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', id), {
-                        studentId: id, name: s.name, start: Date.now()
-                    });
-                } catch (e) {}
-            } else {
-                activePasses.push({ studentId: id, name: s.name, start: Date.now() });
-                render();
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', id), {
+                    studentId: id, name: s.name, start: Date.now()
+                });
             }
         };
 
@@ -282,88 +270,43 @@
             const penalize = dur >= OVERTIME;
             
             if (currentUser) {
-                try {
-                    const batch = writeBatch(db);
-                    batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', id));
-                    batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), {
-                        passesUsed: (s.passesUsed || 0) + (penalize ? 1 : 0),
-                        history: [...(s.history || []), { 
-                            dur, penalize, date: new Date().toLocaleString(), ts: Date.now(), period: s.period 
-                        }]
-                    });
-                    await batch.commit();
-                } catch (e) {}
-            } else {
-                activePasses = activePasses.filter(x => x.studentId !== id);
-                s.passesUsed = (s.passesUsed || 0) + (penalize ? 1 : 0);
-                s.history.push({ dur, penalize, date: new Date().toLocaleString(), ts: Date.now(), period: s.period });
-                render();
+                const batch = writeBatch(db);
+                batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', id));
+                batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), {
+                    passesUsed: (s.passesUsed || 0) + (penalize ? 1 : 0),
+                    history: [...(s.history || []), { dur, penalize, date: new Date().toLocaleString(), ts: Date.now(), period: s.period }]
+                });
+                await batch.commit();
             }
         };
 
-        window.handleCSV = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = async (ev) => {
-                const text = ev.target.result;
-                const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
-                
-                if (lines.length < 2) {
-                    alert("Empty CSV.");
-                    return;
-                }
-
-                const btn = document.getElementById('csv-btn');
-                const originalText = btn.innerText;
-                btn.innerText = "Parsing...";
-
-                try {
-                    const batch = currentUser ? writeBatch(db) : null;
-                    let count = 0;
-
-                    for (let i = 1; i < lines.length; i++) {
-                        const parts = lines[i].split(',').map(x => x.trim().replace(/^["']|["']$/g, ''));
-                        const period = parts[0] || "1";
-                        const first = parts[1];
-                        const last = parts[2];
-                        if (!first || !last) continue;
-
-                        const id = `s_csv_${Date.now()}_${i}`;
-                        const studentData = { name: `${first} ${last}`, period: period, passesUsed: 0, history: [] };
-
-                        if (batch) {
-                            batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), studentData);
-                        } else {
-                            students.push({ id, ...studentData });
-                        }
-                        count++;
-                        if (count >= 495) break; 
-                    }
-
-                    if (count > 0) {
-                        if (batch) {
-                            btn.innerText = "Saving...";
-                            await batch.commit();
-                        }
-                        alert(`Imported ${count} students.`);
-                        if (!currentUser) render();
-                    } else {
-                        alert("Format error. Expected: Period, First Name, Last Name");
-                    }
-                } catch (err) {
-                    console.error(err);
-                    alert("Import failed. Check CSV format.");
-                } finally {
-                    btn.innerText = originalText;
-                    e.target.value = '';
-                }
-            };
-            reader.readAsText(file);
+        window.adjust = async (id, delta) => {
+            const s = students.find(x => x.id === id);
+            if (!s) return;
+            const newVal = Math.max(0, Math.min(LIMIT, (s.passesUsed || 0) + delta));
+            if (currentUser) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), { passesUsed: newVal });
         };
 
-        // UI Core
+        window.removeStudent = async (id) => {
+            if (confirm("Delete student?")) {
+                if (currentUser) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id));
+            }
+        };
+
+        function getUsageClass(val) {
+            if (val >= LIMIT) return 'usage-danger';
+            if (val >= 5) return 'usage-critical';
+            if (val >= 3) return 'usage-warning';
+            return 'usage-safe';
+        }
+
+        function getBarColor(val) {
+            if (val >= LIMIT) return 'bg-red-500';
+            if (val >= 5) return 'bg-orange-500';
+            if (val >= 3) return 'bg-yellow-500';
+            return 'bg-emerald-500';
+        }
+
         function render() {
             document.getElementById('stat-out').innerText = activePasses.length;
             document.getElementById('stat-total').innerText = students.length;
@@ -371,10 +314,10 @@
             const totalUsed = students.reduce((a,b) => a + (b.passesUsed || 0), 0);
             document.getElementById('stat-rem').innerText = Math.max(0, (students.length * LIMIT) - totalUsed);
 
-            // Timers
+            // Active Pass List
             const sec = document.getElementById('timers-section');
             const list = document.getElementById('timers-list');
-            if (activePasses.length === 0) { sec.classList.add('hidden'); }
+            if (activePasses.length === 0) sec.classList.add('hidden');
             else {
                 sec.classList.remove('hidden');
                 list.innerHTML = activePasses.map(p => {
@@ -382,9 +325,9 @@
                     const isOver = elapsed >= OVERTIME;
                     return `
                         <div class="p-4 rounded-xl border flex items-center justify-between ${isOver ? 'overtime border-red-300' : 'bg-white border-slate-200'}">
-                            <div><span class="font-bold text-slate-700 block text-sm">${p.name}</span><span class="text-[10px] text-slate-400 uppercase font-bold tracking-tight">Active Pass</span></div>
+                            <div><span class="font-bold text-slate-700 block text-sm">${p.name}</span><span class="text-[10px] text-slate-400 font-bold uppercase">Active Pass</span></div>
                             <div class="flex items-center gap-4"><span class="font-mono font-bold text-lg ${isOver ? 'text-red-600' : 'text-indigo-600'}">${Math.floor(elapsed/60)}:${(elapsed%60).toString().padStart(2,'0')}</span>
-                            <button onclick="endPass('${p.studentId}')" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm hover:bg-slate-800 transition">RETURN</button></div>
+                            <button onclick="endPass('${p.studentId}')" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm">RETURN</button></div>
                         </div>
                     `;
                 }).join('');
@@ -397,7 +340,8 @@
                     Period ${p}
                 </button>
             `).join('');
-            
+
+            // Student Table
             const filtered = students.filter(s => s.period === currentPeriod);
             document.getElementById('empty-msg').classList.toggle('hidden', filtered.length > 0 || students.length === 0);
             
@@ -412,7 +356,7 @@
                         <td class="px-6 py-4 text-slate-500">P${t.period}</td>
                         <td class="px-6 py-4 text-slate-500">${t.date}</td>
                         <td class="px-6 py-4 font-mono font-bold">${Math.floor(t.dur/60)}m ${t.dur%60}s</td>
-                        <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[9px] font-black uppercase ${t.penalize ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}">${t.penalize ? 'Pass Deducted' : 'Normal Trip'}</span></td>
+                        <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[9px] font-black uppercase ${t.penalize ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}">${t.penalize ? 'Deducted' : 'Normal'}</span></td>
                     </tr>
                 `).join('') || '<tr><td colspan="5" class="p-10 text-center italic text-slate-400">No logs.</td></tr>';
             } else {
@@ -421,19 +365,47 @@
                 document.getElementById('view-toggle').innerText = "View Master Log";
                 document.getElementById('student-list').innerHTML = filtered.map(s => {
                     const isOut = activePasses.some(p => p.studentId === s.id);
+                    const val = s.passesUsed || 0;
                     return `
-                        <tr class="${isOut ? 'bg-indigo-50/30' : ''}">
-                            <td class="px-6 py-4"><div class="flex items-center gap-3"><button onclick="removeStudent('${s.id}')" class="text-slate-300 hover:text-red-400 transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button><span class="font-bold text-slate-700">${s.name}</span></div></td>
-                            <td class="px-6 py-4"><div class="flex items-center gap-3"><div class="flex items-center border rounded-lg overflow-hidden bg-slate-50"><button onclick="adjust('${s.id}', -1)" class="px-2 py-1 hover:bg-slate-200 text-slate-400 font-bold">-</button><span class="px-3 py-1 font-bold text-sm min-w-[2rem] text-center">${s.passesUsed || 0}</span><button onclick="adjust('${s.id}', 1)" class="px-2 py-1 hover:bg-slate-200 text-slate-400 font-bold">+</button></div><div class="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden"><div class="h-full ${s.passesUsed >= LIMIT ? 'bg-red-500' : 'bg-emerald-500'}" style="width: ${Math.min(100, ((s.passesUsed || 0) / LIMIT) * 100)}%"></div></div></div></td>
-                            <td class="px-6 py-4 text-right"><button onclick="startPass('${s.id}')" ${isOut ? 'disabled' : ''} class="px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition shadow-sm ${isOut ? 'bg-slate-100 text-slate-300' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white'}">${isOut ? 'OUT' : 'START PASS'}</button></td>
+                        <tr class="${getUsageClass(val)} ${isOut ? 'ring-2 ring-indigo-400 ring-inset' : ''}">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <button onclick="removeStudent('${s.id}')" class="text-slate-300 hover:text-red-400 transition">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
+                                    <div class="flex flex-col">
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-bold text-slate-700">${s.name}</span>
+                                            <button onclick="openModal('edit', '${s.id}')" class="text-indigo-400 hover:text-indigo-600">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="flex items-center border rounded-lg overflow-hidden bg-white">
+                                        <button onclick="adjust('${s.id}', -1)" class="px-2 py-1 hover:bg-slate-100 font-bold">-</button>
+                                        <span class="px-3 py-1 font-bold text-sm min-w-[2rem] text-center">${val}</span>
+                                        <button onclick="adjust('${s.id}', 1)" class="px-2 py-1 hover:bg-slate-100 font-bold">+</button>
+                                    </div>
+                                    <div class="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                        <div class="h-full transition-all duration-500 ${getBarColor(val)}" style="width: ${Math.min(100, (val / LIMIT) * 100)}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <button onclick="startPass('${s.id}')" ${isOut ? 'disabled' : ''} class="px-4 py-2 rounded-lg text-[10px] font-black transition shadow-sm ${isOut ? 'bg-slate-200 text-slate-400' : 'bg-indigo-600 text-white hover:bg-indigo-700'}">
+                                    ${isOut ? 'OUT' : 'START PASS'}
+                                </button>
+                            </td>
                         </tr>
                     `;
                 }).join('');
             }
         }
 
-        window.openModal = () => document.getElementById('modal').classList.remove('hidden');
-        window.closeModal = () => document.getElementById('modal').classList.add('hidden');
         window.setPeriod = (p) => { currentPeriod = p; render(); };
         window.toggleView = () => { isLogView = !isLogView; render(); };
         setInterval(() => { if (activePasses.length > 0) render(); }, 1000);
