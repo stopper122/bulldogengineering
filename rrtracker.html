@@ -99,7 +99,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
             </div>
             <h3 class="text-xl font-bold text-slate-700">No Roster Uploaded</h3>
-            <p class="text-slate-500 mb-6">Upload a CSV file with "Name", "ID", and "Period" columns.</p>
+            <p class="text-slate-500 mb-6 text-sm">Upload a CSV with: Period, First Name, Last Name, Student ID</p>
             <button onclick="document.getElementById('csv-input').click()" class="bg-slate-800 text-white px-6 py-2 rounded-lg hover:bg-slate-900 transition">Get Started</button>
         </div>
     </div>
@@ -133,34 +133,49 @@
         }
 
         function parseCSV(text) {
-            const lines = text.split(/\r?\n/);
+            const lines = text.split(/\r?\n/).filter(line => line.trim());
             if (lines.length < 2) return;
 
-            const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
-            const nameIdx = headers.indexOf('name');
-            const idIdx = headers.indexOf('id');
+            // Normalize headers to identify columns
+            const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/["']/g, ""));
+            
+            const firstNameIdx = headers.indexOf('first name');
+            const lastNameIdx = headers.indexOf('last name');
+            const idIdx = headers.indexOf('student id');
             const periodIdx = headers.indexOf('period');
 
-            if (nameIdx === -1 || periodIdx === -1) {
-                showToast("Invalid CSV format. Need 'Name' and 'Period' columns.");
+            // Basic validation
+            if (firstNameIdx === -1 || lastNameIdx === -1 || periodIdx === -1) {
+                showToast("CSV error. Please ensure headers are: Period, First Name, Last Name, Student ID");
                 return;
             }
 
             const newStudents = [];
             for (let i = 1; i < lines.length; i++) {
-                if (!lines[i].trim()) continue;
-                const cols = lines[i].split(',');
+                const cols = lines[i].split(',').map(c => c.trim().replace(/["']/g, ""));
+                if (cols.length < 3) continue;
+
+                const first = cols[firstNameIdx] || "";
+                const last = cols[lastNameIdx] || "";
+                const sid = idIdx !== -1 ? cols[idIdx] : `gen-${i}`;
+                const prd = cols[periodIdx] || "Unknown";
+
                 newStudents.push({
-                    name: cols[nameIdx]?.trim(),
-                    id: idIdx !== -1 ? cols[idIdx]?.trim() : i,
-                    period: cols[periodIdx]?.trim(),
+                    name: `${first} ${last}`.trim(),
+                    id: sid,
+                    period: prd,
                     passesUsed: 0,
                     history: []
                 });
             }
 
+            if (newStudents.length === 0) {
+                showToast("No student data found in CSV.");
+                return;
+            }
+
             students = newStudents;
-            const periods = [...new Set(students.map(s => s.period))].sort();
+            const periods = [...new Set(students.map(s => s.period))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
             currentPeriod = periods[0];
             
             updateUI();
@@ -181,7 +196,7 @@
         }
 
         function renderTabs() {
-            const periods = [...new Set(students.map(s => s.period))].sort();
+            const periods = [...new Set(students.map(s => s.period))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
             const container = document.getElementById('period-tabs');
             container.innerHTML = '';
 
@@ -241,6 +256,13 @@
             
             const totalPassesRemaining = (students.length * PASS_LIMIT) - students.reduce((acc, s) => acc + s.passesUsed, 0);
             document.getElementById('stat-passes').innerText = totalPassesRemaining;
+            
+            // Calculate avg duration from history
+            const allHistory = students.flatMap(s => s.history);
+            if (allHistory.length > 0) {
+                const avg = allHistory.reduce((acc, h) => acc + h.duration, 0) / allHistory.length;
+                document.getElementById('stat-avg').innerText = Math.round(avg / 60) + 'm';
+            }
         }
 
         function togglePass(studentId) {
