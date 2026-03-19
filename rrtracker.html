@@ -1,147 +1,388 @@
-import React, { useEffect, useState } from "react";
-import { initializeApp } from "firebase/app";
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  doc,
-  updateDoc,
-  setDoc
-} from "firebase/firestore";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hall Pass Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .timer-badge { font-variant-numeric: tabular-nums; }
+        @keyframes pulse-red {
+            0%, 100% { background-color: #fee2e2; }
+            50% { background-color: #fca5a5; }
+        }
+        .overtime { animation: pulse-red 2s infinite; }
+        .modal-bg { background-color: rgba(0,0,0,0.5); }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-900 font-sans">
 
-// 🔥 REPLACE WITH YOUR FIREBASE CONFIG
-const firebaseConfig = {
-  apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
-  authDomain: "rrtracker-de70e.firebaseapp.com",
-  projectId: "rrtracker-de70e",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-export default function App() {
-  const [students, setStudents] = useState([]);
-  const [period, setPeriod] = useState("1");
-  const [activeSessions, setActiveSessions] = useState({});
-
-  useEffect(() => {
-    loadStudents();
-  }, []);
-
-  async function loadStudents() {
-    const snapshot = await getDocs(collection(db, "students"));
-    const list = snapshot.docs.map(doc => doc.data());
-    setStudents(list);
-  }
-
-  async function handleCSVUpload(e) {
-    const file = e.target.files[0];
-    const text = await file.text();
-    const rows = text.split("\n").slice(1);
-
-    for (let row of rows) {
-      const [period, first, last, id] = row.split(",");
-
-      if (!id) continue;
-
-      await setDoc(doc(db, "students", id), {
-        id,
-        first,
-        last,
-        period,
-        passes: 7
-      });
-    }
-
-    loadStudents();
-  }
-
-  function startPass(student) {
-    setActiveSessions(prev => ({
-      ...prev,
-      [student.id]: new Date()
-    }));
-  }
-
-  async function endPass(student) {
-    const timeOut = activeSessions[student.id];
-    const timeIn = new Date();
-
-    const duration = (timeIn - timeOut) / 60000;
-    const deduct = duration > 7;
-
-    if (deduct) {
-      const ref = doc(db, "students", student.id);
-      await updateDoc(ref, {
-        passes: student.passes - 1
-      });
-    }
-
-    await addDoc(collection(db, "logs"), {
-      studentId: student.id,
-      name: `${student.first} ${student.last}`,
-      period: student.period,
-      timeOut: timeOut.toISOString(),
-      timeIn: timeIn.toISOString(),
-      duration,
-      deducted: deduct
-    });
-
-    setActiveSessions(prev => {
-      const copy = { ...prev };
-      delete copy[student.id];
-      return copy;
-    });
-
-    loadStudents();
-  }
-
-  async function adjustPass(student, delta) {
-    const ref = doc(db, "students", student.id);
-    await updateDoc(ref, {
-      passes: student.passes + delta
-    });
-    loadStudents();
-  }
-
-  const filtered = students.filter(s => s.period === period);
-
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Bathroom Pass Tracker</h1>
-
-      <input type="file" onChange={handleCSVUpload} />
-
-      <div className="my-4">
-        <label>Period: </label>
-        <select value={period} onChange={e => setPeriod(e.target.value)}>
-          {[1,2,3,4,5,6].map(p => (
-            <option key={p} value={String(p)}>Period {p}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="grid gap-2">
-        {filtered.map(student => (
-          <div key={student.id} className="border p-3 rounded flex justify-between items-center">
-            <div>
-              {student.first} {student.last} (Passes: {student.passes})
-            </div>
-
-            <div className="flex gap-2">
-              {!activeSessions[student.id] ? (
-                <button onClick={() => startPass(student)}>Start</button>
-              ) : (
-                <button onClick={() => endPass(student)}>End</button>
-              )}
-
-              <button onClick={() => adjustPass(student, 1)}>+</button>
-              <button onClick={() => adjustPass(student, -1)}>-</button>
-            </div>
-          </div>
-        ))}
-      </div>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+        <p id="loading-status" class="text-slate-600 font-medium">Connecting to Your Secure Storage...</p>
+        <p class="text-xs text-slate-400 mt-2">Initializing rrtracker-de70e...</p>
+        <button id="force-btn" onclick="hideLoader()" class="mt-8 text-indigo-600 font-bold text-sm hover:underline">Launch Tracker Anyway</button>
     </div>
-  );
-}
+
+    <div id="app-container" class="max-w-4xl mx-auto p-4 pb-24 opacity-0 transition-opacity duration-500">
+        <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Hall Pass Tracker</h1>
+                <div class="flex items-center gap-2">
+                    <span id="sync-indicator" class="w-2 h-2 rounded-full bg-slate-300"></span>
+                    <p id="sync-text" class="text-slate-500 text-xs">Offline Mode</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="openModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition shadow-sm text-sm font-bold">+ Add Student</button>
+                <button onclick="document.getElementById('csv-input').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition shadow-sm text-sm font-bold">Upload CSV</button>
+                <input type="file" id="csv-input" accept=".csv" class="hidden" onchange="handleCSV(event)">
+            </div>
+        </header>
+
+        <!-- Stats -->
+        <div id="stats-bar" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Out Now</p>
+                <p id="stat-out" class="text-2xl font-bold text-indigo-600">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Passes Remaining</p>
+                <p id="stat-rem" class="text-2xl font-bold text-emerald-600">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Students</p>
+                <p id="stat-total" class="text-2xl font-bold">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">All-Time Trips</p>
+                <p id="stat-trips" class="text-2xl font-bold">0</p>
+            </div>
+        </div>
+
+        <!-- Active Timers -->
+        <section id="timers-section" class="mb-10 hidden">
+            <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                Active Passes
+            </h2>
+            <div id="timers-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </section>
+
+        <!-- Main Content -->
+        <section id="main-view">
+            <div class="flex items-center justify-between mb-4">
+                <div id="period-tabs" class="flex gap-2 overflow-x-auto pb-2"></div>
+                <button id="view-toggle" onclick="toggleView()" class="text-sm font-bold text-indigo-600 hover:underline">View Master Log</button>
+            </div>
+
+            <div id="list-view" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500">
+                        <tr>
+                            <th class="px-6 py-4">Student</th>
+                            <th class="px-6 py-4">Usage (7 Limit)</th>
+                            <th class="px-6 py-4 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="student-list" class="divide-y divide-slate-100"></tbody>
+                </table>
+                <div id="empty-msg" class="p-20 text-center text-slate-400 hidden">
+                    No students in this period yet. Click "+ Add Student" or upload a CSV.
+                </div>
+            </div>
+
+            <div id="log-view" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500">
+                        <tr>
+                            <th class="px-6 py-4">Student</th>
+                            <th class="px-6 py-4">Period</th>
+                            <th class="px-6 py-4">Date</th>
+                            <th class="px-6 py-4">Duration</th>
+                            <th class="px-6 py-4">Type</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log-list" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- Add Student Modal -->
+    <div id="modal" class="fixed inset-0 z-[110] flex items-center justify-center p-4 hidden modal-bg">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h3 class="text-xl font-bold mb-4">New Student</h3>
+            <div class="space-y-4">
+                <input type="text" id="m-first" placeholder="First Name" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                <input type="text" id="m-last" placeholder="Last Name" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                <input type="text" id="m-period" placeholder="Period (e.g. 1)" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <div class="flex justify-end gap-3 mt-8">
+                <button onclick="closeModal()" class="text-slate-400 font-bold px-4">Cancel</button>
+                <button onclick="saveStudent()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Your specific Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
+            authDomain: "rrtracker-de70e.firebaseapp.com",
+            projectId: "rrtracker-de70e",
+            storageBucket: "rrtracker-de70e.firebasestorage.app",
+            messagingSenderId: "1057987490614",
+            appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
+            measurementId: "G-X31008YT0P"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        // Root path for all data to ensure it stays organized in your project
+        const appId = 'hall-pass-tracker-main';
+
+        // Local State
+        let students = [];
+        let activePasses = [];
+        let currentPeriod = null;
+        let isLogView = false;
+        let isSynced = false;
+        const LIMIT = 7;
+        const OVERTIME = 7 * 60;
+
+        // AUTH & INITIALIZATION
+        const init = async () => {
+            // Safety timeout: if auth takes > 3.5s, let the user in (Offline/Cache mode)
+            setTimeout(() => {
+                if (!isSynced) hideLoader();
+            }, 3500);
+
+            try {
+                // We use anonymous auth for your project so anyone with the URL can access
+                await signInAnonymously(auth);
+            } catch (e) {
+                console.warn("Auth connection issue. The app will work locally.");
+                hideLoader();
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('sync-indicator').className = "w-2 h-2 rounded-full bg-emerald-500";
+                document.getElementById('sync-text').innerText = "Live Cloud Active";
+                setupSync();
+            }
+        });
+
+        function setupSync() {
+            // Path structure: artifacts/{appId}/public/data/{collection}
+            const sPath = collection(db, 'artifacts', appId, 'public', 'data', 'students');
+            const pPath = collection(db, 'artifacts', appId, 'public', 'data', 'active_passes');
+
+            // Listen for student list changes
+            onSnapshot(sPath, (snap) => {
+                students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                if (!currentPeriod && students.length > 0) {
+                    currentPeriod = [...new Set(students.map(s => s.period))].sort()[0];
+                }
+                isSynced = true;
+                render();
+                hideLoader();
+            }, (err) => {
+                console.error("Firestore Permission/Connection Error:", err);
+                hideLoader();
+            });
+
+            // Listen for active pass changes
+            onSnapshot(pPath, (snap) => {
+                activePasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                render();
+            });
+        }
+
+        window.hideLoader = () => {
+            document.getElementById('loading-overlay').classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('app-container').classList.remove('opacity-0');
+        };
+
+        // UI Handlers
+        window.saveStudent = async () => {
+            const f = document.getElementById('m-first').value.trim();
+            const l = document.getElementById('m-last').value.trim();
+            const p = document.getElementById('m-period').value.trim();
+            if (!f || !l || !p) return;
+
+            const id = `student_${Date.now()}`;
+            const studentData = {
+                name: `${f} ${l}`,
+                period: p,
+                passesUsed: 0,
+                history: []
+            };
+
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), studentData);
+            } catch (e) {
+                students.push({ id, ...studentData });
+                render();
+            }
+            closeModal();
+            document.getElementById('m-first').value = '';
+            document.getElementById('m-last').value = '';
+        };
+
+        window.removeStudent = async (id) => {
+            if (confirm("Permanently delete this student and their history?")) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id));
+                } catch (e) {
+                    students = students.filter(s => s.id !== id);
+                    render();
+                }
+            }
+        };
+
+        window.adjust = async (id, delta) => {
+            const s = students.find(x => x.id === id);
+            const newVal = Math.max(0, Math.min(LIMIT, (s.passesUsed || 0) + delta));
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), { passesUsed: newVal });
+            } catch (e) {
+                s.passesUsed = newVal;
+                render();
+            }
+        };
+
+        window.startPass = async (id) => {
+            const s = students.find(x => x.id === id);
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', id), {
+                    studentId: id,
+                    name: s.name,
+                    start: Date.now()
+                });
+            } catch (e) {
+                activePasses.push({ studentId: id, name: s.name, start: Date.now() });
+                render();
+            }
+        };
+
+        window.endPass = async (id) => {
+            const p = activePasses.find(x => x.studentId === id);
+            const s = students.find(x => x.id === id);
+            if (!p || !s) return;
+
+            const dur = Math.floor((Date.now() - p.start) / 1000);
+            const penalize = dur >= OVERTIME;
+            
+            try {
+                const batch = writeBatch(db);
+                batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', id));
+                batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), {
+                    passesUsed: (s.passesUsed || 0) + (penalize ? 1 : 0),
+                    history: [...(s.history || []), { 
+                        dur, penalize, date: new Date().toLocaleString(), ts: Date.now(), period: s.period 
+                    }]
+                });
+                await batch.commit();
+            } catch (e) {
+                activePasses = activePasses.filter(x => x.studentId !== id);
+                s.passesUsed = (s.passesUsed || 0) + (penalize ? 1 : 0);
+                s.history.push({ dur, penalize, date: new Date().toLocaleString(), ts: Date.now(), period: s.period });
+                render();
+            }
+        };
+
+        window.handleCSV = async (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                const lines = ev.target.result.split('\n').filter(l => l.trim());
+                try {
+                    const batch = writeBatch(db);
+                    lines.slice(1).forEach((line, i) => {
+                        const parts = line.split(',').map(x => x.trim().replace(/['"]/g, ''));
+                        const p = parts[0], f = parts[1], l = parts[2];
+                        if (!f || !l) return;
+                        const id = `s_csv_${Date.now()}_${i}`;
+                        batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), {
+                            name: `${f} ${l}`, period: p || "1", passesUsed: 0, history: []
+                        });
+                    });
+                    await batch.commit();
+                } catch (e) {
+                    alert("Bulk upload failed. Ensure Firestore rules are enabled.");
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        // Render functions
+        function render() {
+            renderStats();
+            renderTimers();
+            renderTabs();
+            
+            const filtered = students.filter(s => s.period === currentPeriod);
+            document.getElementById('empty-msg').classList.toggle('hidden', filtered.length > 0 || students.length === 0);
+            
+            if (isLogView) {
+                document.getElementById('list-view').classList.add('hidden');
+                document.getElementById('log-view').classList.remove('hidden');
+                document.getElementById('view-toggle').innerText = "Back to List";
+                renderLog();
+            } else {
+                document.getElementById('list-view').classList.remove('hidden');
+                document.getElementById('log-view').classList.add('hidden');
+                document.getElementById('view-toggle').innerText = "View Master Log";
+                renderList(filtered);
+            }
+        }
+
+        function renderStats() {
+            document.getElementById('stat-out').innerText = activePasses.length;
+            document.getElementById('stat-total').innerText = students.length;
+            document.getElementById('stat-trips').innerText = students.reduce((a,b) => a + (b.history?.length || 0), 0);
+            const totalUsed = students.reduce((a,b) => a + (b.passesUsed || 0), 0);
+            document.getElementById('stat-rem').innerText = Math.max(0, (students.length * LIMIT) - totalUsed);
+        }
+
+        function renderTimers() {
+            const sec = document.getElementById('timers-section');
+            const list = document.getElementById('timers-list');
+            if (activePasses.length === 0) { sec.classList.add('hidden'); return; }
+            sec.classList.remove('hidden');
+            
+            list.innerHTML = activePasses.map(p => {
+                const elapsed = Math.floor((Date.now() - p.start) / 1000);
+                const isOver = elapsed >= OVERTIME;
+                return `
+                    <div class="p-4 rounded-xl border flex items-center justify-between ${isOver ? 'overtime border-red-300' : 'bg-white border-slate-200'}">
+                        <div>
+                            <span class="font-bold text-slate-700 block">${p.name}</span>
+                            <span class="text-[10px] text-slate-400 uppercase font-bold">In Progress</span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="font-mono font-bold text-lg ${isOver ? 'text-red-600' : 'text-indigo-600'}">
+                                ${Math.floor(elapsed/60)}:${(elapsed%60).toString().padStart(2,'0')}
+                            </span>
+                            <button onclick="endPass('${p.studentId}')" class="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">RETURN</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderTabs() {
+            const pds = [...new Set(students.map(s => s.period))].sort();
+            const container = document.getElementById('period-tabs');
+            if (pds.length === 0) { container.innerHTML = ''; return; }
+            container.innerHTML =
