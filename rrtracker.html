@@ -172,18 +172,33 @@
 
         async function init() {
             try {
-                // Parse globals
+                // Use system-provided config to avoid configuration-not-found errors
                 const firebaseConfig = JSON.parse(__firebase_config);
                 appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-system-v4';
                 
-                // Initialize
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
 
+                updateSyncIndicator('connecting');
                 render(); 
 
-                // Auth state observer
+                // Authentication Protocol
+                const performAuth = async () => {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        try {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } catch (e) {
+                            console.warn("Custom token failed, falling back to anonymous:", e);
+                            await signInAnonymously(auth);
+                        }
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                };
+
+                await performAuth();
+
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         state.user = user;
@@ -195,15 +210,8 @@
                     }
                 });
 
-                // Authenticate
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
             } catch (e) {
-                console.error("Initialization failed:", e);
+                console.error("Critical connection failure:", e);
                 updateSyncIndicator('error');
             }
         }
@@ -217,7 +225,7 @@
                 txt.className = "text-emerald-600 text-[10px] font-bold uppercase tracking-wider";
             } else if (mode === 'error') {
                 ind.className = "w-2 h-2 rounded-full bg-red-500";
-                txt.innerText = "Connection Error";
+                txt.innerText = "Connection Error - check project settings";
                 txt.className = "text-red-600 text-[10px] font-bold uppercase tracking-wider";
             } else {
                 ind.className = "w-2 h-2 rounded-full bg-amber-500 animate-pulse";
@@ -229,16 +237,19 @@
         function setupSubscriptions() {
             if (!state.user) return;
 
-            // Students listener
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'students'), (snap) => {
+            // Mandatory Path Structure
+            const studentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'students');
+            const passesCol = collection(db, 'artifacts', appId, 'public', 'data', 'active_passes');
+
+            onSnapshot(studentsCol, (snap) => {
                 state.students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
             }, (err) => {
                 console.error("Student sync error:", err);
+                if (err.code === 'permission-denied') updateSyncIndicator('error');
             });
 
-            // Passes listener
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'active_passes'), (snap) => {
+            onSnapshot(passesCol, (snap) => {
                 state.activePasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
             }, (err) => {
@@ -248,7 +259,10 @@
 
         // CSV HANDLING
         window.handleCSV = (event) => {
-            if (!state.user) { showToast("Wait for connection..."); return; }
+            if (!state.user) { 
+                showToast("Still connecting to cloud..."); 
+                return; 
+            }
             const file = event.target.files[0];
             if (!file) return;
 
