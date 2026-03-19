@@ -143,13 +143,10 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // GLOBAL CONFIG FROM ENVIRONMENT
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-system-v4';
+        // APP CONFIG
         const LIMIT = 7;
         const OVERTIME = 7 * 60; 
         
-        // APP STATE
         let state = {
             students: [],
             activePasses: [],
@@ -164,43 +161,50 @@
         const periodTabs = document.getElementById('period-tabs');
         const toast = document.getElementById('toast');
 
-        // INITIALIZE FIREBASE
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        // FIREBASE INSTANCES
+        let app, auth, db, appId;
 
-        // UI NOTIFICATIONS
         function showToast(msg) {
             toast.innerText = msg;
             toast.classList.remove('translate-y-20', 'opacity-0');
             setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
         }
 
-        // DATABASE SYNC
         async function init() {
-            render(); 
-
-            // Auth State Listener
-            onAuthStateChanged(auth, (user) => {
-                state.user = user;
-                if (user) {
-                    updateSyncIndicator('online');
-                    setupSubscriptions();
-                } else {
-                    updateSyncIndicator('offline');
-                }
-            });
-
-            // Authentication Flow (Mandatory RULE 3)
             try {
+                // Parse globals
+                const firebaseConfig = JSON.parse(__firebase_config);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-system-v4';
+                
+                // Initialize
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                render(); 
+
+                // Auth state observer
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        state.user = user;
+                        updateSyncIndicator('online');
+                        setupSubscriptions();
+                    } else {
+                        state.user = null;
+                        updateSyncIndicator('offline');
+                    }
+                });
+
+                // Authenticate
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
+
             } catch (e) {
-                console.error("Auth failed", e);
-                updateSyncIndicator('offline');
+                console.error("Initialization failed:", e);
+                updateSyncIndicator('error');
             }
         }
 
@@ -211,6 +215,10 @@
                 ind.className = "w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]";
                 txt.innerText = "Cloud Sync Active";
                 txt.className = "text-emerald-600 text-[10px] font-bold uppercase tracking-wider";
+            } else if (mode === 'error') {
+                ind.className = "w-2 h-2 rounded-full bg-red-500";
+                txt.innerText = "Connection Error";
+                txt.className = "text-red-600 text-[10px] font-bold uppercase tracking-wider";
             } else {
                 ind.className = "w-2 h-2 rounded-full bg-amber-500 animate-pulse";
                 txt.innerText = "Connecting...";
@@ -221,21 +229,20 @@
         function setupSubscriptions() {
             if (!state.user) return;
 
-            // Watch Students
+            // Students listener
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'students'), (snap) => {
                 state.students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
             }, (err) => {
-                console.error("Student sync error", err);
-                showToast("Error syncing students");
+                console.error("Student sync error:", err);
             });
 
-            // Watch Active Passes
+            // Passes listener
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'active_passes'), (snap) => {
                 state.activePasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
             }, (err) => {
-                console.error("Passes sync error", err);
+                console.error("Passes sync error:", err);
             });
         }
 
@@ -283,7 +290,6 @@
                     if (count > 0) {
                         await batch.commit();
                         showToast(`Successfully added ${count} students`);
-                        if (count > 0) state.currentPeriod = periods[0] || "1";
                     }
                 } catch (err) {
                     showToast("Error processing CSV");
