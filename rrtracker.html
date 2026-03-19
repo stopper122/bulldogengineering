@@ -18,11 +18,20 @@
 <body class="bg-slate-50 min-h-screen text-slate-900 font-sans">
 
     <!-- Loading Overlay -->
-    <div id="loading-overlay" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
-        <p id="loading-status" class="text-slate-600 font-medium">Connecting to Your Secure Storage...</p>
-        <p class="text-xs text-slate-400 mt-2">Initializing rrtracker-de70e...</p>
-        <button id="force-btn" onclick="hideLoader()" class="mt-8 text-indigo-600 font-bold text-sm hover:underline">Launch Tracker Anyway</button>
+    <div id="loading-overlay" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500 text-center px-6">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-6"></div>
+        <h2 id="loading-status" class="text-xl font-bold text-slate-800 mb-2">Connecting to Your Secure Storage...</h2>
+        <p class="text-sm text-slate-500 mb-8">Initializing rrtracker-de70e...</p>
+        
+        <div class="max-w-xs w-full bg-slate-50 border border-slate-200 rounded-xl p-4 mb-8">
+            <p class="text-xs text-slate-400 leading-relaxed">
+                If this takes more than a few seconds, your network might be blocking the connection. You can still use the app in offline mode.
+            </p>
+        </div>
+
+        <button id="force-btn" onclick="hideLoader()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl shadow-lg shadow-indigo-200 transition-all font-bold">
+            Launch Tracker Anyway
+        </button>
     </div>
 
     <div id="app-container" class="max-w-4xl mx-auto p-4 pb-24 opacity-0 transition-opacity duration-500">
@@ -385,4 +394,76 @@
             const pds = [...new Set(students.map(s => s.period))].sort();
             const container = document.getElementById('period-tabs');
             if (pds.length === 0) { container.innerHTML = ''; return; }
-            container.innerHTML =
+            container.innerHTML = pds.map(p => `
+                <button onclick="setPeriod('${p}')" class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold border transition ${currentPeriod === p ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200'}">
+                    Period ${p}
+                </button>
+            `).join('');
+        }
+
+        function renderList(filtered) {
+            const list = document.getElementById('student-list');
+            list.innerHTML = filtered.map(s => {
+                const isOut = activePasses.some(p => p.studentId === s.id);
+                const pct = ((s.passesUsed || 0) / LIMIT) * 100;
+                return `
+                    <tr class="${isOut ? 'bg-indigo-50/30' : ''} transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <button onclick="removeStudent('${s.id}')" class="text-slate-300 hover:text-red-400 transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                                <span class="font-bold text-slate-700">${s.name}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="flex items-center border rounded-lg overflow-hidden bg-slate-50">
+                                    <button onclick="adjust('${s.id}', -1)" class="px-2 py-1 hover:bg-slate-200 text-slate-400 font-bold">-</button>
+                                    <span class="px-3 py-1 font-bold text-sm min-w-[2rem] text-center">${s.passesUsed || 0}</span>
+                                    <button onclick="adjust('${s.id}', 1)" class="px-2 py-1 hover:bg-slate-200 text-slate-400 font-bold">+</button>
+                                </div>
+                                <div class="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div class="h-full ${s.passesUsed >= LIMIT ? 'bg-red-500' : 'bg-emerald-500'}" style="width: ${Math.min(100, pct)}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <button onclick="startPass('${s.id}')" ${isOut ? 'disabled' : ''} class="px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition shadow-sm ${isOut ? 'bg-slate-100 text-slate-300' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white'}">
+                                ${isOut ? 'OUT' : 'START PASS'}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderLog() {
+            const list = document.getElementById('log-list');
+            const all = students.flatMap(s => (s.history || []).map(h => ({...h, name: s.name})))
+                                .sort((a,b) => b.ts - a.ts);
+            list.innerHTML = all.map(t => `
+                <tr class="text-xs">
+                    <td class="px-6 py-4 font-bold text-slate-700">${t.name}</td>
+                    <td class="px-6 py-4 text-slate-500">P${t.period}</td>
+                    <td class="px-6 py-4 text-slate-500">${t.date}</td>
+                    <td class="px-6 py-4 font-mono font-bold">${Math.floor(t.dur/60)}m ${t.dur%60}s</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase ${t.penalize ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}">
+                            ${t.penalize ? 'Pass Deducted' : 'Normal Trip'}
+                        </span>
+                    </td>
+                </tr>
+            `).join('') || '<tr><td colspan="5" class="p-10 text-center italic text-slate-400">No trips logged yet.</td></tr>';
+        }
+
+        window.openModal = () => document.getElementById('modal').classList.remove('hidden');
+        window.closeModal = () => document.getElementById('modal').classList.add('hidden');
+        window.setPeriod = (p) => { currentPeriod = p; render(); };
+        window.toggleView = () => { isLogView = !isLogView; render(); };
+
+        setInterval(() => { if (activePasses.length > 0) renderTimers(); }, 1000);
+        init();
+    </script>
+</body>
+</html>
