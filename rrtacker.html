@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hall Pass & Restroom Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .timer-badge {
+            font-variant-numeric: tabular-nums;
+        }
+        @keyframes pulse-red {
+            0%, 100% { background-color: #fee2e2; }
+            50% { background-color: #fca5a5; }
+        }
+        .overtime {
+            animation: pulse-red 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-900 font-sans">
+
+    <div id="app" class="max-w-4xl mx-auto p-4 pb-24">
+        <!-- Header -->
+        <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800">Hall Pass Tracker</h1>
+                <p class="text-slate-500">Manage restroom breaks and student passes.</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="document.getElementById('csv-input').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition shadow-sm flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Upload Roster
+                </button>
+                <input type="file" id="csv-input" accept=".csv" class="hidden" onchange="handleCSV(event)">
+            </div>
+        </header>
+
+        <!-- Stats Overview -->
+        <div id="stats-bar" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 hidden">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs font-semibold text-slate-400 uppercase">Total Students</p>
+                <p id="stat-total" class="text-2xl font-bold">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs font-semibold text-slate-400 uppercase">Out Now</p>
+                <p id="stat-out" class="text-2xl font-bold text-indigo-600">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs font-semibold text-slate-400 uppercase">Avg. Duration</p>
+                <p id="stat-avg" class="text-2xl font-bold">0m</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs font-semibold text-slate-400 uppercase">Passes Remaining</p>
+                <p id="stat-passes" class="text-2xl font-bold text-green-600">--</p>
+            </div>
+        </div>
+
+        <!-- Active Timers Section -->
+        <section id="active-timers-section" class="mb-10 hidden">
+            <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <span class="relative flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                </span>
+                Active Hall Passes
+            </h2>
+            <div id="active-timers-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Active timers injected here -->
+            </div>
+        </section>
+
+        <!-- Period Selector -->
+        <section id="main-content" class="hidden">
+            <div class="flex items-center gap-4 mb-6 overflow-x-auto pb-2" id="period-tabs">
+                <!-- Tabs injected here -->
+            </div>
+
+            <!-- Student List -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-bottom border-slate-200 text-slate-500 text-sm uppercase">
+                        <tr>
+                            <th class="px-6 py-3 font-semibold">Student Name</th>
+                            <th class="px-6 py-3 font-semibold">Passes Used</th>
+                            <th class="px-6 py-3 font-semibold text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="student-list" class="divide-y divide-slate-100">
+                        <!-- Student rows injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-300">
+            <div class="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-slate-700">No Roster Uploaded</h3>
+            <p class="text-slate-500 mb-6">Upload a CSV file with "Name", "ID", and "Period" columns.</p>
+            <button onclick="document.getElementById('csv-input').click()" class="bg-slate-800 text-white px-6 py-2 rounded-lg hover:bg-slate-900 transition">Get Started</button>
+        </div>
+    </div>
+
+    <!-- Notification Overlay -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl transition-all opacity-0 translate-y-10 pointer-events-none z-50">
+        Student checked in after 7m. Pass deducted.
+    </div>
+
+    <script>
+        // State Management
+        let students = [];
+        let activePasses = [];
+        let currentPeriod = null;
+        const PASS_LIMIT = 7;
+        const OVERTIME_THRESHOLD = 7 * 60; // 7 minutes in seconds
+
+        // Timer Interval
+        setInterval(updateActiveTimers, 1000);
+
+        function handleCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                parseCSV(text);
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSV(text) {
+            const lines = text.split(/\r?\n/);
+            if (lines.length < 2) return;
+
+            const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+            const nameIdx = headers.indexOf('name');
+            const idIdx = headers.indexOf('id');
+            const periodIdx = headers.indexOf('period');
+
+            if (nameIdx === -1 || periodIdx === -1) {
+                showToast("Invalid CSV format. Need 'Name' and 'Period' columns.");
+                return;
+            }
+
+            const newStudents = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const cols = lines[i].split(',');
+                newStudents.push({
+                    name: cols[nameIdx]?.trim(),
+                    id: idIdx !== -1 ? cols[idIdx]?.trim() : i,
+                    period: cols[periodIdx]?.trim(),
+                    passesUsed: 0,
+                    history: []
+                });
+            }
+
+            students = newStudents;
+            const periods = [...new Set(students.map(s => s.period))].sort();
+            currentPeriod = periods[0];
+            
+            updateUI();
+        }
+
+        function updateUI() {
+            if (students.length === 0) return;
+
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+            document.getElementById('stats-bar').classList.remove('flex', 'hidden');
+            document.getElementById('stats-bar').classList.add('grid');
+
+            renderTabs();
+            renderStudentList();
+            renderStats();
+            renderActiveTimers();
+        }
+
+        function renderTabs() {
+            const periods = [...new Set(students.map(s => s.period))].sort();
+            const container = document.getElementById('period-tabs');
+            container.innerHTML = '';
+
+            periods.forEach(p => {
+                const btn = document.createElement('button');
+                btn.innerText = `Period ${p}`;
+                btn.className = `px-4 py-2 rounded-full whitespace-nowrap font-medium transition ${currentPeriod === p ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`;
+                btn.onclick = () => {
+                    currentPeriod = p;
+                    updateUI();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function renderStudentList() {
+            const list = document.getElementById('student-list');
+            list.innerHTML = '';
+
+            const periodStudents = students.filter(s => s.period === currentPeriod);
+            
+            periodStudents.forEach(s => {
+                const isOut = activePasses.some(ap => ap.studentId === s.id);
+                const tr = document.createElement('tr');
+                tr.className = isOut ? 'bg-indigo-50/50 opacity-60' : '';
+                
+                tr.innerHTML = `
+                    <td class="px-6 py-4">
+                        <div class="font-bold text-slate-800">${s.name}</div>
+                        <div class="text-xs text-slate-400">ID: ${s.id}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-1">
+                            ${Array.from({length: PASS_LIMIT}).map((_, i) => `
+                                <div class="h-2 w-4 rounded-full ${i < s.passesUsed ? 'bg-red-400' : 'bg-slate-200'}"></div>
+                            `).join('')}
+                            <span class="ml-2 text-sm text-slate-500 font-medium">${s.passesUsed}/${PASS_LIMIT}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <button 
+                            onclick="togglePass('${s.id}')" 
+                            disabled="${isOut}"
+                            class="px-4 py-2 rounded-lg text-sm font-semibold transition ${isOut ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white'}"
+                        >
+                            Start Pass
+                        </button>
+                    </td>
+                `;
+                list.appendChild(tr);
+            });
+        }
+
+        function renderStats() {
+            document.getElementById('stat-total').innerText = students.length;
+            document.getElementById('stat-out').innerText = activePasses.length;
+            
+            const totalPassesRemaining = (students.length * PASS_LIMIT) - students.reduce((acc, s) => acc + s.passesUsed, 0);
+            document.getElementById('stat-passes').innerText = totalPassesRemaining;
+        }
+
+        function togglePass(studentId) {
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+
+            const existingIndex = activePasses.findIndex(ap => ap.studentId === studentId);
+            
+            if (existingIndex === -1) {
+                // Check out
+                activePasses.push({
+                    studentId: studentId,
+                    studentName: student.name,
+                    startTime: Date.now()
+                });
+            }
+            
+            updateUI();
+        }
+
+        function endPass(studentId) {
+            const index = activePasses.findIndex(ap => ap.studentId === studentId);
+            if (index === -1) return;
+
+            const pass = activePasses[index];
+            const durationSeconds = Math.floor((Date.now() - pass.startTime) / 1000);
+            const student = students.find(s => s.id === studentId);
+
+            if (durationSeconds >= OVERTIME_THRESHOLD) {
+                student.passesUsed += 1;
+                showToast(`Pass deducted for ${student.name} (>7m)`);
+            }
+
+            student.history.push({
+                date: new Date().toLocaleDateString(),
+                duration: durationSeconds,
+                deducted: durationSeconds >= OVERTIME_THRESHOLD
+            });
+
+            activePasses.splice(index, 1);
+            updateUI();
+        }
+
+        function updateActiveTimers() {
+            if (activePasses.length === 0) {
+                document.getElementById('active-timers-section').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('active-timers-section').classList.remove('hidden');
+            renderActiveTimers();
+        }
+
+        function renderActiveTimers() {
+            const container = document.getElementById('active-timers-list');
+            container.innerHTML = '';
+
+            activePasses.forEach(pass => {
+                const elapsed = Math.floor((Date.now() - pass.startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                const isOvertime = elapsed >= OVERTIME_THRESHOLD;
+
+                const div = document.createElement('div');
+                div.className = `p-4 rounded-xl border flex items-center justify-between transition ${isOvertime ? 'overtime border-red-300' : 'bg-white border-slate-200'}`;
+                
+                div.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center font-bold">
+                            ${pass.studentName.charAt(0)}
+                        </div>
+                        <div>
+                            <p class="font-bold text-slate-800">${pass.studentName}</p>
+                            <p class="text-xs ${isOvertime ? 'text-red-600 font-bold' : 'text-slate-500'}">
+                                ${isOvertime ? 'Deduction active' : 'Returning soon...'}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="timer-badge text-xl font-mono font-bold ${isOvertime ? 'text-red-600' : 'text-slate-700'}">
+                            ${minutes}:${seconds.toString().padStart(2, '0')}
+                        </div>
+                        <button onclick="endPass('${pass.studentId}')" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-900 shadow-sm">
+                            Check In
+                        </button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.classList.remove('opacity-0', 'translate-y-10');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-10');
+                toast.classList.remove('opacity-100', 'translate-y-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
