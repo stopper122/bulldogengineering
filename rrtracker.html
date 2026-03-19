@@ -6,48 +6,39 @@
     <title>Hall Pass & Restroom Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .timer-badge {
-            font-variant-numeric: tabular-nums;
-        }
+        .timer-badge { font-variant-numeric: tabular-nums; }
         @keyframes pulse-red {
             0%, 100% { background-color: #fee2e2; }
             50% { background-color: #fca5a5; }
         }
-        .overtime {
-            animation: pulse-red 2s infinite;
-        }
-        .modal-bg {
-            background-color: rgba(0,0,0,0.5);
-        }
+        .overtime { animation: pulse-red 2s infinite; }
+        .modal-bg { background-color: rgba(0,0,0,0.5); }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-900 font-sans">
 
     <div id="app" class="max-w-4xl mx-auto p-4 pb-24">
-        <!-- Header -->
         <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-bold text-slate-800">Hall Pass Tracker</h1>
-                <p class="text-slate-500">Manage restroom breaks and student passes.</p>
+                <p class="text-slate-500">Cloud-synced student management.</p>
             </div>
             <div class="flex gap-2">
-                <button onclick="openAddStudentModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition shadow-sm flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <button onclick="openAddStudentModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition shadow-sm flex items-center gap-2 text-sm">
                     Add Student
                 </button>
-                <button onclick="document.getElementById('csv-input').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition shadow-sm flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <button onclick="document.getElementById('csv-input').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition shadow-sm text-sm">
                     Upload Roster
                 </button>
                 <input type="file" id="csv-input" accept=".csv" class="hidden" onchange="handleCSV(event)">
             </div>
         </header>
 
-        <!-- Connection Status -->
-        <div id="loading-overlay" class="fixed inset-0 bg-white z-[60] flex items-center justify-center">
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="fixed inset-0 bg-white z-[60] flex items-center justify-center transition-opacity duration-500">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                <p class="text-slate-600 font-medium">Connecting to secure storage...</p>
+                <p id="loading-text" class="text-slate-600 font-medium">Connecting to secure storage...</p>
             </div>
         </div>
 
@@ -80,500 +71,357 @@
                 </span>
                 Active Hall Passes
             </h2>
-            <div id="active-timers-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Active timers injected here -->
-            </div>
+            <div id="active-timers-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
         </section>
 
-        <!-- View Toggle (Period Selector & History Toggle) -->
+        <!-- Main Workspace -->
         <section id="main-content" class="hidden">
             <div class="flex flex-col md:flex-row items-start md:items-center gap-4 mb-6">
-                <div class="flex items-center gap-2 overflow-x-auto pb-2 flex-grow" id="period-tabs">
-                    <!-- Tabs injected here -->
-                </div>
-                <button id="view-log-btn" onclick="toggleView('log')" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 transition">
+                <div class="flex items-center gap-2 overflow-x-auto pb-2 flex-grow" id="period-tabs"></div>
+                <button id="view-log-btn" onclick="toggleView('log')" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 transition text-sm">
                     View Master Log
                 </button>
             </div>
 
-            <!-- Student List View -->
             <div id="student-list-container" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <table class="w-full text-left">
-                    <thead class="bg-slate-50 border-bottom border-slate-200 text-slate-500 text-sm uppercase">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase">
                         <tr>
                             <th class="px-6 py-3 font-semibold">Student Name</th>
-                            <th class="px-6 py-3 font-semibold">Passes Used</th>
+                            <th class="px-6 py-3 font-semibold">Passes Used (7 Max)</th>
                             <th class="px-6 py-3 font-semibold text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="student-list" class="divide-y divide-slate-100">
-                        <!-- Student rows injected here -->
-                    </tbody>
+                    <tbody id="student-list" class="divide-y divide-slate-100"></tbody>
                 </table>
             </div>
 
-            <!-- Master Log View -->
             <div id="master-log-container" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-100 flex justify-between items-center">
-                    <h3 class="font-bold text-lg">Master Restroom Log</h3>
-                    <button onclick="toggleView('list')" class="text-indigo-600 font-medium hover:underline">Back to List</button>
+                    <h3 class="font-bold text-lg text-slate-800">Master Restroom Log</h3>
+                    <button onclick="toggleView('list')" class="text-indigo-600 font-medium hover:underline text-sm">Back to List</button>
                 </div>
-                <table class="w-full text-left">
-                    <thead class="bg-slate-50 text-slate-500 text-sm uppercase">
-                        <tr>
-                            <th class="px-6 py-3 font-semibold">Student</th>
-                            <th class="px-6 py-3 font-semibold">Period</th>
-                            <th class="px-6 py-3 font-semibold">Date/Time</th>
-                            <th class="px-6 py-3 font-semibold">Duration</th>
-                            <th class="px-6 py-3 font-semibold">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="master-log-list" class="divide-y divide-slate-100">
-                        <!-- Log entries injected here -->
-                    </tbody>
-                </table>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+                            <tr>
+                                <th class="px-6 py-3 font-semibold">Student</th>
+                                <th class="px-6 py-3 font-semibold">Period</th>
+                                <th class="px-6 py-3 font-semibold">Date/Time</th>
+                                <th class="px-6 py-3 font-semibold">Duration</th>
+                                <th class="px-6 py-3 font-semibold">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="master-log-list" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
         <!-- Empty State -->
-        <div id="empty-state" class="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-300">
-            <div class="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-            </div>
+        <div id="empty-state" class="hidden text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-300">
             <h3 class="text-xl font-bold text-slate-700">No Roster Found</h3>
-            <p class="text-slate-500 mb-6 text-sm">Upload a CSV or add your first student manually.</p>
-            <div class="flex justify-center gap-3">
-                <button onclick="openAddStudentModal()" class="bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition">Add Student</button>
-                <button onclick="document.getElementById('csv-input').click()" class="bg-slate-800 text-white px-6 py-2 rounded-lg hover:bg-slate-900 transition">Upload CSV</button>
-            </div>
+            <p class="text-slate-500 mb-6 text-sm">Ready to start? Add your first student.</p>
+            <button onclick="openAddStudentModal()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition">Add Student Manually</button>
         </div>
     </div>
 
     <!-- Modals -->
     <div id="modal-container" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden modal-bg">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h3 id="modal-title" class="text-xl font-bold mb-4">Add Student</h3>
+            <h3 class="text-xl font-bold mb-4">Add Student</h3>
             <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">First Name</label>
-                    <input type="text" id="m-first" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
-                    <input type="text" id="m-last" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Student ID</label>
-                    <input type="text" id="m-id" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Period</label>
-                    <input type="text" id="m-period" placeholder="e.g. 1" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                </div>
+                <input type="text" id="m-first" placeholder="First Name" class="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="m-last" placeholder="Last Name" class="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="m-period" placeholder="Period (e.g. 1)" class="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div class="flex justify-end gap-3 mt-8">
                 <button onclick="closeModal()" class="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">Cancel</button>
-                <button onclick="saveStudent()" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save Student</button>
+                <button onclick="saveStudent()" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save</button>
             </div>
         </div>
     </div>
 
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl transition-all opacity-0 translate-y-10 pointer-events-none z-50 text-center">
-        Action successful
-    </div>
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl transition-all opacity-0 translate-y-10 pointer-events-none z-50"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global State & Config
+        // Firebase Config
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-tracker-v1';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-v2';
 
         let students = [];
         let activePasses = [];
         let currentPeriod = null;
         let viewMode = 'list';
         const PASS_LIMIT = 7;
-        const OVERTIME_THRESHOLD = 7 * 60; // 7 minutes in seconds
+        const OVERTIME_THRESHOLD = 7 * 60;
 
-        // UI Accessors
-        window.openAddStudentModal = () => {
-            document.getElementById('modal-container').classList.remove('hidden');
-            if (currentPeriod) document.getElementById('m-period').value = currentPeriod;
-        };
-        window.closeModal = () => {
-            document.getElementById('modal-container').classList.add('hidden');
-            document.querySelectorAll('#modal-container input').forEach(i => i.value = '');
-        };
-        window.toggleView = (mode) => {
-            viewMode = mode;
-            updateUI();
-        };
+        // Initialize App
+        const init = async () => {
+            // Safety timeout for loading screen
+            setTimeout(() => {
+                const loader = document.getElementById('loading-overlay');
+                if (loader) loader.classList.add('opacity-0', 'pointer-events-none');
+            }, 4000);
 
-        // Firebase Auth Init
-        const initAuth = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
-            } catch (error) {
-                console.error("Auth error:", error);
-                showToast("Connection error. Try refreshing.");
+            } catch (e) {
+                console.error("Auth failed", e);
+                hideLoader();
             }
         };
 
         onAuthStateChanged(auth, (user) => {
-            if (user) {
-                setupListeners();
-            }
+            if (user) setupDataSync();
         });
 
-        // Firestore Listeners
-        function setupListeners() {
+        function setupDataSync() {
             const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
             const passesRef = collection(db, 'artifacts', appId, 'public', 'data', 'active_passes');
 
-            // Listen for students
-            onSnapshot(studentsRef, (snapshot) => {
-                students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            onSnapshot(studentsRef, (snap) => {
+                students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 refreshState();
-                document.getElementById('loading-overlay').classList.add('hidden');
-            }, (err) => console.error("Students sync error:", err));
+                hideLoader();
+            }, (err) => { console.error(err); hideLoader(); });
 
-            // Listen for active passes
-            onSnapshot(passesRef, (snapshot) => {
-                activePasses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            onSnapshot(passesRef, (snap) => {
+                activePasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 updateUI();
-            }, (err) => console.error("Passes sync error:", err));
+            });
         }
 
-        // Data Persistence Logic
+        function hideLoader() {
+            const loader = document.getElementById('loading-overlay');
+            if (loader) loader.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        // Global Actions
         window.saveStudent = async () => {
             const first = document.getElementById('m-first').value.trim();
             const last = document.getElementById('m-last').value.trim();
-            const studentId = document.getElementById('m-id').value.trim() || `id-${Date.now()}`;
             const prd = document.getElementById('m-period').value.trim();
+            if (!first || !last || !prd) return showToast("Fill all fields");
 
-            if (!first || !last || !prd) {
-                showToast("Please fill in Name and Period.");
-                return;
-            }
-
-            const studentData = {
-                name: `${first} ${last}`,
-                customId: studentId,
-                period: prd,
-                passesUsed: 0,
-                history: []
-            };
-
+            const id = `s-${Date.now()}`;
             try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), studentData);
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), {
+                    name: `${first} ${last}`,
+                    period: prd,
+                    passesUsed: 0,
+                    history: []
+                });
                 closeModal();
-                showToast("Student added.");
-            } catch (e) {
-                showToast("Error saving student.");
+            } catch (e) { showToast("Error saving"); }
+        };
+
+        window.removeStudent = async (id) => {
+            if (confirm("Delete student?")) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id));
             }
         };
 
-        window.removeStudent = async (docId) => {
-            if (confirm("Remove this student from the roster?")) {
-                try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', docId));
-                    showToast("Student removed.");
-                } catch (e) {
-                    showToast("Error removing student.");
-                }
-            }
+        window.adjustPass = async (id, delta) => {
+            const s = students.find(x => x.id === id);
+            if (!s) return;
+            const newVal = Math.max(0, Math.min(PASS_LIMIT, (s.passesUsed || 0) + delta));
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), { passesUsed: newVal });
         };
 
-        window.adjustPass = async (docId, delta) => {
-            const student = students.find(s => s.id === docId);
-            if (!student) return;
-            const newVal = Math.max(0, Math.min(PASS_LIMIT, student.passesUsed + delta));
-            
-            try {
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', docId), {
-                    passesUsed: newVal
-                });
-            } catch (e) {
-                showToast("Update failed.");
-            }
+        window.togglePass = async (id) => {
+            const s = students.find(x => x.id === id);
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', id), {
+                studentId: id,
+                studentName: s.name,
+                startTime: Date.now()
+            });
         };
 
-        window.togglePass = async (docId) => {
-            const student = students.find(s => s.id === docId);
-            if (!student) return;
+        window.endPass = async (id) => {
+            const pass = activePasses.find(p => p.studentId === id);
+            const student = students.find(s => s.id === id);
+            if (!pass || !student) return;
 
-            try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', docId), {
-                    studentId: docId,
-                    studentName: student.name,
-                    startTime: Date.now()
-                });
-            } catch (e) {
-                showToast("Error starting pass.");
-            }
-        };
-
-        window.endPass = async (docId) => {
-            const pass = activePasses.find(ap => ap.studentId === docId);
-            if (!pass) return;
-
-            const durationSeconds = Math.floor((Date.now() - pass.startTime) / 1000);
-            const student = students.find(s => s.id === docId);
-            if (!student) return;
-
-            const isOvertime = durationSeconds >= OVERTIME_THRESHOLD;
-            const newHistory = [...(student.history || []), {
+            const duration = Math.floor((Date.now() - pass.startTime) / 1000);
+            const isOvertime = duration >= OVERTIME_THRESHOLD;
+            const historyItem = {
                 timestamp: Date.now(),
                 dateTime: new Date().toLocaleString(),
-                duration: durationSeconds,
+                duration,
                 deducted: isOvertime
-            }];
+            };
 
-            try {
-                const batch = writeBatch(db);
-                batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', docId));
-                batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', docId), {
-                    passesUsed: isOvertime ? student.passesUsed + 1 : student.passesUsed,
-                    history: newHistory
-                });
-                await batch.commit();
-                if (isOvertime) showToast(`Pass deducted for ${student.name}`);
-            } catch (e) {
-                showToast("Error ending pass.");
-            }
+            const batch = writeBatch(db);
+            batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'active_passes', id));
+            batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), {
+                passesUsed: isOvertime ? (student.passesUsed || 0) + 1 : (student.passesUsed || 0),
+                history: [...(student.history || []), historyItem]
+            });
+            await batch.commit();
         };
 
-        window.handleCSV = async (event) => {
-            const file = event.target.files[0];
+        window.handleCSV = async (e) => {
+            const file = e.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
-            reader.onload = async (e) => {
-                const text = e.target.result;
-                const lines = text.split(/\r?\n/).filter(line => line.trim());
-                if (lines.length < 2) return;
-
-                const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/["']/g, ""));
-                const fNameIdx = headers.indexOf('first name');
-                const lNameIdx = headers.indexOf('last name');
-                const idIdx = headers.indexOf('student id');
-                const prdIdx = headers.indexOf('period');
-
-                if (fNameIdx === -1 || lNameIdx === -1 || prdIdx === -1) {
-                    showToast("CSV Headers must include: Period, First Name, Last Name");
-                    return;
-                }
-
-                showToast("Uploading roster...");
+            reader.onload = async (ev) => {
+                const lines = ev.target.result.split('\n').filter(l => l.trim());
                 const batch = writeBatch(db);
-                for (let i = 1; i < lines.length; i++) {
-                    const cols = lines[i].split(',').map(c => c.trim().replace(/["']/g, ""));
-                    if (cols.length < 3) continue;
-                    const sId = cols[idIdx] || `gen-${Date.now()}-${i}`;
-                    
-                    const sRef = doc(db, 'artifacts', appId, 'public', 'data', 'students', sId);
-                    batch.set(sRef, {
-                        name: `${cols[fNameIdx]} ${cols[lNameIdx]}`.trim(),
-                        customId: sId,
-                        period: cols[prdIdx] || "1",
+                lines.slice(1).forEach((line, i) => {
+                    const parts = line.split(',').map(p => p.trim());
+                    if (parts.length < 3) return;
+                    const id = `csv-${Date.now()}-${i}`;
+                    batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), {
+                        name: `${parts[1]} ${parts[2]}`,
+                        period: parts[0],
                         passesUsed: 0,
                         history: []
                     });
-                }
+                });
                 await batch.commit();
-                showToast("Roster uploaded.");
+                showToast("Roster uploaded");
             };
             reader.readAsText(file);
         };
 
-        // UI Core Logic
+        // UI Helpers
+        window.openAddStudentModal = () => document.getElementById('modal-container').classList.remove('hidden');
+        window.closeModal = () => document.getElementById('modal-container').classList.add('hidden');
+        window.toggleView = (m) => { viewMode = m; updateUI(); };
+
         function refreshState() {
             if (students.length > 0) {
-                const periods = [...new Set(students.map(s => s.period))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
-                if (!currentPeriod || !periods.includes(currentPeriod)) currentPeriod = periods[0];
+                const pds = [...new Set(students.map(s => s.period))].sort();
+                if (!currentPeriod || !pds.includes(currentPeriod)) currentPeriod = pds[0];
                 updateUI();
             } else {
                 document.getElementById('empty-state').classList.remove('hidden');
                 document.getElementById('main-content').classList.add('hidden');
-                document.getElementById('stats-bar').classList.add('hidden');
             }
         }
 
         function updateUI() {
             if (students.length === 0) return;
-
             document.getElementById('empty-state').classList.add('hidden');
             document.getElementById('main-content').classList.remove('hidden');
             document.getElementById('stats-bar').classList.remove('hidden');
 
             document.getElementById('student-list-container').style.display = viewMode === 'list' ? 'block' : 'none';
             document.getElementById('master-log-container').style.display = viewMode === 'log' ? 'block' : 'none';
-            document.getElementById('view-log-btn').innerText = viewMode === 'log' ? 'View Student List' : 'View Master Log';
 
-            if (viewMode === 'list') {
-                renderTabs();
-                renderStudentList();
-            } else {
-                renderMasterLog();
-            }
-
+            if (viewMode === 'list') { renderTabs(); renderList(); }
+            else { renderLog(); }
             renderStats();
-            renderActiveTimers();
+            renderTimers();
         }
 
         function renderTabs() {
-            const periods = [...new Set(students.map(s => s.period))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
+            const pds = [...new Set(students.map(s => s.period))].sort();
             const container = document.getElementById('period-tabs');
-            container.innerHTML = '';
-            periods.forEach(p => {
-                const btn = document.createElement('button');
-                btn.innerText = `Period ${p}`;
-                btn.className = `px-4 py-2 rounded-full whitespace-nowrap font-medium transition ${currentPeriod === p ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`;
-                btn.onclick = () => { currentPeriod = p; updateUI(); };
-                container.appendChild(btn);
-            });
+            container.innerHTML = pds.map(p => `
+                <button onclick="window.setPeriod('${p}')" class="px-4 py-2 rounded-full text-sm font-medium border ${currentPeriod === p ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200'}">
+                    Period ${p}
+                </button>
+            `).join('');
         }
+        window.setPeriod = (p) => { currentPeriod = p; updateUI(); };
 
-        function renderStudentList() {
+        function renderList() {
             const list = document.getElementById('student-list');
-            list.innerHTML = '';
-            const periodStudents = students.filter(s => s.period === currentPeriod);
-            
-            periodStudents.forEach(s => {
-                const isOut = activePasses.some(ap => ap.studentId === s.id);
-                const tr = document.createElement('tr');
-                tr.className = isOut ? 'bg-indigo-50/50' : '';
-                tr.innerHTML = `
-                    <td class="px-6 py-4">
-                        <div class="flex items-center gap-3">
-                            <button onclick="removeStudent('${s.id}')" class="text-slate-300 hover:text-red-500 transition" title="Remove student">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            const filtered = students.filter(s => s.period === currentPeriod);
+            list.innerHTML = filtered.map(s => {
+                const isOut = activePasses.some(p => p.studentId === s.id);
+                return `
+                    <tr class="${isOut ? 'bg-indigo-50/50' : ''}">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-2">
+                                <button onclick="removeStudent('${s.id}')" class="text-slate-300 hover:text-red-500">×</button>
+                                <span class="font-bold text-slate-800">${s.name}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-2">
+                                <button onclick="adjustPass('${s.id}', -1)" class="w-6 h-6 border rounded">-</button>
+                                <span class="font-bold text-sm min-w-[1rem] text-center">${s.passesUsed || 0}</span>
+                                <button onclick="adjustPass('${s.id}', 1)" class="w-6 h-6 border rounded">+</button>
+                                <div class="flex gap-1 ml-2">
+                                    ${Array.from({length: PASS_LIMIT}).map((_, i) => `<div class="h-1.5 w-2 rounded-full ${i < s.passesUsed ? 'bg-red-400' : 'bg-slate-200'}"></div>`).join('')}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <button onclick="togglePass('${s.id}')" ${isOut ? 'disabled' : ''} class="px-4 py-1.5 rounded-lg text-xs font-bold ${isOut ? 'bg-slate-100 text-slate-400' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white'}">
+                                ${isOut ? 'OUT' : 'START'}
                             </button>
-                            <div>
-                                <div class="font-bold text-slate-800">${s.name}</div>
-                                <div class="text-xs text-slate-400">ID: ${s.customId || s.id}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4">
-                        <div class="flex items-center gap-3">
-                            <button onclick="adjustPass('${s.id}', -1)" class="w-6 h-6 rounded border border-slate-200 flex items-center justify-center hover:bg-slate-100 text-slate-500">-</button>
-                            <div class="flex items-center gap-1">
-                                ${Array.from({length: PASS_LIMIT}).map((_, i) => `
-                                    <div class="h-2 w-3 rounded-full ${i < s.passesUsed ? 'bg-red-400' : 'bg-slate-200'}"></div>
-                                `).join('')}
-                                <span class="ml-2 text-sm font-bold text-slate-600">${s.passesUsed}</span>
-                            </div>
-                            <button onclick="adjustPass('${s.id}', 1)" class="w-6 h-6 rounded border border-slate-200 flex items-center justify-center hover:bg-slate-100 text-slate-500">+</button>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 text-right">
-                        <button onclick="togglePass('${s.id}')" ${isOut ? 'disabled' : ''} class="px-4 py-2 rounded-lg text-sm font-semibold transition ${isOut ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white'}">
-                            ${isOut ? 'Out of Room' : 'Start Pass'}
-                        </button>
-                    </td>
+                        </td>
+                    </tr>
                 `;
-                list.appendChild(tr);
-            });
+            }).join('');
         }
 
-        function renderMasterLog() {
+        function renderLog() {
             const list = document.getElementById('master-log-list');
-            list.innerHTML = '';
-            const allTrips = students.flatMap(s => (s.history || []).map(h => ({...h, studentName: s.name, period: s.period})));
-            allTrips.sort((a, b) => b.timestamp - a.timestamp);
-
-            if (allTrips.length === 0) {
-                list.innerHTML = `<tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">No trips recorded yet.</td></tr>`;
-                return;
-            }
-
-            allTrips.forEach(trip => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="px-6 py-4 font-medium text-slate-800">${trip.studentName}</td>
-                    <td class="px-6 py-4 text-slate-500">${trip.period}</td>
-                    <td class="px-6 py-4 text-slate-500 text-sm">${trip.dateTime}</td>
-                    <td class="px-6 py-4 text-slate-500 font-mono">${Math.floor(trip.duration / 60)}m ${trip.duration % 60}s</td>
-                    <td class="px-6 py-4">
-                        <span class="px-2 py-1 rounded text-xs font-bold uppercase ${trip.deducted ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}">
-                            ${trip.deducted ? 'Pass Taken' : 'No Deduction'}
-                        </span>
-                    </td>
-                `;
-                list.appendChild(tr);
-            });
+            const all = students.flatMap(s => (s.history || []).map(h => ({...h, name: s.name, period: s.period})))
+                                .sort((a,b) => b.timestamp - a.timestamp);
+            list.innerHTML = all.map(t => `
+                <tr>
+                    <td class="px-6 py-4 text-sm font-bold">${t.name}</td>
+                    <td class="px-6 py-4 text-sm text-slate-500">${t.period}</td>
+                    <td class="px-6 py-4 text-xs text-slate-500">${t.dateTime}</td>
+                    <td class="px-6 py-4 text-sm font-mono">${Math.floor(t.duration/60)}m ${t.duration%60}s</td>
+                    <td class="px-6 py-4"><span class="text-[10px] px-2 py-0.5 rounded font-bold uppercase ${t.deducted ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}">${t.deducted ? 'Pass Used' : 'No Deduction'}</span></td>
+                </tr>
+            `).join('') || '<tr><td colspan="5" class="p-10 text-center text-slate-400 italic">No logs yet</td></tr>';
         }
 
         function renderStats() {
             document.getElementById('stat-total').innerText = students.length;
             document.getElementById('stat-out').innerText = activePasses.length;
-            const totalTrips = students.reduce((acc, s) => acc + (s.history?.length || 0), 0);
-            document.getElementById('stat-trips').innerText = totalTrips;
-            const rem = (students.length * PASS_LIMIT) - students.reduce((acc, s) => acc + (s.passesUsed || 0), 0);
+            document.getElementById('stat-trips').innerText = students.reduce((a,b) => a + (b.history?.length || 0), 0);
+            const rem = (students.length * PASS_LIMIT) - students.reduce((a,b) => a + (b.passesUsed || 0), 0);
             document.getElementById('stat-passes').innerText = rem;
         }
 
-        function renderActiveTimers() {
-            const section = document.getElementById('active-timers-section');
-            if (activePasses.length === 0) { section.classList.add('hidden'); return; }
-            section.classList.remove('hidden');
-
-            const container = document.getElementById('active-timers-list');
-            container.innerHTML = '';
-            activePasses.forEach(pass => {
-                const elapsed = Math.floor((Date.now() - pass.startTime) / 1000);
-                const minutes = Math.floor(elapsed / 60);
-                const seconds = elapsed % 60;
-                const isOvertime = elapsed >= OVERTIME_THRESHOLD;
-
-                const div = document.createElement('div');
-                div.className = `p-4 rounded-xl border flex items-center justify-between transition ${isOvertime ? 'overtime border-red-300' : 'bg-white border-slate-200'}`;
-                div.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <div class="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center font-bold">${pass.studentName.charAt(0)}</div>
-                        <div><p class="font-bold text-slate-800 text-sm md:text-base">${pass.studentName}</p></div>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <div class="timer-badge text-xl font-mono font-bold ${isOvertime ? 'text-red-600' : 'text-slate-700'}">
-                            ${minutes}:${seconds.toString().padStart(2, '0')}
+        function renderTimers() {
+            const sec = document.getElementById('active-timers-section');
+            if (activePasses.length === 0) { sec.classList.add('hidden'); return; }
+            sec.classList.remove('hidden');
+            const list = document.getElementById('active-timers-list');
+            list.innerHTML = activePasses.map(p => {
+                const elapsed = Math.floor((Date.now() - p.startTime) / 1000);
+                const isOver = elapsed >= OVERTIME_THRESHOLD;
+                return `
+                    <div class="p-4 rounded-xl border flex items-center justify-between ${isOver ? 'overtime border-red-300' : 'bg-white border-slate-200'}">
+                        <span class="font-bold text-slate-700">${p.studentName}</span>
+                        <div class="flex items-center gap-4">
+                            <span class="font-mono font-bold text-lg ${isOver ? 'text-red-600' : 'text-indigo-600'}">${Math.floor(elapsed/60)}:${(elapsed%60).toString().padStart(2,'0')}</span>
+                            <button onclick="endPass('${p.studentId}')" class="bg-slate-800 text-white px-3 py-1 rounded text-xs">Return</button>
                         </div>
-                        <button onclick="endPass('${pass.studentId}')" class="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm shadow-sm">Check In</button>
                     </div>
                 `;
-                container.appendChild(div);
-            });
+            }).join('');
         }
 
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            toast.innerText = message;
-            toast.classList.remove('opacity-0', 'translate-y-10');
-            toast.classList.add('opacity-100', 'translate-y-0');
-            setTimeout(() => {
-                toast.classList.add('opacity-0', 'translate-y-10');
-                toast.classList.remove('opacity-100', 'translate-y-0');
-            }, 3000);
+        function showToast(m) {
+            const t = document.getElementById('toast');
+            t.innerText = m; t.classList.remove('opacity-0', 'translate-y-10'); t.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => { t.classList.add('opacity-0', 'translate-y-10'); t.classList.remove('opacity-100', 'translate-y-0'); }, 3000);
         }
 
-        // Live Timer Refresh
-        setInterval(() => {
-            if (activePasses.length > 0) renderActiveTimers();
-        }, 1000);
-
-        // Start
-        initAuth();
+        setInterval(() => { if (activePasses.length > 0) renderTimers(); }, 1000);
+        init();
     </script>
 </body>
 </html>
