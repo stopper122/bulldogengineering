@@ -181,7 +181,9 @@
         const OVERTIME = 7 * 60;
 
         const init = async () => {
-            setTimeout(() => { if (!isSynced) hideLoader(); }, 3000);
+            // Safety timeout to dismiss loader if sync hangs
+            setTimeout(() => { if (!isSynced) hideLoader(); }, 4000);
+            
             onAuthStateChanged(auth, (user) => {
                 currentUser = user;
                 if (user) {
@@ -190,10 +192,16 @@
                     setupSync();
                 }
             });
-            try { await signInAnonymously(auth); } catch (e) { hideLoader(); }
+            try { 
+                await signInAnonymously(auth); 
+            } catch (e) { 
+                console.error("Auth error:", e);
+                hideLoader(); 
+            }
         };
 
         function setupSync() {
+            // Listen for students
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'students'), (snap) => {
                 students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 if (!currentPeriod && students.length > 0) {
@@ -202,7 +210,12 @@
                 isSynced = true;
                 render();
                 hideLoader();
+            }, (err) => {
+                console.error("Firestore Listen Error:", err);
+                hideLoader();
             });
+
+            // Listen for active passes
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'active_passes'), (snap) => {
                 activePasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
@@ -210,8 +223,10 @@
         }
 
         window.hideLoader = () => {
-            document.getElementById('loading-overlay').classList.add('opacity-0', 'pointer-events-none');
-            document.getElementById('app-container').classList.remove('opacity-0');
+            const overlay = document.getElementById('loading-overlay');
+            const container = document.getElementById('app-container');
+            if (overlay) overlay.classList.add('opacity-0', 'pointer-events-none');
+            if (container) container.classList.remove('opacity-0');
         };
 
         window.openModal = (mode, id = null) => {
@@ -246,7 +261,6 @@
             const s = students.find(x => x.id === id);
             if (!s) return;
             
-            // Trigger Email if configured
             if (s.notify && EMAILJS_PUBLIC_KEY) {
                 emailjs.send("default_service", "template_id_placeholder", {
                     student_name: s.name,
@@ -291,6 +305,27 @@
             if (confirm("Delete student?")) {
                 if (currentUser) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id));
             }
+        };
+
+        window.handleCSV = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const text = e.target.result;
+                const rows = text.split('\n').slice(1);
+                const batch = writeBatch(db);
+                rows.forEach(row => {
+                    const [name, period] = row.split(',').map(s => s?.trim());
+                    if (name && period) {
+                        const id = `student_${Math.random().toString(36).substr(2, 9)}`;
+                        const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', id);
+                        batch.set(ref, { name, period, passesUsed: 0, history: [], notify: false });
+                    }
+                });
+                await batch.commit();
+            };
+            reader.readAsText(file);
         };
 
         function getUsageClass(val) {
