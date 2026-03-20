@@ -122,22 +122,12 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Firebase Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
-            authDomain: "rrtracker-de70e.firebaseapp.com",
-            projectId: "rrtracker-de70e",
-            storageBucket: "rrtracker-de70e.firebasestorage.app",
-            messagingSenderId: "1057987490614",
-            appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
-            measurementId: "G-X31008YT0P"
-        };
-
-        // Global State
+        // Global State Variables (using Canvas environment defaults)
+        const firebaseConfig = JSON.parse(__firebase_config);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
         let db, auth, user;
         let state = { students: [], activePasses: [], currentPeriod: '1' };
@@ -164,9 +154,14 @@
                 db = getFirestore(app);
 
                 const initAuth = async () => {
-                    // Always try custom token from env first, otherwise sign in anonymously
+                    // Rule 3: Always check for __initial_auth_token and call auth FIRST
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
+                        try {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } catch (e) {
+                            console.warn("Custom token failed, falling back to anonymous", e);
+                            await signInAnonymously(auth);
+                        }
                     } else {
                         await signInAnonymously(auth);
                     }
@@ -192,11 +187,14 @@
         const setupSync = () => {
             if (!user || !db) return;
 
-            // MANDATORY PATH: /artifacts/{appId}/users/{userId}/{collectionName}
+            // RULE 1: Mandatory Path structure
             const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'main');
 
             updateStatus('Syncing...', 'amber');
             
+            // Initial render with potential empty state
+            render();
+
             onSnapshot(dataRef, (snap) => {
                 if (snap.exists()) {
                     const remoteData = snap.data();
