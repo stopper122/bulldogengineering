@@ -16,12 +16,12 @@
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-900 font-sans">
 
-    <div class="max-w-4xl mx-auto p-4 md:p-8">
+    <div class="max-w-6xl mx-auto p-4 md:p-8">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
             <div>
                 <div class="flex items-center gap-3">
                     <h1 class="text-3xl font-black tracking-tight text-slate-900">Hall Pass <span class="text-indigo-600">Pro</span></h1>
-                    <div id="cloud-status" class="px-2 py-1 bg-amber-100 text-amber-600 rounded text-[10px] font-bold uppercase tracking-widest transition-all">Initializing...</div>
+                    <div id="cloud-status" class="px-2 py-1 bg-amber-100 text-amber-600 rounded text-[10px] font-bold uppercase tracking-widest transition-all text-nowrap">Initializing...</div>
                 </div>
                 <p class="text-slate-500 text-sm mt-1">Cloud-synced student movement tracker.</p>
             </div>
@@ -45,43 +45,58 @@
             </div>
         </header>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Out Now</span>
-                <p id="stat-out" class="text-2xl font-black text-indigo-600">0</p>
-            </div>
-            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Today's Trips</span>
-                <p id="stat-trips" class="text-2xl font-black text-slate-800">0</p>
-            </div>
-            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Students</span>
-                <p id="stat-total" class="text-2xl font-black text-slate-800">0</p>
-            </div>
-            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Limit</span>
-                <p class="text-2xl font-black text-slate-800">7</p>
-            </div>
-        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <!-- Main Content Area -->
+            <div class="lg:col-span-3">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Out Now</span>
+                        <p id="stat-out" class="text-2xl font-black text-indigo-600">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Today's Trips</span>
+                        <p id="stat-trips" class="text-2xl font-black text-slate-800">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Students</span>
+                        <p id="stat-total" class="text-2xl font-black text-slate-800">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Limit</span>
+                        <p class="text-2xl font-black text-slate-800">7</p>
+                    </div>
+                </div>
 
-        <div class="bg-white rounded-[2rem] shadow-xl border border-slate-200/50 overflow-hidden min-h-[300px]">
-            <div id="period-bar" class="flex gap-2 p-4 border-b border-slate-50 overflow-x-auto no-scrollbar"></div>
-            
-            <table class="w-full text-left">
-                <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    <tr>
-                        <th class="px-6 py-4">Student</th>
-                        <th class="px-6 py-4">Overage (Limit 7)</th>
-                        <th class="px-6 py-4 text-right">Pass</th>
-                    </tr>
-                </thead>
-                <tbody id="student-table" class="divide-y divide-slate-50"></tbody>
-            </table>
+                <div class="bg-white rounded-[2rem] shadow-xl border border-slate-200/50 overflow-hidden min-h-[400px]">
+                    <div id="period-bar" class="flex gap-2 p-4 border-b border-slate-50 overflow-x-auto no-scrollbar"></div>
+                    
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            <tr>
+                                <th class="px-6 py-4">Student</th>
+                                <th class="px-6 py-4">Overage (Limit 7)</th>
+                                <th class="px-6 py-4 text-right">Pass</th>
+                            </tr>
+                        </thead>
+                        <tbody id="student-table" class="divide-y divide-slate-50"></tbody>
+                    </table>
 
-            <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 text-center px-6">
-                <h3 class="font-bold text-slate-800">No students found</h3>
-                <p class="text-slate-500 text-sm mb-6">Add a student or restore a backup to begin.</p>
-                <button id="empty-restore-btn" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm">Upload Backup</button>
+                    <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 text-center px-6">
+                        <h3 class="font-bold text-slate-800">No students found</h3>
+                        <p class="text-slate-500 text-sm mb-6">Add a student or restore a backup to begin.</p>
+                        <button id="empty-restore-btn" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm">Upload Backup</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar: High Frequency Users -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-[2rem] shadow-lg border border-slate-200/50 p-6 sticky top-8">
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Watchlist (3+ Passes)</h3>
+                    <div id="watchlist" class="space-y-3">
+                        <p class="text-xs text-slate-400 italic">No students flagged yet.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -109,7 +124,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global State
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
@@ -137,7 +152,8 @@
                 const getConfig = () => {
                     if (typeof __firebase_config !== 'undefined' && __firebase_config) {
                         try {
-                            return JSON.parse(__firebase_config);
+                            const parsed = JSON.parse(__firebase_config);
+                            return (parsed && parsed.apiKey) ? parsed : null;
                         } catch(e) { return null; }
                     }
                     return null;
@@ -146,20 +162,17 @@
                 let config = getConfig();
                 let attempts = 0;
                 
-                // We will wait up to 30 seconds for the config to appear
-                while (!config && attempts < 120) {
-                    await new Promise(r => setTimeout(r, 250));
+                while (!config && attempts < 200) {
+                    await new Promise(r => setTimeout(r, 200));
                     config = getConfig();
                     attempts++;
-                    if (attempts % 10 === 0) updateStatus(`Waiting (${attempts/4}s)...`);
+                    if (attempts % 5 === 0) updateStatus(`Waiting (${attempts/5}s)...`);
                 }
 
                 if (!config) {
                     updateStatus('Config Missing', 'red');
-                    // Add a retry button to the status if it fails
                     const el = document.getElementById('cloud-status');
                     el.style.cursor = 'pointer';
-                    el.title = 'Click to retry connection';
                     el.onclick = () => window.location.reload();
                     return;
                 }
@@ -170,7 +183,6 @@
 
                 updateStatus('Connecting...');
 
-                // Auth Logic
                 const performSignIn = async () => {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         return await signInWithCustomToken(auth, __initial_auth_token);
@@ -199,9 +211,9 @@
         const setupSync = () => {
             if (!user || !db) return;
 
-            // Rule 1: Use specific artifacts path
             const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'main');
 
+            // Set up listener
             onSnapshot(dataRef, (snap) => {
                 if (snap.exists()) {
                     const data = snap.data();
@@ -210,11 +222,12 @@
                     
                     if (isInitialLoad && state.students.length > 0) {
                         const periods = [...new Set(state.students.map(s => s.period))];
-                        if (periods.length > 0) state.currentPeriod = periods[0];
+                        if (periods.length > 0 && !periods.includes(state.currentPeriod)) {
+                            state.currentPeriod = periods[0];
+                        }
                         isInitialLoad = false;
                     }
                 } else {
-                    // If document doesn't exist yet, we still want to stop initial load state
                     isInitialLoad = false;
                 }
                 updateStatus('Synced', 'emerald');
@@ -245,10 +258,29 @@
         const render = () => {
             const list = document.getElementById('student-table');
             const empty = document.getElementById('empty-state');
+            const watchlistEl = document.getElementById('watchlist');
             
             document.getElementById('stat-out').innerText = state.activePasses.length;
             document.getElementById('stat-total').innerText = state.students.length;
             document.getElementById('stat-trips').innerText = state.students.reduce((acc, s) => acc + (s.history?.length || 0), 0);
+
+            // Update Watchlist
+            const flagged = state.students.filter(s => (s.passesUsed || 0) >= 3)
+                .sort((a, b) => b.passesUsed - a.passesUsed);
+            
+            if (flagged.length > 0) {
+                watchlistEl.innerHTML = flagged.map(s => `
+                    <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <div>
+                            <p class="text-sm font-bold text-slate-700">${s.name}</p>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Period ${s.period}</p>
+                        </div>
+                        <span class="px-2 py-1 bg-red-100 text-red-600 rounded-lg text-xs font-black">${s.passesUsed}</span>
+                    </div>
+                `).join('');
+            } else {
+                watchlistEl.innerHTML = `<p class="text-xs text-slate-400 italic">No students flagged yet.</p>`;
+            }
 
             if (state.students.length === 0) {
                 list.innerHTML = '';
@@ -260,7 +292,6 @@
 
             const periods = [...new Set(state.students.map(s => s.period))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
             
-            // Ensure current period exists
             if (!periods.includes(state.currentPeriod)) {
                 state.currentPeriod = periods[0] || '1';
             }
