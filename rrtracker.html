@@ -144,6 +144,7 @@
 
         const updateStatus = (text, type = 'amber') => {
             const el = document.getElementById('cloud-status');
+            if (!el) return;
             el.innerText = text;
             const colors = {
                 amber: 'bg-amber-100 text-amber-600',
@@ -154,10 +155,15 @@
         };
 
         // --- CORE INITIALIZATION ---
-        const bootstrap = async () => {
+        const bootstrap = async (retryCount = 0) => {
             try {
-                // 1. Config Check
-                if (typeof __firebase_config === 'undefined') {
+                // Config Check with Retry
+                if (typeof __firebase_config === 'undefined' || !__firebase_config) {
+                    if (retryCount < 5) {
+                        updateStatus(`Retrying (${retryCount + 1})...`);
+                        setTimeout(() => bootstrap(retryCount + 1), 500);
+                        return;
+                    }
                     updateStatus('Config Missing', 'red');
                     return;
                 }
@@ -167,29 +173,30 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                updateStatus('Connecting...');
+                updateStatus('Authenticating...');
 
-                // 2. Authentication (Rule 3)
+                // Authentication (Rule 3)
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
 
-                // 3. Listener setup
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         state.user = user;
                         const userDoc = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'main');
                         
                         onSnapshot(userDoc, (snap) => {
-                            const data = snap.exists() ? snap.data() : { students: [], activePasses: [] };
-                            state.students = data.students || [];
-                            state.activePasses = data.activePasses || [];
+                            if (snap.exists()) {
+                                const data = snap.data();
+                                state.students = data.students || [];
+                                state.activePasses = data.activePasses || [];
+                            }
                             updateStatus('Cloud Synced', 'emerald');
                             render();
                         }, (err) => {
-                            console.error(err);
+                            console.error("Firestore Error:", err);
                             updateStatus('Sync Error', 'red');
                         });
                     } else {
@@ -199,7 +206,7 @@
 
             } catch (err) {
                 console.error("Bootstrap Error:", err);
-                updateStatus('Load Error', 'red');
+                updateStatus('Init Error', 'red');
             }
         };
 
@@ -214,8 +221,9 @@
                     activePasses: state.activePasses,
                     updatedAt: Date.now()
                 });
+                updateStatus('Cloud Synced', 'emerald');
             } catch (e) {
-                console.error(e);
+                console.error("Save Error:", e);
                 updateStatus('Save Fail', 'red');
             }
         };
@@ -236,7 +244,13 @@
             }
             empty.classList.add('hidden');
 
-            const periods = [...new Set(state.students.map(s => s.period))].sort((a,b) => a - b);
+            const periods = [...new Set(state.students.map(s => s.period))].sort((a,b) => {
+                const numA = parseInt(a);
+                const numB = parseInt(b);
+                if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+                return a.localeCompare(b);
+            });
+            
             if (!periods.includes(state.currentPeriod)) state.currentPeriod = periods[0] || '1';
 
             document.getElementById('period-bar').innerHTML = periods.map(p => `
@@ -251,15 +265,17 @@
                 <tr class="${isOut ? 'row-active' : ''} transition-colors">
                     <td class="px-6 py-5">
                         <div class="flex items-center gap-2">
-                            <span class="font-bold">${s.name}</span>
-                            <button onclick="window.delStud('${s.id}')" class="text-slate-200 hover:text-red-500 transition-colors">×</button>
+                            <span class="font-bold text-slate-700">${s.name}</span>
+                            <button onclick="window.delStud('${s.id}')" class="text-slate-300 hover:text-red-500 transition-colors p-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                            </button>
                         </div>
                     </td>
                     <td class="px-6 py-5">
                         <div class="flex items-center gap-2">
-                            <button onclick="window.adjPass('${s.id}', -1)" class="w-7 h-7 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold transition-colors">-</button>
-                            <span class="font-black text-sm w-5 text-center ${s.passesUsed >= 7 ? 'text-red-600' : 'text-slate-700'}">${s.passesUsed || 0}</span>
-                            <button onclick="window.adjPass('${s.id}', 1)" class="w-7 h-7 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold transition-colors">+</button>
+                            <button onclick="window.adjPass('${s.id}', -1)" class="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold transition-colors">-</button>
+                            <span class="font-black text-sm w-6 text-center ${s.passesUsed >= 7 ? 'text-red-600' : 'text-slate-700'}">${s.passesUsed || 0}</span>
+                            <button onclick="window.adjPass('${s.id}', 1)" class="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold transition-colors">+</button>
                         </div>
                     </td>
                     <td class="px-6 py-5 text-right">
@@ -276,23 +292,27 @@
         window.setPeriod = (p) => { state.currentPeriod = p; render(); };
         window.togglePass = (id) => {
             const outIdx = state.activePasses.findIndex(p => p.sid === id);
-            if (outIdx > -1) { state.activePasses.splice(outIdx, 1); } 
-            else {
+            if (outIdx > -1) { 
+                state.activePasses.splice(outIdx, 1); 
+            } else {
                 const s = state.students.find(x => x.id === id);
                 state.activePasses.push({ sid: id, start: Date.now() });
                 s.history = s.history || [];
                 s.history.push(Date.now());
             }
+            render(); // Immediate UI feedback
             syncToCloud();
         };
         window.adjPass = (id, delta) => {
             const s = state.students.find(x => x.id === id);
             s.passesUsed = Math.max(0, (s.passesUsed || 0) + delta);
+            render();
             syncToCloud();
         };
         window.delStud = (id) => {
-            if (confirm("Remove student?")) {
+            if (confirm("Remove student record?")) {
                 state.students = state.students.filter(s => s.id !== id);
+                render();
                 syncToCloud();
             }
         };
@@ -306,13 +326,23 @@
         document.getElementById('btn-import-csv').onclick = () => document.getElementById('input-csv').click();
         document.getElementById('input-csv').onchange = (e) => {
             const file = e.target.files[0];
+            if (!file) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
                 const rows = ev.target.result.split('\n').filter(r => r.trim());
                 rows.forEach(r => {
                     const parts = r.split(',').map(s => s.trim());
-                    if (parts[0]) state.students.push({ id: Math.random().toString(36).substr(2, 9), name: parts[0], period: parts[1] || '1', passesUsed: 0, history: [] });
+                    if (parts[0]) {
+                        state.students.push({ 
+                            id: Math.random().toString(36).substr(2, 9), 
+                            name: parts[0], 
+                            period: parts[1] || '1', 
+                            passesUsed: 0, 
+                            history: [] 
+                        });
+                    }
                 });
+                render();
                 syncToCloud();
             };
             reader.readAsText(file);
@@ -322,14 +352,16 @@
         document.getElementById('empty-restore-btn').onclick = () => document.getElementById('input-json').click();
         document.getElementById('input-json').onchange = (e) => {
             const file = e.target.files[0];
+            if (!file) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
                 try {
                     const data = JSON.parse(ev.target.result);
                     state.students = data.students || [];
                     state.activePasses = data.activePasses || [];
+                    render();
                     syncToCloud();
-                } catch (err) { alert("Invalid file"); }
+                } catch (err) { alert("Invalid backup file format."); }
             };
             reader.readAsText(file);
         };
@@ -338,14 +370,15 @@
             const blob = new Blob([JSON.stringify({ students: state.students, activePasses: state.activePasses })], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `hallpass_backup.json`;
+            a.download = `hallpass_backup_${new Date().toISOString().split('T')[0]}.json`;
             a.click();
         };
 
         document.getElementById('btn-wipe').onclick = () => {
-            if (confirm("Wipe all cloud data?")) {
+            if (confirm("DANGER: This will wipe all data from the cloud. Continue?")) {
                 state.students = [];
                 state.activePasses = [];
+                render();
                 syncToCloud();
             }
         };
@@ -358,14 +391,16 @@
             const per = document.getElementById('field-period').value || '1';
             if (name) {
                 state.students.push({ id: Date.now().toString(), name, period: per, passesUsed: 0, history: [] });
+                state.currentPeriod = per;
+                render();
                 syncToCloud();
                 modal.classList.add('hidden');
                 document.getElementById('field-name').value = '';
             }
         };
 
-        // Start
-        window.addEventListener('DOMContentLoaded', bootstrap);
+        // Start App
+        window.addEventListener('DOMContentLoaded', () => bootstrap());
     </script>
 </body>
 </html>
