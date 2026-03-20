@@ -76,7 +76,7 @@
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 sm:pb-0">
                 <div id="period-tabs" class="flex gap-2"></div>
-                <button id="delete-period-btn" onclick="deleteCurrentPeriod()" class="hidden p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all active:scale-95 group" title="Delete current period">
+                <button id="delete-period-btn" onclick="deleteCurrentPeriod()" class="p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all active:scale-95 group" title="Delete current period">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round"/></svg>
                 </button>
             </div>
@@ -292,7 +292,7 @@
                 });
                 
                 // Select a new current period from remaining
-                const remainingPeriods = [...new Set(state.students.map(s => s.period))];
+                const remainingPeriods = [...new Set(state.students.map(s => s.period))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
                 state.currentPeriod = remainingPeriods.length > 0 ? remainingPeriods[0] : '1';
                 
                 saveData();
@@ -362,10 +362,12 @@
                 </button>
             `).join('');
 
-            // Delete Period Button Visibility
+            // Delete Period Button Visibility logic corrected
             const deleteBtn = document.getElementById('delete-period-btn');
-            const hasStudentsInPeriod = state.students.some(s => s.period === state.currentPeriod);
-            if (hasStudentsInPeriod && !state.isLogView) {
+            const hasStudentsInAnyPeriod = state.students.length > 0;
+            const isViewingList = !state.isLogView;
+            
+            if (hasStudentsInAnyPeriod && isViewingList) {
                 deleteBtn.classList.remove('hidden');
             } else {
                 deleteBtn.classList.add('hidden');
@@ -398,7 +400,7 @@
             }
 
             const filtered = state.students.filter(s => s.period === state.currentPeriod);
-            document.getElementById('empty-state').classList.toggle('hidden', filtered.length > 0 || state.isLogView);
+            document.getElementById('empty-state').classList.toggle('hidden', filtered.length > 0 || state.isLogView || state.students.length > 0);
 
             if (state.isLogView) {
                 document.getElementById('list-view').classList.add('hidden');
@@ -432,8 +434,17 @@
                         <tr class="transition-colors ${isOut ? 'bg-indigo-50/30' : 'hover:bg-slate-50/50'}">
                             <td class="px-8 py-6">
                                 <div class="flex items-center gap-4">
-                                    <button onclick="deleteStudent('${s.id}')" class="text-slate-200 hover:text-red-400 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round"/></svg></button>
-                                    <span class="font-bold text-slate-800">${s.name}</span>
+                                    <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+                                        <span class="font-bold text-slate-800">${s.name}</span>
+                                        <div class="flex items-center gap-1">
+                                            <button onclick="openModal('edit', '${s.id}')" class="p-1.5 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all" title="Edit student">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                            </button>
+                                            <button onclick="deleteStudent('${s.id}')" class="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Delete student">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2.5" stroke-linecap="round"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </td>
                             <td class="px-8 py-6">
