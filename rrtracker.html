@@ -7,66 +7,75 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .timer-badge { font-variant-numeric: tabular-nums; }
-        .status-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        /* Dynamic Row Colors */
-        .row-warning { background-color: #fffbeb !important; } /* Amber 50 */
-        .row-high { background-color: #fff7ed !important; }    /* Orange 50 */
-        .row-danger { background-color: #fef2f2 !important; }  /* Red 50 */
-        .row-active { background-color: #eef2ff !important; }  /* Indigo 50 (Priority) */
+        /* State Colors */
+        .row-warning { background-color: #fffbeb !important; }
+        .row-high { background-color: #fff7ed !important; }
+        .row-danger { background-color: #fef2f2 !important; }
+        .row-active { background-color: #eef2ff !important; border-left: 4px solid #4f46e5; }
+        
+        #data-menu { display: none; }
+        #data-menu.active { display: block; }
+        
+        .sync-indicator { transition: opacity 0.3s ease; }
+        .syncing { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-900 font-sans selection:bg-indigo-100">
 
+    <!-- Status Toast -->
     <div id="status-toast" class="fixed top-4 right-4 z-[200] flex items-center gap-3 bg-white border border-slate-200 px-4 py-3 rounded-2xl shadow-xl transition-all duration-500 transform translate-x-[120%]">
         <div id="status-icon" class="w-3 h-3 rounded-full bg-blue-500"></div>
         <div class="flex flex-col">
-            <span id="status-title" class="text-[10px] font-black uppercase tracking-widest text-slate-400">System Status</span>
-            <span id="status-msg" class="text-xs font-bold text-slate-700">Offline Mode Active</span>
+            <span id="status-title" class="text-[10px] font-black uppercase tracking-widest text-slate-400">System</span>
+            <span id="status-msg" class="text-xs font-bold text-slate-700">Ready</span>
         </div>
     </div>
 
     <div class="max-w-4xl mx-auto p-4 md:p-8 pb-32">
         <header class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
-                <h1 class="text-4xl font-black text-slate-900 tracking-tight mb-2">Hall Pass <span class="text-indigo-600">Tracker</span></h1>
-                <div class="flex items-center gap-3">
-                    <p class="text-slate-500 font-medium">Manage student movement and track frequency limits.</p>
-                    <button id="notif-btn" onclick="requestNotifs()" class="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md hover:bg-amber-100 transition-colors uppercase tracking-tighter">Enable Alerts</button>
-                </div>
-            </div>
-            <div class="flex flex-wrap gap-3">
-                <!-- Sort Dropdown -->
-                <div class="relative inline-block">
-                    <select id="sort-order" onchange="updateSort(this.value)" class="appearance-none bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-5 py-2.5 pr-10 rounded-xl transition-all shadow-sm text-sm font-bold cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="first">Sort: First Name</option>
-                        <option value="last">Sort: Last Name</option>
-                        <option value="passes">Sort: Most Passes</option>
-                    </select>
-                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <div class="flex items-center gap-3 mb-2">
+                    <h1 class="text-4xl font-black text-slate-900 tracking-tight">Hall Pass <span class="text-indigo-600">Tracker</span></h1>
+                    <div id="cloud-status" class="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                        <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                        Cloud Synced
                     </div>
                 </div>
-
+                <p class="text-slate-500 font-medium">Manage student movement and track frequency limits.</p>
+            </div>
+            
+            <div class="flex flex-wrap gap-3">
                 <button onclick="openModal('add')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-200 text-sm font-bold flex items-center gap-2 active:scale-95">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-width="2.5" stroke-linecap="round"/></svg>
                     Add Student
                 </button>
                 
-                <div class="relative group">
-                    <button class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-5 py-2.5 rounded-xl transition-all shadow-sm text-sm font-bold flex items-center gap-2">
+                <div class="relative">
+                    <button onclick="toggleDataMenu()" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-5 py-2.5 rounded-xl transition-all shadow-sm text-sm font-bold flex items-center gap-2">
                         <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke-width="2" stroke-linecap="round"/></svg>
                         Data Tools
                     </button>
-                    <div class="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 hidden group-hover:block z-50">
-                        <button onclick="document.getElementById('csv-input').click()" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 text-slate-700 flex items-center gap-2">Import CSV</button>
-                        <button onclick="exportFullBackup()" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 text-slate-700 flex items-center gap-2">Export Backup</button>
-                        <button onclick="document.getElementById('restore-input').click()" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 text-slate-700 flex items-center gap-2">Restore Backup</button>
-                        <hr class="my-2 border-slate-100">
-                        <button onclick="wipeAllData()" class="w-full text-left px-4 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2 font-bold">Wipe Everything</button>
+                    <div id="data-menu" class="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl py-2 z-[100] overflow-hidden">
+                        <button onclick="triggerCSV()" class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 text-slate-700 flex items-center gap-2">
+                            <svg class="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-width="2" stroke-linecap="round"/></svg>
+                            Import Students (CSV)
+                        </button>
+                        <button onclick="exportFullBackup()" class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 text-slate-700 flex items-center gap-2">
+                            <svg class="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke-width="2" stroke-linecap="round"/></svg>
+                            Export Backup (.json)
+                        </button>
+                        <button onclick="triggerRestore()" class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 text-slate-700 flex items-center gap-2 border-b border-slate-50">
+                            <svg class="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-width="2" stroke-linecap="round"/></svg>
+                            Restore from JSON
+                        </button>
+                        <button onclick="wipeAllData()" class="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2 font-bold">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round"/></svg>
+                            Wipe All Data
+                        </button>
                     </div>
                 </div>
                 <input type="file" id="csv-input" accept=".csv" class="hidden" onchange="handleCSV(event)">
@@ -77,53 +86,57 @@
         <!-- Stats -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
             <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/60">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Out Now</p>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Out Now</p>
                 <p id="stat-out" class="text-3xl font-black text-indigo-600">0</p>
             </div>
             <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/60">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Pass Limit</p>
-                <p id="stat-limit" class="text-3xl font-black text-slate-800">7</p>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Passes Today</p>
+                <p id="stat-trips" class="text-3xl font-black text-slate-800">0</p>
             </div>
             <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/60">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Total Students</p>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Students</p>
                 <p id="stat-total" class="text-3xl font-black text-slate-800">0</p>
             </div>
             <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/60">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Logs Today</p>
-                <p id="stat-trips" class="text-3xl font-black text-slate-800">0</p>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Limit Set</p>
+                <p class="text-3xl font-black text-slate-800">7</p>
             </div>
         </div>
 
         <!-- Active Timers -->
         <div id="timers-container" class="mb-12 space-y-4 hidden">
             <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
                 Active Hall Passes
             </h2>
             <div id="timers-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
         </div>
 
-        <!-- Period Tabs & View Toggle -->
+        <!-- Toolbar -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 sm:pb-0">
                 <div id="period-tabs" class="flex gap-2"></div>
-                <button id="delete-period-btn" onclick="deleteCurrentPeriod()" class="p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all active:scale-95 group flex items-center gap-2" title="Delete current period">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round"/></svg>
-                </button>
             </div>
-            <button onclick="toggleView()" id="view-toggle" class="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-colors">View Master Log</button>
+            <div class="flex gap-2">
+                <select id="sort-order" onchange="updateSort(this.value)" class="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold text-slate-600 outline-none">
+                    <option value="first">Sort: First Name</option>
+                    <option value="last">Sort: Last Name</option>
+                    <option value="passes">Sort: Most Used</option>
+                </select>
+                <button onclick="toggleView()" id="view-toggle" class="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-colors">Master Log</button>
+            </div>
         </div>
 
         <!-- Content Area -->
         <div class="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-200/60 overflow-hidden min-h-[400px]">
             <div id="list-view">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
+                    <table class="w-full text-left">
                         <thead class="bg-slate-50/50 text-[10px] uppercase font-black text-slate-400 border-b border-slate-100">
                             <tr>
                                 <th class="px-8 py-5">Student</th>
-                                <th class="px-8 py-5">Deducted Passes</th>
-                                <th class="px-8 py-5 text-right">Pass Control</th>
+                                <th class="px-8 py-5">Used (Overage)</th>
+                                <th class="px-8 py-5 text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody id="student-list" class="divide-y divide-slate-50"></tbody>
@@ -149,108 +162,234 @@
 
             <div id="empty-state" class="py-24 text-center flex flex-col items-center justify-center hidden">
                 <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                    <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" stroke-width="2" stroke-linecap="round"/></svg>
                 </div>
                 <h3 class="text-slate-900 font-bold mb-1">No Students Found</h3>
+                <p class="text-slate-400 text-sm">Add students to get started</p>
             </div>
         </div>
     </div>
 
-    <!-- Modals -->
+    <!-- Modal -->
     <div id="modal" class="fixed inset-0 z-[150] flex items-center justify-center p-4 hidden">
         <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeModal()"></div>
         <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm p-10 relative">
             <h3 id="modal-title" class="text-2xl font-black mb-8 text-slate-900">Add Student</h3>
             <input type="hidden" id="m-id">
             <div class="space-y-6">
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Full Name</label>
-                    <input type="text" id="m-name" placeholder="John Doe" class="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold text-slate-700">
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1 mb-2">Student Name</label>
+                    <input type="text" id="m-name" placeholder="First Last" class="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-700">
                 </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Period</label>
-                    <input type="text" id="m-period" placeholder="1" class="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold text-slate-700">
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1 mb-2">Period</label>
+                    <input type="text" id="m-period" placeholder="1" class="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-700">
                 </div>
             </div>
             <div class="flex gap-4 mt-10">
                 <button onclick="closeModal()" class="flex-1 text-slate-400 font-bold py-4 hover:text-slate-600 uppercase text-xs tracking-widest">Cancel</button>
-                <button id="modal-save-btn" onclick="saveStudent()" class="flex-[1.5] bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-black transition-all text-xs uppercase tracking-widest active:scale-95">Save Student</button>
+                <button onclick="saveStudent()" class="flex-[1.5] bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-black transition-all text-xs uppercase tracking-widest active:scale-95">Save</button>
             </div>
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global constants
         const PASS_LIMIT = 7;
         const TIME_LIMIT_SECS = 7 * 60;
-        const WARNING_TIME_SECS = 60; // 1 minute warning
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-tracker-v2';
+        const FIREBASE_CONFIG = JSON.parse(__firebase_config);
+
+        // Firebase Setup
+        const app = initializeApp(FIREBASE_CONFIG);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
         let state = {
+            user: null,
             students: [],
             activePasses: [],
             currentPeriod: '1',
             isLogView: false,
-            sortOrder: 'first', // 'first', 'last', 'passes'
-            storageKey: 'hallpass_local_storage_v2'
+            sortOrder: 'first'
         };
 
-        const updateStatus = (type, msg) => {
+        // UI HELPERS
+        const showToast = (type, msg) => {
             const toast = document.getElementById('status-toast');
             const dot = document.getElementById('status-icon');
             const msgEl = document.getElementById('status-msg');
             toast.style.transform = "translateX(0)";
             msgEl.innerText = msg;
-            if (type === 'success') {
-                dot.className = "w-3 h-3 rounded-full bg-emerald-500";
-                setTimeout(() => toast.style.transform = "translateX(120%)", 3000);
+            dot.className = type === 'success' ? "w-3 h-3 rounded-full bg-emerald-500" : "w-3 h-3 rounded-full bg-red-500";
+            setTimeout(() => toast.style.transform = "translateX(120%)", 3000);
+        };
+
+        const updateSyncIndicator = (isSyncing) => {
+            const el = document.getElementById('cloud-status');
+            if (isSyncing) {
+                el.innerText = 'Syncing...';
+                el.classList.add('syncing');
+            } else {
+                el.innerText = 'Cloud Synced';
+                el.classList.remove('syncing');
             }
         };
 
-        // Notification Logic
-        window.requestNotifs = () => {
-            if (!("Notification" in window)) {
-                updateStatus('error', 'Browser does not support notifications');
-                return;
-            }
-            Notification.requestPermission().then(permission => {
-                if (permission === "granted") {
-                    updateStatus('success', 'Notifications Enabled');
-                    document.getElementById('notif-btn').innerText = "Alerts Enabled";
-                    document.getElementById('notif-btn').className = "text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md transition-colors uppercase tracking-tighter";
-                }
-            });
-        };
-
-        const sendAlert = (title, body) => {
-            if (Notification.permission === "granted") {
-                new Notification(title, { body, icon: 'https://cdn-icons-png.flaticon.com/512/252/252025.png' });
+        // DATA PERSISTENCE (FIRESTORE)
+        const persistState = async () => {
+            if (!state.user) return;
+            updateSyncIndicator(true);
+            try {
+                const userDoc = doc(db, 'artifacts', APP_ID, 'users', state.user.uid, 'settings', 'main');
+                await setDoc(userDoc, {
+                    students: state.students,
+                    activePasses: state.activePasses,
+                    lastUpdated: Date.now()
+                });
+                updateSyncIndicator(false);
+            } catch (err) {
+                console.error("Firestore Error:", err);
+                showToast('error', 'Sync failed');
             }
         };
 
-        const loadData = () => {
-            const saved = localStorage.getItem(state.storageKey);
-            if (saved) {
-                try {
-                    const data = JSON.parse(saved);
-                    state.students = data.students || [];
+        const initAuth = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            state.user = user;
+            if (user) {
+                // Subscribe to changes
+                const userDoc = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'settings', 'main');
+                onSnapshot(userDoc, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        state.students = data.students || [];
+                        state.activePasses = data.activePasses || [];
+                        render();
+                    }
+                }, (error) => {
+                    console.error("Snapshot error:", error);
+                });
+            }
+        });
+
+        // ACTIONS (Attached to window for HTML buttons)
+        window.toggleDataMenu = () => document.getElementById('data-menu').classList.toggle('active');
+        
+        window.exportFullBackup = () => {
+            const data = { students: state.students, activePasses: state.activePasses, timestamp: new Date().toISOString() };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `hallpass_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            showToast('success', 'Backup downloaded');
+        };
+
+        window.handleCSV = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const lines = e.target.result.split('\n').filter(l => l.trim());
+                lines.forEach(line => {
+                    const parts = line.split(',').map(s => s.trim());
+                    if (parts[0]) {
+                        state.students.push({
+                            id: `s_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                            name: parts[0],
+                            period: parts[1] || state.currentPeriod,
+                            passesUsed: 0,
+                            history: []
+                        });
+                    }
+                });
+                persistState();
+                showToast('success', 'CSV Imported');
+            };
+            reader.readAsText(file);
+        };
+
+        window.restoreBackup = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = JSON.parse(e.target.result);
+                if (data.students) {
+                    state.students = data.students;
                     state.activePasses = data.activePasses || [];
-                } catch (e) { console.error(e); }
-            }
-            render();
-            // Check if permission already granted
-            if (Notification.permission === "granted") {
-                document.getElementById('notif-btn').innerText = "Alerts Enabled";
-                document.getElementById('notif-btn').className = "text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md transition-colors uppercase tracking-tighter";
+                    persistState();
+                    showToast('success', 'Restored');
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        window.wipeAllData = () => {
+            if (confirm("Wipe all data?")) {
+                state.students = [];
+                state.activePasses = [];
+                persistState();
             }
         };
 
-        const saveData = () => {
-            localStorage.setItem(state.storageKey, JSON.stringify({ students: state.students, activePasses: state.activePasses }));
-            render();
+        window.saveStudent = () => {
+            const name = document.getElementById('m-name').value.trim();
+            const period = document.getElementById('m-period').value.trim() || '1';
+            const id = document.getElementById('m-id').value;
+            if (!name) return;
+            if (id) {
+                const idx = state.students.findIndex(x => x.id === id);
+                state.students[idx] = { ...state.students[idx], name, period };
+            } else {
+                state.students.push({ id: `s_${Date.now()}`, name, period, passesUsed: 0, history: [] });
+            }
+            state.currentPeriod = period;
+            persistState();
+            closeModal();
         };
 
-        window.updateSort = (val) => {
-            state.sortOrder = val;
-            render();
+        window.togglePass = (sid) => {
+            const activeIdx = state.activePasses.findIndex(p => p.studentId === sid);
+            const studentIdx = state.students.findIndex(s => s.id === sid);
+            if (activeIdx > -1) {
+                const active = state.activePasses[activeIdx];
+                const duration = Math.floor((Date.now() - active.startTime) / 1000);
+                const isOvertime = duration >= TIME_LIMIT_SECS;
+                state.activePasses.splice(activeIdx, 1);
+                state.students[studentIdx].passesUsed += (isOvertime ? 1 : 0);
+                state.students[studentIdx].history.unshift({ ts: Date.now(), duration, status: isOvertime ? 'Overtime' : 'On-time' });
+            } else {
+                state.activePasses.push({ studentId: sid, name: state.students[studentIdx].name, startTime: Date.now() });
+            }
+            persistState();
+        };
+
+        window.adjustPasses = (sid, delta) => {
+            const idx = state.students.findIndex(s => s.id === sid);
+            state.students[idx].passesUsed = Math.max(0, state.students[idx].passesUsed + delta);
+            persistState();
+        };
+
+        window.deleteStudent = (sid) => {
+            if (confirm("Delete student?")) {
+                state.students = state.students.filter(s => s.id !== sid);
+                state.activePasses = state.activePasses.filter(p => p.studentId !== sid);
+                persistState();
+            }
         };
 
         window.openModal = (mode, id = null) => {
@@ -263,67 +402,20 @@
         };
 
         window.closeModal = () => document.getElementById('modal').classList.add('hidden');
-
-        window.saveStudent = () => {
-            const name = document.getElementById('m-name').value.trim();
-            const period = document.getElementById('m-period').value.trim() || '1';
-            const id = document.getElementById('m-id').value || `std_${Date.now()}`;
-            if (!name) return;
-            const idx = state.students.findIndex(s => s.id === id);
-            if (idx > -1) state.students[idx] = { ...state.students[idx], name, period };
-            else state.students.push({ id, name, period, passesUsed: 0, history: [] });
-            state.currentPeriod = period;
-            saveData();
-            closeModal();
-        };
-
-        window.togglePass = (sid) => {
-            const activeIdx = state.activePasses.findIndex(p => p.studentId === sid);
-            const studentIdx = state.students.findIndex(s => s.id === sid);
-            if (activeIdx > -1) {
-                const active = state.activePasses[activeIdx];
-                const duration = Math.floor((Date.now() - active.startTime) / 1000);
-                const isOvertime = duration >= TIME_LIMIT_SECS;
-                state.activePasses.splice(activeIdx, 1);
-                state.students[studentIdx].passesUsed = (state.students[studentIdx].passesUsed || 0) + (isOvertime ? 1 : 0);
-                state.students[studentIdx].history = [{ ts: Date.now(), duration, status: isOvertime ? 'Overtime' : 'On-time' }, ...(state.students[studentIdx].history || [])];
-            } else {
-                state.activePasses.push({ 
-                    studentId: sid, 
-                    name: state.students[studentIdx].name, 
-                    startTime: Date.now(),
-                    warned: false,
-                    expired: false
-                });
-            }
-            saveData();
-        };
-
-        window.adjustCounter = (sid, delta) => {
-            const idx = state.students.findIndex(s => s.id === sid);
-            state.students[idx].passesUsed = Math.max(0, (state.students[idx].passesUsed || 0) + delta);
-            saveData();
-        };
-
-        window.deleteStudent = (sid) => {
-            if (confirm("Delete student?")) {
-                state.students = state.students.filter(s => s.id !== sid);
-                state.activePasses = state.activePasses.filter(p => p.studentId !== sid);
-                saveData();
-            }
-        };
-
+        window.triggerCSV = () => document.getElementById('csv-input').click();
+        window.triggerRestore = () => document.getElementById('restore-input').click();
         window.setPeriod = (p) => { state.currentPeriod = p; render(); };
+        window.updateSort = (v) => { state.sortOrder = v; render(); };
         window.toggleView = () => { state.isLogView = !state.isLogView; render(); };
 
         function render() {
             document.getElementById('stat-out').innerText = state.activePasses.length;
             document.getElementById('stat-total').innerText = state.students.length;
-            document.getElementById('stat-trips').innerText = state.students.reduce((a, b) => a + (b.history?.length || 0), 0);
+            document.getElementById('stat-trips').innerText = state.students.reduce((acc, s) => acc + s.history.length, 0);
 
             const periods = [...new Set(state.students.map(s => s.period))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
             document.getElementById('period-tabs').innerHTML = (periods.length ? periods : [state.currentPeriod]).map(p => `
-                <button onclick="setPeriod('${p}')" class="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${state.currentPeriod === p ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}">
+                <button onclick="setPeriod('${p}')" class="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${state.currentPeriod === p ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400'}">
                     Period ${p}
                 </button>
             `).join('');
@@ -333,96 +425,51 @@
                 tContainer.classList.remove('hidden');
                 document.getElementById('timers-list').innerHTML = state.activePasses.map(p => {
                     const elapsed = Math.floor((Date.now() - p.startTime) / 1000);
-                    const remaining = TIME_LIMIT_SECS - elapsed;
                     const over = elapsed >= TIME_LIMIT_SECS;
-
-                    // Alert logic
-                    if (!p.warned && remaining <= WARNING_TIME_SECS && remaining > 0) {
-                        p.warned = true;
-                        sendAlert("1 Minute Warning", `${p.name} has 1 minute left on their hall pass.`);
-                    }
-                    if (!p.expired && over) {
-                        p.expired = true;
-                        sendAlert("Time's Up!", `${p.name} is now over the hall pass time limit.`);
-                    }
-
-                    return `
-                        <div class="glass p-5 rounded-[2rem] border-2 flex items-center justify-between ${over ? 'border-red-500 bg-red-50/50' : 'border-indigo-100'}">
-                            <div><h4 class="font-black text-slate-900">${p.name}</h4><p class="text-[9px] font-black uppercase tracking-widest ${over ? 'text-red-500' : 'text-slate-400'}">TIMER ACTIVE</p></div>
-                            <div class="flex items-center gap-4"><span class="text-2xl font-black font-mono ${over ? 'text-red-600' : 'text-indigo-600'}">${Math.floor(elapsed/60)}:${(elapsed%60).toString().padStart(2,'0')}</span>
-                            <button onclick="togglePass('${p.studentId}')" class="bg-slate-900 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black">Return</button></div>
-                        </div>
-                    `;
+                    return `<div class="glass p-5 rounded-[2rem] border-2 flex items-center justify-between ${over ? 'border-red-500 bg-red-50' : 'border-indigo-100'}">
+                        <div><h4 class="font-black text-slate-900">${p.name}</h4><p class="text-[9px] font-black uppercase tracking-widest ${over ? 'text-red-500' : 'text-slate-400'}">ACTIVE PASS</p></div>
+                        <div class="flex items-center gap-4"><span class="text-2xl font-black font-mono ${over ? 'text-red-600' : 'text-indigo-600'}">${Math.floor(elapsed/60)}:${(elapsed%60).toString().padStart(2,'0')}</span>
+                        <button onclick="togglePass('${p.studentId}')" class="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black">RETURN</button></div>
+                    </div>`;
                 }).join('');
             } else tContainer.classList.add('hidden');
 
             if (state.isLogView) {
                 document.getElementById('list-view').classList.add('hidden');
                 document.getElementById('log-view').classList.remove('hidden');
-                const logs = state.students.flatMap(s => (s.history || []).map(h => ({...h, name: s.name}))).sort((a,b) => b.ts - a.ts);
-                document.getElementById('log-list').innerHTML = logs.map(l => `
-                    <tr class="text-xs font-bold"><td class="px-8 py-5 text-slate-900">${l.name}</td><td class="px-8 py-5 text-slate-400">${new Date(l.ts).toLocaleTimeString()}</td>
-                    <td class="px-8 py-5 font-mono">${Math.floor(l.duration/60)}m ${l.duration%60}s</td><td class="px-8 py-5">
-                    <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${l.status === 'Overtime' ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-500'}">${l.status}</span></td></tr>
-                `).join('');
+                const logs = state.students.flatMap(s => s.history.map(h => ({...h, name: s.name}))).sort((a,b) => b.ts - a.ts);
+                document.getElementById('log-list').innerHTML = logs.map(l => `<tr class="text-xs font-bold"><td class="px-8 py-5">${l.name}</td><td class="px-8 py-5 text-slate-400">${new Date(l.ts).toLocaleTimeString()}</td><td class="px-8 py-5 font-mono">${Math.floor(l.duration/60)}m ${l.duration%60}s</td><td class="px-8 py-5"><span class="px-3 py-1 rounded-full text-[9px] font-black ${l.status === 'Overtime' ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-500'}">${l.status.toUpperCase()}</span></td></tr>`).join('');
             } else {
                 document.getElementById('list-view').classList.remove('hidden');
                 document.getElementById('log-view').classList.add('hidden');
-                
-                // Sort Logic
                 const filtered = state.students.filter(s => s.period === state.currentPeriod);
-                filtered.sort((a, b) => {
+                filtered.sort((a,b) => {
                     if (state.sortOrder === 'first') return a.name.localeCompare(b.name);
-                    if (state.sortOrder === 'last') {
-                        const getLastName = (n) => {
-                            const parts = n.split(' ');
-                            return parts[parts.length - 1];
-                        };
-                        return getLastName(a.name).localeCompare(getLastName(b.name));
-                    }
+                    if (state.sortOrder === 'last') return a.name.split(' ').pop().localeCompare(b.name.split(' ').pop());
                     if (state.sortOrder === 'passes') return b.passesUsed - a.passesUsed;
                     return 0;
                 });
-
+                if (filtered.length === 0) document.getElementById('empty-state').classList.remove('hidden');
+                else document.getElementById('empty-state').classList.add('hidden');
                 document.getElementById('student-list').innerHTML = filtered.map(s => {
                     const isOut = state.activePasses.some(p => p.studentId === s.id);
-                    const count = s.passesUsed || 0;
-                    let rowClass = "";
-                    if (isOut) rowClass = "row-active";
-                    else if (count >= 7) rowClass = "row-danger";
-                    else if (count >= 5) rowClass = "row-high";
-                    else if (count >= 3) rowClass = "row-warning";
-
-                    return `
-                        <tr class="${rowClass} transition-colors duration-300">
-                            <td class="px-8 py-6">
-                                <div class="flex items-center gap-3">
-                                    <span class="font-bold ${count >= 7 ? 'text-red-700' : 'text-slate-800'}">${s.name}</span>
-                                    <button onclick="openModal('edit', '${s.id}')" class="text-slate-300 hover:text-indigo-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-width="2" stroke-linecap="round"/></svg></button>
-                                    <button onclick="deleteStudent('${s.id}')" class="text-slate-300 hover:text-red-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round"/></svg></button>
-                                </div>
-                            </td>
-                            <td class="px-8 py-6">
-                                <div class="flex items-center gap-3">
-                                    <div class="flex bg-white/60 border border-slate-200 rounded-lg overflow-hidden">
-                                        <button onclick="adjustCounter('${s.id}', -1)" class="px-2 py-1 hover:bg-white">-</button>
-                                        <span class="px-3 py-1 font-black text-xs ${count >= PASS_LIMIT ? 'text-red-600' : 'text-slate-700'}">${count}</span>
-                                        <button onclick="adjustCounter('${s.id}', 1)" class="px-2 py-1 hover:bg-white">+</button>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="px-8 py-6 text-right">
-                                <button onclick="togglePass('${s.id}')" ${isOut ? 'disabled' : ''} class="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${isOut ? 'bg-slate-200 text-slate-500' : 'bg-indigo-600 text-white hover:bg-indigo-700'}">
-                                    ${isOut ? 'OUT' : 'Issue Pass'}
-                                </button>
-                            </td>
-                        </tr>
-                    `;
+                    let rowClass = isOut ? "row-active" : (s.passesUsed >= 7 ? "row-danger" : (s.passesUsed >= 5 ? "row-high" : (s.passesUsed >= 3 ? "row-warning" : "")));
+                    return `<tr class="${rowClass} transition-colors"><td class="px-8 py-6"><div class="flex items-center gap-2"><span class="font-bold">${s.name}</span>
+                    <button onclick="openModal('edit', '${s.id}')" class="text-slate-300 hover:text-indigo-600"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-width="2" stroke-linecap="round"/></svg></button>
+                    <button onclick="deleteStudent('${s.id}')" class="text-slate-200 hover:text-red-500"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round"/></svg></button></div></td>
+                    <td class="px-8 py-6"><div class="flex items-center gap-2"><button onclick="adjustPasses('${s.id}', -1)" class="w-6 h-6 flex items-center justify-center bg-slate-100 rounded-lg">-</button><span class="font-black text-sm w-4 text-center ${s.passesUsed >= 7 ? 'text-red-600' : ''}">${s.passesUsed}</span><button onclick="adjustPasses('${s.id}', 1)" class="w-6 h-6 flex items-center justify-center bg-slate-100 rounded-lg">+</button></div></td>
+                    <td class="px-8 py-6 text-right"><button onclick="togglePass('${s.id}')" ${isOut ? 'disabled' : ''} class="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${isOut ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}">${isOut ? 'OUT' : 'Issue Pass'}</button></td></tr>`;
                 }).join('');
             }
         }
 
-        window.onload = () => { loadData(); setInterval(() => { if (state.activePasses.length > 0) render(); }, 1000); };
+        window.addEventListener('click', (e) => { if (!e.target.closest('.relative')) document.getElementById('data-menu').classList.remove('active'); });
+        
+        // Init
+        window.addEventListener('load', () => {
+            initAuth();
+            setInterval(() => { if (state.activePasses.length > 0) render(); }, 1000);
+        });
     </script>
 </body>
 </html>
