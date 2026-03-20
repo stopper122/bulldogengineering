@@ -74,7 +74,12 @@
 
         <!-- Period Tabs & View Toggle -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div id="period-tabs" class="flex gap-2 overflow-x-auto no-scrollbar pb-2 sm:pb-0"></div>
+            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 sm:pb-0">
+                <div id="period-tabs" class="flex gap-2"></div>
+                <button id="delete-period-btn" onclick="deleteCurrentPeriod()" class="hidden p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors active:scale-95" title="Delete current period">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+            </div>
             <button onclick="toggleView()" id="view-toggle" class="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-colors">View Master Log</button>
         </div>
 
@@ -268,6 +273,23 @@
             }
         };
 
+        window.deleteCurrentPeriod = () => {
+            if (confirm(`Are you sure you want to delete ALL students in Period ${state.currentPeriod}? This cannot be undone.`)) {
+                state.students = state.students.filter(s => s.period !== state.currentPeriod);
+                state.activePasses = state.activePasses.filter(p => {
+                   const student = state.students.find(s => s.id === p.studentId);
+                   return student && student.period !== state.currentPeriod;
+                });
+                
+                // Reset current period to another one if it exists
+                const remainingPeriods = [...new Set(state.students.map(s => s.period))];
+                state.currentPeriod = remainingPeriods.length > 0 ? remainingPeriods[0] : '1';
+                
+                saveData();
+                updateStatus('success', 'Period deleted');
+            }
+        };
+
         window.handleCSV = (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -278,27 +300,40 @@
                 
                 lines.forEach((line, i) => {
                     const parts = line.split(',').map(p => p.trim());
-                    // Skip header or empty lines
-                    if (parts.length >= 2 && parts[0] && parts[0].toLowerCase() !== 'student' && parts[0].toLowerCase() !== 'name') {
-                        // Assuming CSV format is: Name, Period
-                        // This fixes the previous swap where it might have been Period, Name
-                        const name = parts[0];
-                        const period = parts[1] || '1';
+                    
+                    // Logic based on: Period, First Name, Last Name, Student ID
+                    // parts[0] = Period, parts[1] = First, parts[2] = Last, parts[3] = ID
+                    if (parts.length >= 3) {
+                        const period = parts[0];
+                        const firstName = parts[1];
+                        const lastName = parts[2];
+                        const studentId = parts[3] || `std_csv_${Date.now()}_${i}`;
 
-                        state.students.push({
-                            id: `std_csv_${Date.now()}_${i}`,
-                            name: name,
-                            period: period,
-                            passesUsed: 0,
-                            history: []
-                        });
-                        importCount++;
+                        // Validate it's not the header
+                        if (firstName.toLowerCase() !== 'first name' && firstName.toLowerCase() !== 'firstname') {
+                            const fullName = `${firstName} ${lastName}`.trim();
+                            
+                            // Prevent duplicates based on name/period/id combo
+                            const exists = state.students.find(s => s.name === fullName && s.period === period);
+                            if (!exists) {
+                                state.students.push({
+                                    id: studentId,
+                                    name: fullName,
+                                    period: period,
+                                    passesUsed: 0,
+                                    history: []
+                                });
+                                importCount++;
+                            }
+                        }
                     }
                 });
 
                 if (importCount > 0) {
                     saveData();
                     updateStatus('success', `Imported ${importCount} students`);
+                } else {
+                    alert("No valid students found in CSV. Expected format: Period, First Name, Last Name, Student ID");
                 }
             };
             reader.readAsText(file);
@@ -322,6 +357,14 @@
                     Period ${p}
                 </button>
             `).join('');
+
+            // Show/Hide delete period button
+            const deleteBtn = document.getElementById('delete-period-btn');
+            if (periods.length > 0 && !state.isLogView) {
+                deleteBtn.classList.remove('hidden');
+            } else {
+                deleteBtn.classList.add('hidden');
+            }
 
             const tContainer = document.getElementById('timers-container');
             if (totalOut > 0) {
