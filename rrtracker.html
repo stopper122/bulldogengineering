@@ -133,24 +133,34 @@
             updateStatus('Initializing...');
             
             try {
-                // Persistent config check
+                // Persistent config check with infinite wait
                 const getConfig = () => {
                     if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                        return JSON.parse(__firebase_config);
+                        try {
+                            return JSON.parse(__firebase_config);
+                        } catch(e) { return null; }
                     }
                     return null;
                 };
 
                 let config = getConfig();
-                let retries = 0;
-                while (!config && retries < 20) {
+                let attempts = 0;
+                
+                // We will wait up to 30 seconds for the config to appear
+                while (!config && attempts < 120) {
                     await new Promise(r => setTimeout(r, 250));
                     config = getConfig();
-                    retries++;
+                    attempts++;
+                    if (attempts % 10 === 0) updateStatus(`Waiting (${attempts/4}s)...`);
                 }
 
                 if (!config) {
                     updateStatus('Config Missing', 'red');
+                    // Add a retry button to the status if it fails
+                    const el = document.getElementById('cloud-status');
+                    el.style.cursor = 'pointer';
+                    el.title = 'Click to retry connection';
+                    el.onclick = () => window.location.reload();
                     return;
                 }
 
@@ -182,7 +192,7 @@
 
             } catch (err) {
                 console.error("Bootstrap Error:", err);
-                updateStatus('Error', 'red');
+                updateStatus('Init Error', 'red');
             }
         };
 
@@ -203,6 +213,9 @@
                         if (periods.length > 0) state.currentPeriod = periods[0];
                         isInitialLoad = false;
                     }
+                } else {
+                    // If document doesn't exist yet, we still want to stop initial load state
+                    isInitialLoad = false;
                 }
                 updateStatus('Synced', 'emerald');
                 render();
