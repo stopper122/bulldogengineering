@@ -25,7 +25,11 @@
                     <div id="cloud-status" class="px-2 py-1 bg-amber-100 text-amber-600 rounded text-[10px] font-bold uppercase tracking-widest transition-all text-nowrap">Initializing...</div>
                     <button id="force-local" class="px-2 py-1 bg-slate-200 text-slate-600 rounded text-[10px] font-bold uppercase hover:bg-slate-300 transition-all">Skip Cloud</button>
                 </div>
-                <p class="text-slate-500 text-sm mt-1">Cloud-synced student movement tracker.</p>
+                <div class="flex items-center gap-2 mt-2">
+                    <p class="text-slate-500 text-sm">Sync Code:</p>
+                    <input type="text" id="sync-code-input" placeholder="Enter a code" class="bg-white border border-slate-200 rounded px-2 py-0.5 text-xs font-bold text-indigo-600 w-32 focus:ring-1 focus:ring-indigo-500 outline-none">
+                    <button id="set-sync-code" class="text-[10px] font-bold text-slate-400 hover:text-indigo-600 uppercase tracking-tighter">Set Code</button>
+                </div>
             </div>
 
             <div class="flex gap-2 relative">
@@ -120,16 +124,17 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         // Global State
         let db, auth, user;
-        let state = { students: [], activePasses: [], currentPeriod: '1' };
+        let state = { students: [], activePasses: [], currentPeriod: '1', syncCode: '' };
         let isSaving = false;
         let syncUnsubscribe = null;
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
         const STORAGE_KEY = `hallpass_local_cache_${appId}`;
+        const CODE_KEY = `hallpass_sync_code_${appId}`;
         
         const updateStatus = (text, type = 'amber') => {
             const el = document.getElementById('cloud-status');
@@ -206,21 +211,29 @@
         };
 
         const syncToCloud = async () => {
-            // Immediate local save
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
             render(); 
             
             if (!user || !db) return;
+            
             isSaving = true;
             updateStatus('Saving...', 'amber');
             try {
-                const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'hallpass_state');
+                let dataRef;
+                if (state.syncCode) {
+                    // Shared Path Rule 1
+                    dataRef = doc(db, 'artifacts', appId, 'public', 'data', `shared_${state.syncCode}`);
+                } else {
+                    // Private Path Rule 1
+                    dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'hallpass_state');
+                }
+
                 await setDoc(dataRef, {
                     students: state.students,
                     activePasses: state.activePasses,
                     updatedAt: Date.now()
                 });
-                updateStatus('Cloud Synced', 'emerald');
+                updateStatus(state.syncCode ? `Linked: ${state.syncCode}` : 'Cloud Synced', 'emerald');
             } catch (e) {
                 console.error("Save failed:", e);
                 updateStatus('Offline Mode', 'amber');
@@ -233,19 +246,26 @@
             if (!user || !db) return;
             if (syncUnsubscribe) syncUnsubscribe();
             
-            const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'hallpass_state');
-            updateStatus('Syncing...', 'amber');
+            let dataRef;
+            if (state.syncCode) {
+                // Shared Path Rule 1
+                dataRef = doc(db, 'artifacts', appId, 'public', 'data', `shared_${state.syncCode}`);
+            } else {
+                // Private Path Rule 1
+                dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'hallpass_state');
+            }
+            
+            updateStatus('Connecting...', 'amber');
             
             syncUnsubscribe = onSnapshot(dataRef, (snap) => {
                 if (snap.exists() && !isSaving) {
                     const data = snap.data();
-                    // Merge logic: only update if cloud data is newer or local is empty
                     state.students = data.students || [];
                     state.activePasses = data.activePasses || [];
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
                     render();
                 }
-                updateStatus('Cloud Synced', 'emerald');
+                updateStatus(state.syncCode ? `Linked: ${state.syncCode}` : 'Cloud Synced', 'emerald');
                 document.getElementById('force-local').style.display = 'none';
             }, (err) => {
                 console.error("Sync error:", err);
@@ -254,7 +274,12 @@
         };
 
         const init = async () => {
-            // Immediate load from local storage
+            const cachedCode = localStorage.getItem(CODE_KEY);
+            if (cachedCode) {
+                state.syncCode = cachedCode;
+                document.getElementById('sync-code-input').value = cachedCode;
+            }
+
             const cached = localStorage.getItem(STORAGE_KEY);
             if (cached) {
                 try {
@@ -275,6 +300,14 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
+                const initAuth = async () => {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                };
+
                 onAuthStateChanged(auth, (u) => {
                     if (u) {
                         user = u;
@@ -282,11 +315,7 @@
                     }
                 });
 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                await initAuth();
             } catch (e) {
                 console.error("Init Error:", e);
                 updateStatus('Offline Mode', 'amber');
@@ -327,6 +356,23 @@
             const dataMenu = document.getElementById('data-menu');
             const inputCsv = document.getElementById('input-csv');
             const inputJson = document.getElementById('input-json');
+            const codeInput = document.getElementById('sync-code-input');
+            const codeBtn = document.getElementById('set-sync-code');
+
+            codeBtn.onclick = () => {
+                const code = codeInput.value.trim().toUpperCase();
+                if (code) {
+                    state.syncCode = code;
+                    localStorage.setItem(CODE_KEY, code);
+                    setupSync();
+                    syncToCloud();
+                } else {
+                    state.syncCode = '';
+                    localStorage.removeItem(CODE_KEY);
+                    setupSync();
+                    syncToCloud();
+                }
+            };
 
             document.getElementById('force-local').onclick = () => {
                 updateStatus('Offline Mode', 'amber');
