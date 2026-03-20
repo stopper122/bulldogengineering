@@ -142,7 +142,38 @@ document.getElementById("csv").addEventListener("change", (e) => {
 });
 
 // Init
-setupSync();
+
+// Try initial connection test + fallback
+import { getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+async function init() {
+  try {
+    // Try reading once
+    const snap = await getDoc(docRef);
+
+    if (!snap.exists()) {
+      // Create initial document if missing
+      await setDoc(docRef, { students: [], activePasses: [] });
+    }
+
+    setupSync();
+
+    // Failsafe: if still "Connecting" after 3s, show likely issue
+    setTimeout(() => {
+      if (status.textContent === "Connecting...") {
+        status.textContent = "Check Firestore Rules";
+        status.className = "text-red-600 text-xs font-bold";
+      }
+    }, 3000);
+
+  } catch (e) {
+    console.error(e);
+    status.textContent = "Connection Failed";
+    status.className = "text-red-600 text-xs font-bold";
+  }
+}
+
+init();
 
 </script>
 
