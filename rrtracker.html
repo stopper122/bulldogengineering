@@ -124,13 +124,13 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global State
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
         let db, auth, user;
         let state = { students: [], activePasses: [], currentPeriod: '1' };
-        let isInitialLoad = true;
+        let isReady = false; // Prevents saving empty state over remote data during load
 
         const updateStatus = (text, type = 'amber') => {
             const el = document.getElementById('cloud-status');
@@ -148,32 +148,18 @@
             updateStatus('Initializing...');
             
             try {
-                // Persistent config check with infinite wait
                 const getConfig = () => {
                     if (typeof __firebase_config !== 'undefined' && __firebase_config) {
                         try {
-                            const parsed = JSON.parse(__firebase_config);
-                            return (parsed && parsed.apiKey) ? parsed : null;
+                            return JSON.parse(__firebase_config);
                         } catch(e) { return null; }
                     }
                     return null;
                 };
 
                 let config = getConfig();
-                let attempts = 0;
-                
-                while (!config && attempts < 200) {
-                    await new Promise(r => setTimeout(r, 200));
-                    config = getConfig();
-                    attempts++;
-                    if (attempts % 5 === 0) updateStatus(`Waiting (${attempts/5}s)...`);
-                }
-
                 if (!config) {
                     updateStatus('Config Missing', 'red');
-                    const el = document.getElementById('cloud-status');
-                    el.style.cursor = 'pointer';
-                    el.onclick = () => window.location.reload();
                     return;
                 }
 
@@ -181,17 +167,15 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                updateStatus('Connecting...');
-
-                const performSignIn = async () => {
+                const initAuth = async () => {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        return await signInWithCustomToken(auth, __initial_auth_token);
+                        await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
-                        return await signInAnonymously(auth);
+                        await signInAnonymously(auth);
                     }
                 };
 
-                await performSignIn();
+                await initAuth();
 
                 onAuthStateChanged(auth, (u) => {
                     if (u) {
@@ -211,25 +195,26 @@
         const setupSync = () => {
             if (!user || !db) return;
 
-            const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'main');
+            // MANDATORY PATH: /artifacts/{appId}/users/{userId}/{collectionName}
+            const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'main');
 
-            // Set up listener
+            updateStatus('Syncing...', 'amber');
+            
             onSnapshot(dataRef, (snap) => {
                 if (snap.exists()) {
-                    const data = snap.data();
-                    state.students = data.students || [];
-                    state.activePasses = data.activePasses || [];
+                    const remoteData = snap.data();
+                    state.students = remoteData.students || [];
+                    state.activePasses = remoteData.activePasses || [];
                     
-                    if (isInitialLoad && state.students.length > 0) {
+                    // On first load, pick a valid period
+                    if (!isReady && state.students.length > 0) {
                         const periods = [...new Set(state.students.map(s => s.period))];
                         if (periods.length > 0 && !periods.includes(state.currentPeriod)) {
                             state.currentPeriod = periods[0];
                         }
-                        isInitialLoad = false;
                     }
-                } else {
-                    isInitialLoad = false;
                 }
+                isReady = true; // Signal that we have attempted to load data
                 updateStatus('Synced', 'emerald');
                 render();
             }, (err) => {
@@ -239,15 +224,17 @@
         };
 
         const syncToCloud = async () => {
-            if (!user || !db) return;
+            // Guard Rule: Never save if we haven't successfully connected/loaded remote state
+            if (!user || !db || !isReady) return;
+            
             updateStatus('Saving...', 'amber');
             try {
-                const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'main');
+                const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'main');
                 await setDoc(dataRef, {
                     students: state.students,
                     activePasses: state.activePasses,
                     lastUpdated: Date.now()
-                });
+                }, { merge: true });
                 updateStatus('Synced', 'emerald');
             } catch (e) {
                 console.error("Cloud Save Failed:", e);
@@ -266,7 +253,7 @@
 
             // Update Watchlist
             const flagged = state.students.filter(s => (s.passesUsed || 0) >= 3)
-                .sort((a, b) => b.passesUsed - a.passesUsed);
+                .sort((a, b) => (b.passesUsed || 0) - (a.passesUsed || 0));
             
             if (flagged.length > 0) {
                 watchlistEl.innerHTML = flagged.map(s => `
@@ -397,7 +384,8 @@
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
-                ev.target.result.split('\n').filter(r => r.trim()).forEach(r => {
+                const lines = ev.target.result.split('\n').filter(r => r.trim());
+                lines.forEach(r => {
                     const [name, period] = r.split(',').map(s => s.trim());
                     if (name) {
                         state.students.push({ 
@@ -485,7 +473,7 @@
             }
         };
 
-        bootstrap();
+        window.onload = bootstrap;
     </script>
 </body>
 </html>
