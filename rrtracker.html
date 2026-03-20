@@ -126,9 +126,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Global State Variables (using Canvas environment defaults)
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
+        // Global State Variables
         let db, auth, user;
         let state = { students: [], activePasses: [], currentPeriod: '1' };
         let isReady = false; 
@@ -148,31 +146,43 @@
         const bootstrap = async () => {
             updateStatus('Connecting...');
             
+            // Helper for exponential backoff retries
+            const withRetry = async (fn, retries = 5, delay = 1000) => {
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        return await fn();
+                    } catch (err) {
+                        if (i === retries - 1) throw err;
+                        await new Promise(res => setTimeout(res, delay * Math.pow(2, i)));
+                    }
+                }
+            };
+
             try {
-                const app = initializeApp(firebaseConfig);
+                // Safely parse config from environment
+                const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
+                const initialToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+                if (!config) throw new Error("Firebase configuration missing from environment.");
+
+                const app = initializeApp(config);
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                const initAuth = async () => {
-                    // Rule 3: Always check for __initial_auth_token and call auth FIRST
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        try {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } catch (e) {
-                            console.warn("Custom token failed, falling back to anonymous", e);
-                            await signInAnonymously(auth);
-                        }
+                // Authenticate with retry
+                await withRetry(async () => {
+                    if (initialToken) {
+                        await signInWithCustomToken(auth, initialToken);
                     } else {
                         await signInAnonymously(auth);
                     }
-                };
-
-                await initAuth();
+                });
 
                 onAuthStateChanged(auth, (u) => {
                     if (u) {
                         user = u;
-                        setupSync();
+                        setupSync(appId);
                     } else {
                         updateStatus('Logged Out', 'red');
                     }
@@ -181,18 +191,19 @@
             } catch (err) {
                 console.error("Bootstrap Error:", err);
                 updateStatus('Connect Error', 'red');
+                // Even if cloud fails, let user interact locally
+                isReady = true;
+                render();
             }
         };
 
-        const setupSync = () => {
+        const setupSync = (appId) => {
             if (!user || !db) return;
 
             // RULE 1: Mandatory Path structure
             const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'main');
 
             updateStatus('Syncing...', 'amber');
-            
-            // Initial render with potential empty state
             render();
 
             onSnapshot(dataRef, (snap) => {
@@ -213,12 +224,15 @@
                 render();
             }, (err) => {
                 console.error("Sync Error:", err);
-                updateStatus('Sync Error', 'red');
+                updateStatus('Offline Mode', 'amber');
+                isReady = true;
+                render();
             });
         };
 
         const syncToCloud = async () => {
             if (!user || !db || !isReady) return;
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
             
             updateStatus('Saving...', 'amber');
             try {
@@ -240,6 +254,8 @@
             const empty = document.getElementById('empty-state');
             const watchlistEl = document.getElementById('watchlist');
             
+            if (!list) return;
+
             document.getElementById('stat-out').innerText = state.activePasses.length;
             document.getElementById('stat-total').innerText = state.students.length;
             document.getElementById('stat-trips').innerText = state.students.reduce((acc, s) => acc + (s.history?.length || 0), 0);
@@ -315,6 +331,7 @@
             }).join('');
         };
 
+        // Window exposed functions
         window.setPeriod = (p) => { state.currentPeriod = p; render(); };
         
         window.togglePass = (id) => {
@@ -361,12 +378,17 @@
             document.getElementById('modal-backdrop').classList.remove('hidden');
         };
 
+        // Event Listeners
         document.getElementById('menu-trigger').onclick = (e) => { 
+            e.preventDefault();
             e.stopPropagation(); 
             document.getElementById('data-menu').classList.toggle('show'); 
         };
         
-        document.onclick = () => document.getElementById('data-menu').classList.remove('show');
+        document.addEventListener('click', () => {
+            const menu = document.getElementById('data-menu');
+            if (menu) menu.classList.remove('show');
+        });
 
         document.getElementById('btn-import-csv').onclick = () => document.getElementById('input-csv').click();
         document.getElementById('input-csv').onchange = (e) => {
@@ -463,7 +485,7 @@
             }
         };
 
-        window.onload = bootstrap;
+        window.addEventListener('load', bootstrap);
     </script>
 </body>
 </html>
