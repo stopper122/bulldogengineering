@@ -172,7 +172,11 @@
 
         async function init() {
             try {
-                // Use system-provided config to avoid configuration-not-found errors
+                // Ensure globally provided variables exist before parsing
+                if (typeof __firebase_config === 'undefined') {
+                    throw new Error("Firebase config not found in environment");
+                }
+
                 const firebaseConfig = JSON.parse(__firebase_config);
                 appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-system-v4';
                 
@@ -183,22 +187,7 @@
                 updateSyncIndicator('connecting');
                 render(); 
 
-                // Authentication Protocol
-                const performAuth = async () => {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        try {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } catch (e) {
-                            console.warn("Custom token failed, falling back to anonymous:", e);
-                            await signInAnonymously(auth);
-                        }
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                };
-
-                await performAuth();
-
+                // Authentication Protocol with clear awaiting
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         state.user = user;
@@ -209,6 +198,17 @@
                         updateSyncIndicator('offline');
                     }
                 });
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    try {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } catch (e) {
+                        console.warn("Custom token failed, falling back to anonymous:", e);
+                        await signInAnonymously(auth);
+                    }
+                } else {
+                    await signInAnonymously(auth);
+                }
 
             } catch (e) {
                 console.error("Critical connection failure:", e);
@@ -227,6 +227,10 @@
                 ind.className = "w-2 h-2 rounded-full bg-red-500";
                 txt.innerText = "Connection Error - check project settings";
                 txt.className = "text-red-600 text-[10px] font-bold uppercase tracking-wider";
+            } else if (mode === 'offline') {
+                ind.className = "w-2 h-2 rounded-full bg-slate-400";
+                txt.innerText = "Offline";
+                txt.className = "text-slate-500 text-[10px] font-bold uppercase tracking-wider";
             } else {
                 ind.className = "w-2 h-2 rounded-full bg-amber-500 animate-pulse";
                 txt.innerText = "Connecting...";
@@ -237,24 +241,31 @@
         function setupSubscriptions() {
             if (!state.user) return;
 
-            // Mandatory Path Structure
+            // Mandatory Path Structure: /artifacts/{appId}/public/data/{collectionName}
             const studentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'students');
             const passesCol = collection(db, 'artifacts', appId, 'public', 'data', 'active_passes');
 
-            onSnapshot(studentsCol, (snap) => {
-                state.students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                render();
-            }, (err) => {
-                console.error("Student sync error:", err);
-                if (err.code === 'permission-denied') updateSyncIndicator('error');
-            });
+            // Success and Error callbacks required for onSnapshot
+            onSnapshot(studentsCol, 
+                (snap) => {
+                    state.students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    render();
+                }, 
+                (err) => {
+                    console.error("Student sync error:", err);
+                    updateSyncIndicator('error');
+                }
+            );
 
-            onSnapshot(passesCol, (snap) => {
-                state.activePasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                render();
-            }, (err) => {
-                console.error("Passes sync error:", err);
-            });
+            onSnapshot(passesCol, 
+                (snap) => {
+                    state.activePasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    render();
+                }, 
+                (err) => {
+                    console.error("Passes sync error:", err);
+                }
+            );
         }
 
         // CSV HANDLING
