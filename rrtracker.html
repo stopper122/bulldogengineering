@@ -126,11 +126,22 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
+            authDomain: "rrtracker-de70e.firebaseapp.com",
+            projectId: "rrtracker-de70e",
+            storageBucket: "rrtracker-de70e.firebasestorage.app",
+            messagingSenderId: "1057987490614",
+            appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
+            measurementId: "G-X31008YT0P"
+        };
+
         // Global State
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
         let db, auth, user;
         let state = { students: [], activePasses: [], currentPeriod: '1' };
-        let isReady = false; // Prevents saving empty state over remote data during load
+        let isReady = false; 
 
         const updateStatus = (text, type = 'amber') => {
             const el = document.getElementById('cloud-status');
@@ -145,29 +156,15 @@
         };
 
         const bootstrap = async () => {
-            updateStatus('Initializing...');
+            updateStatus('Connecting...');
             
             try {
-                const getConfig = () => {
-                    if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                        try {
-                            return JSON.parse(__firebase_config);
-                        } catch(e) { return null; }
-                    }
-                    return null;
-                };
-
-                let config = getConfig();
-                if (!config) {
-                    updateStatus('Config Missing', 'red');
-                    return;
-                }
-
-                const app = initializeApp(config);
+                const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
 
                 const initAuth = async () => {
+                    // Always try custom token from env first, otherwise sign in anonymously
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
@@ -188,7 +185,7 @@
 
             } catch (err) {
                 console.error("Bootstrap Error:", err);
-                updateStatus('Init Error', 'red');
+                updateStatus('Connect Error', 'red');
             }
         };
 
@@ -206,7 +203,6 @@
                     state.students = remoteData.students || [];
                     state.activePasses = remoteData.activePasses || [];
                     
-                    // On first load, pick a valid period
                     if (!isReady && state.students.length > 0) {
                         const periods = [...new Set(state.students.map(s => s.period))];
                         if (periods.length > 0 && !periods.includes(state.currentPeriod)) {
@@ -214,7 +210,7 @@
                         }
                     }
                 }
-                isReady = true; // Signal that we have attempted to load data
+                isReady = true; 
                 updateStatus('Synced', 'emerald');
                 render();
             }, (err) => {
@@ -224,7 +220,6 @@
         };
 
         const syncToCloud = async () => {
-            // Guard Rule: Never save if we haven't successfully connected/loaded remote state
             if (!user || !db || !isReady) return;
             
             updateStatus('Saving...', 'amber');
@@ -251,7 +246,6 @@
             document.getElementById('stat-total').innerText = state.students.length;
             document.getElementById('stat-trips').innerText = state.students.reduce((acc, s) => acc + (s.history?.length || 0), 0);
 
-            // Update Watchlist
             const flagged = state.students.filter(s => (s.passesUsed || 0) >= 3)
                 .sort((a, b) => (b.passesUsed || 0) - (a.passesUsed || 0));
             
@@ -323,7 +317,6 @@
             }).join('');
         };
 
-        // Window Handlers
         window.setPeriod = (p) => { state.currentPeriod = p; render(); };
         
         window.togglePass = (id) => {
@@ -370,7 +363,6 @@
             document.getElementById('modal-backdrop').classList.remove('hidden');
         };
 
-        // UI Events
         document.getElementById('menu-trigger').onclick = (e) => { 
             e.stopPropagation(); 
             document.getElementById('data-menu').classList.toggle('show'); 
