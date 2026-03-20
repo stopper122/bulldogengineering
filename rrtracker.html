@@ -12,6 +12,7 @@
         .row-active { background-color: #f0f4ff; border-left: 4px solid #4f46e5; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        #force-local { display: none; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-900 font-sans">
@@ -22,6 +23,7 @@
                 <div class="flex items-center gap-3">
                     <h1 class="text-3xl font-black tracking-tight text-slate-900">Hall Pass <span class="text-indigo-600">Pro</span></h1>
                     <div id="cloud-status" class="px-2 py-1 bg-amber-100 text-amber-600 rounded text-[10px] font-bold uppercase tracking-widest transition-all text-nowrap">Initializing...</div>
+                    <button id="force-local" class="px-2 py-1 bg-slate-200 text-slate-600 rounded text-[10px] font-bold uppercase hover:bg-slate-300 transition-all">Skip Cloud</button>
                 </div>
                 <p class="text-slate-500 text-sm mt-1">Cloud-synced student movement tracker.</p>
             </div>
@@ -118,17 +120,16 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Environment Variables
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
-        
-        // App State
+        // Global State
         let db, auth, user;
         let state = { students: [], activePasses: [], currentPeriod: '1' };
         let isSaving = false;
+        let syncUnsubscribe = null;
 
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
+        
         const updateStatus = (text, type = 'amber') => {
             const el = document.getElementById('cloud-status');
             if (!el) return;
@@ -139,92 +140,6 @@
                 red: 'bg-red-100 text-red-600' 
             };
             el.className = `px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-all ${colors[type]}`;
-        };
-
-        const init = async () => {
-            updateStatus('Connecting...');
-            try {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                const initAuth = async () => {
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    } catch (e) {
-                        console.error("Auth attempt failed:", e);
-                        updateStatus('Auth Error', 'red');
-                        setTimeout(initAuth, 3000);
-                    }
-                };
-
-                onAuthStateChanged(auth, (u) => {
-                    if (u) {
-                        user = u;
-                        setupSync();
-                    } else {
-                        updateStatus('Offline Mode', 'amber');
-                        render();
-                    }
-                });
-
-                await initAuth();
-            } catch (e) {
-                console.error("Initialization error:", e);
-                updateStatus('Critical Error', 'red');
-                render(); // Fallback to render whatever we have
-            }
-        };
-
-        const setupSync = () => {
-            if (!user) return;
-            const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'hallpass_state');
-
-            updateStatus('Syncing...', 'amber');
-            
-            onSnapshot(dataRef, (snap) => {
-                if (snap.exists() && !isSaving) {
-                    const data = snap.data();
-                    state.students = data.students || [];
-                    state.activePasses = data.activePasses || [];
-                    render();
-                } else if (!snap.exists()) {
-                    // Initial setup or wiped data
-                    render();
-                }
-                updateStatus('Cloud Synced', 'emerald');
-            }, (err) => {
-                console.error("Firestore error:", err);
-                updateStatus('Sync Error', 'red');
-                render();
-            });
-        };
-
-        const syncToCloud = async () => {
-            render(); 
-            if (!user || !db) return;
-
-            isSaving = true;
-            updateStatus('Saving...', 'amber');
-            
-            try {
-                const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'hallpass_state');
-                await setDoc(dataRef, {
-                    students: state.students,
-                    activePasses: state.activePasses,
-                    updatedAt: Date.now()
-                });
-                updateStatus('Cloud Synced', 'emerald');
-            } catch (e) {
-                console.error("Save failed:", e);
-                updateStatus('Save Error', 'red');
-            } finally {
-                isSaving = false;
-            }
         };
 
         const render = () => {
@@ -289,7 +204,85 @@
             }).join('');
         };
 
-        // Window exposed logic
+        const syncToCloud = async () => {
+            render(); 
+            if (!user || !db) return;
+            isSaving = true;
+            updateStatus('Saving...', 'amber');
+            try {
+                const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'hallpass_state');
+                await setDoc(dataRef, {
+                    students: state.students,
+                    activePasses: state.activePasses,
+                    updatedAt: Date.now()
+                });
+                updateStatus('Cloud Synced', 'emerald');
+            } catch (e) {
+                console.error("Save failed:", e);
+                updateStatus('Offline Mode', 'amber');
+            } finally {
+                isSaving = false;
+            }
+        };
+
+        const setupSync = () => {
+            if (!user || !db) return;
+            if (syncUnsubscribe) syncUnsubscribe();
+            
+            const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'hallpass_state');
+            updateStatus('Syncing...', 'amber');
+            
+            syncUnsubscribe = onSnapshot(dataRef, (snap) => {
+                if (snap.exists() && !isSaving) {
+                    const data = snap.data();
+                    state.students = data.students || [];
+                    state.activePasses = data.activePasses || [];
+                    render();
+                }
+                updateStatus('Cloud Synced', 'emerald');
+                document.getElementById('force-local').style.display = 'none';
+            }, (err) => {
+                console.error("Sync error:", err);
+                updateStatus('Offline Mode', 'amber');
+            });
+        };
+
+        const init = async () => {
+            // Show skip button if taking too long
+            const skipTimer = setTimeout(() => {
+                document.getElementById('force-local').style.display = 'inline-block';
+            }, 5000);
+
+            try {
+                const config = JSON.parse(__firebase_config);
+                const app = initializeApp(config);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                onAuthStateChanged(auth, (u) => {
+                    if (u) {
+                        user = u;
+                        setupSync();
+                    } else {
+                        render(); // Show UI even if no auth yet
+                    }
+                });
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (e) {
+                console.error("Init Error:", e);
+                updateStatus('Offline Mode', 'amber');
+                render();
+            } finally {
+                clearTimeout(skipTimer);
+            }
+        };
+
+        // UI Handlers
         window.setPeriod = (p) => { state.currentPeriod = p; render(); };
         window.togglePass = (id) => {
             const outIdx = state.activePasses.findIndex(p => p.sid === id);
@@ -316,20 +309,21 @@
             document.getElementById('modal-backdrop').classList.remove('hidden');
         };
 
-        // UI Initialization
         document.addEventListener('DOMContentLoaded', () => {
             const menuTrigger = document.getElementById('menu-trigger');
             const dataMenu = document.getElementById('data-menu');
             const inputCsv = document.getElementById('input-csv');
             const inputJson = document.getElementById('input-json');
 
-            menuTrigger.onclick = (e) => { 
-                e.stopPropagation(); 
-                dataMenu.classList.toggle('show'); 
+            document.getElementById('force-local').onclick = () => {
+                updateStatus('Offline Mode', 'amber');
+                render();
+                document.getElementById('force-local').style.display = 'none';
             };
 
+            menuTrigger.onclick = (e) => { e.stopPropagation(); dataMenu.classList.toggle('show'); };
             document.addEventListener('click', () => dataMenu.classList.remove('show'));
-            
+
             document.getElementById('add-btn').onclick = () => {
                 document.getElementById('field-id').value = '';
                 document.getElementById('field-name').value = '';
@@ -350,13 +344,11 @@
                     } else {
                         state.students.push({ id: Date.now().toString(), name, period: per, passesUsed: 0, history: [] });
                     }
-                    state.currentPeriod = per;
                     syncToCloud();
                     document.getElementById('modal-backdrop').classList.add('hidden');
                 }
             };
 
-            // Data Tools Activation
             document.getElementById('btn-export-json').onclick = () => {
                 const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
                 const a = document.createElement('a');
@@ -366,11 +358,7 @@
             };
 
             document.getElementById('btn-wipe').onclick = () => { 
-                if (confirm("Permanently wipe all student data and logs?")) { 
-                    state.students = []; 
-                    state.activePasses = []; 
-                    syncToCloud(); 
-                } 
+                if (confirm("Permanently wipe all student data?")) { state.students = []; state.activePasses = []; syncToCloud(); } 
             };
 
             document.getElementById('btn-import-csv').onclick = () => inputCsv.click();
@@ -380,50 +368,34 @@
             inputCsv.onchange = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    const rows = ev.target.result.split('\n').filter(l => l.trim());
-                    rows.forEach(l => {
-                        const parts = l.split(',');
-                        const name = parts[0]?.trim();
-                        const per = parts[1]?.trim() || '1';
-                        if (name) {
-                            state.students.push({ 
-                                id: Math.random().toString(36).substr(2,9), 
-                                name: name, 
-                                period: per, 
-                                passesUsed: 0, 
-                                history: [] 
-                            });
-                        }
+                const r = new FileReader();
+                r.onload = (ev) => {
+                    ev.target.result.split('\n').filter(l => l.trim()).forEach(l => {
+                        const [name, per] = l.split(',').map(v => v?.trim());
+                        if (name) state.students.push({ id: Math.random().toString(36).substr(2,9), name, period: per || '1', passesUsed: 0, history: [] });
                     });
                     syncToCloud();
                     inputCsv.value = '';
                 };
-                reader.readAsText(file);
+                r.readAsText(file);
             };
 
             inputJson.onchange = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => {
+                const r = new FileReader();
+                r.onload = (ev) => {
                     try {
-                        const imported = JSON.parse(ev.target.result);
-                        if (imported.students) {
-                            state = imported;
-                            syncToCloud();
-                        }
-                    } catch (err) {
-                        alert("Invalid backup file.");
-                    }
+                        const data = JSON.parse(ev.target.result);
+                        if (data.students) { state = data; syncToCloud(); }
+                    } catch (err) { alert("Invalid backup file."); }
                     inputJson.value = '';
                 };
-                reader.readAsText(file);
+                r.readAsText(file);
             };
-        });
 
-        init();
+            init();
+        });
     </script>
 </body>
 </html>
