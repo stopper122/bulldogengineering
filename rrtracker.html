@@ -124,7 +124,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         // Global State
         let db, auth, user;
@@ -214,6 +214,7 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
             render(); 
             
+            // Mandatory Rule 3: Guard Firestore operation
             if (!user || !db) return;
             
             isSaving = true;
@@ -221,11 +222,11 @@
             try {
                 let dataRef;
                 if (state.syncCode) {
-                    // Shared Path Rule 1
+                    // Mandatory Rule 1: Public path
                     dataRef = doc(db, 'artifacts', appId, 'public', 'data', `shared_${state.syncCode}`);
                 } else {
-                    // Private Path Rule 1
-                    dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'hallpass_state');
+                    // Mandatory Rule 1: User private path
+                    dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'hallpass_state');
                 }
 
                 await setDoc(dataRef, {
@@ -243,6 +244,7 @@
         };
 
         const setupSync = () => {
+            // Mandatory Rule 3: Guard before queries
             if (!user || !db) return;
             if (syncUnsubscribe) syncUnsubscribe();
             
@@ -252,11 +254,12 @@
                 dataRef = doc(db, 'artifacts', appId, 'public', 'data', `shared_${state.syncCode}`);
             } else {
                 // Private Path Rule 1
-                dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'hallpass_state');
+                dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'hallpass_state');
             }
             
             updateStatus('Connecting...', 'amber');
             
+            // Mandatory Rule 2: Simple snapshot listener
             syncUnsubscribe = onSnapshot(dataRef, (snap) => {
                 if (snap.exists() && !isSaving) {
                     const data = snap.data();
@@ -295,11 +298,13 @@
             }, 5000);
 
             try {
+                // Get config from global provided by environment
                 const config = JSON.parse(__firebase_config);
                 const app = initializeApp(config);
                 auth = getAuth(app);
                 db = getFirestore(app);
 
+                // Mandatory Rule 3: Auth FIRST and AWAIT it
                 const initAuth = async () => {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
