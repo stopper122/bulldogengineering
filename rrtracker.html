@@ -118,7 +118,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         // Environment Variables
         const firebaseConfig = JSON.parse(__firebase_config);
@@ -143,38 +143,45 @@
 
         const init = async () => {
             updateStatus('Connecting...');
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
 
-            const initAuth = async () => {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (e) {
+                        console.error("Auth attempt failed:", e);
+                        updateStatus('Auth Error', 'red');
+                        setTimeout(initAuth, 3000);
                     }
-                } catch (e) {
-                    console.error("Auth failed, retrying...", e);
-                    setTimeout(initAuth, 2000);
-                }
-            };
+                };
 
-            onAuthStateChanged(auth, (u) => {
-                if (u) {
-                    user = u;
-                    setupSync();
-                } else {
-                    updateStatus('Auth Required', 'red');
-                }
-            });
+                onAuthStateChanged(auth, (u) => {
+                    if (u) {
+                        user = u;
+                        setupSync();
+                    } else {
+                        updateStatus('Offline Mode', 'amber');
+                        render();
+                    }
+                });
 
-            await initAuth();
+                await initAuth();
+            } catch (e) {
+                console.error("Initialization error:", e);
+                updateStatus('Critical Error', 'red');
+                render(); // Fallback to render whatever we have
+            }
         };
 
         const setupSync = () => {
             if (!user) return;
-            // RULE 1: Use strict artifact path
             const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'hallpass_state');
 
             updateStatus('Syncing...', 'amber');
@@ -185,16 +192,20 @@
                     state.students = data.students || [];
                     state.activePasses = data.activePasses || [];
                     render();
+                } else if (!snap.exists()) {
+                    // Initial setup or wiped data
+                    render();
                 }
                 updateStatus('Cloud Synced', 'emerald');
             }, (err) => {
                 console.error("Firestore error:", err);
                 updateStatus('Sync Error', 'red');
+                render();
             });
         };
 
         const syncToCloud = async () => {
-            render(); // Immediate UI update
+            render(); 
             if (!user || !db) return;
 
             isSaving = true;
@@ -307,8 +318,17 @@
 
         // UI Initialization
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('menu-trigger').onclick = (e) => { e.stopPropagation(); document.getElementById('data-menu').classList.toggle('show'); };
-            document.addEventListener('click', () => document.getElementById('data-menu').classList.remove('show'));
+            const menuTrigger = document.getElementById('menu-trigger');
+            const dataMenu = document.getElementById('data-menu');
+            const inputCsv = document.getElementById('input-csv');
+            const inputJson = document.getElementById('input-json');
+
+            menuTrigger.onclick = (e) => { 
+                e.stopPropagation(); 
+                dataMenu.classList.toggle('show'); 
+            };
+
+            document.addEventListener('click', () => dataMenu.classList.remove('show'));
             
             document.getElementById('add-btn').onclick = () => {
                 document.getElementById('field-id').value = '';
@@ -336,26 +356,70 @@
                 }
             };
 
-            // Data Tools
+            // Data Tools Activation
             document.getElementById('btn-export-json').onclick = () => {
                 const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
-                a.download = 'hallpass_backup.json';
+                a.download = `hallpass_backup_${new Date().toISOString().split('T')[0]}.json`;
                 a.click();
             };
-            document.getElementById('btn-wipe').onclick = () => { if (confirm("Wipe all data?")) { state.students = []; state.activePasses = []; syncToCloud(); } };
-            document.getElementById('btn-import-csv').onclick = () => document.getElementById('input-csv').click();
-            document.getElementById('input-csv').onchange = (e) => {
+
+            document.getElementById('btn-wipe').onclick = () => { 
+                if (confirm("Permanently wipe all student data and logs?")) { 
+                    state.students = []; 
+                    state.activePasses = []; 
+                    syncToCloud(); 
+                } 
+            };
+
+            document.getElementById('btn-import-csv').onclick = () => inputCsv.click();
+            document.getElementById('btn-restore-json').onclick = () => inputJson.click();
+            document.getElementById('empty-restore-btn').onclick = () => inputJson.click();
+
+            inputCsv.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
                 const reader = new FileReader();
                 reader.onload = (ev) => {
-                    ev.target.result.split('\n').filter(l => l.trim()).forEach(l => {
-                        const [n, p] = l.split(',').map(s => s.trim());
-                        if (n) state.students.push({ id: Math.random().toString(36).substr(2,9), name: n, period: p || '1', passesUsed: 0, history: [] });
+                    const rows = ev.target.result.split('\n').filter(l => l.trim());
+                    rows.forEach(l => {
+                        const parts = l.split(',');
+                        const name = parts[0]?.trim();
+                        const per = parts[1]?.trim() || '1';
+                        if (name) {
+                            state.students.push({ 
+                                id: Math.random().toString(36).substr(2,9), 
+                                name: name, 
+                                period: per, 
+                                passesUsed: 0, 
+                                history: [] 
+                            });
+                        }
                     });
                     syncToCloud();
+                    inputCsv.value = '';
                 };
-                reader.readAsText(e.target.files[0]);
+                reader.readAsText(file);
+            };
+
+            inputJson.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const imported = JSON.parse(ev.target.result);
+                        if (imported.students) {
+                            state = imported;
+                            syncToCloud();
+                        }
+                    } catch (err) {
+                        alert("Invalid backup file.");
+                    }
+                    inputJson.value = '';
+                };
+                reader.readAsText(file);
             };
         });
 
