@@ -274,19 +274,32 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 const lines = e.target.result.split('\n');
+                let importCount = 0;
+                
                 lines.forEach((line, i) => {
                     const parts = line.split(',').map(p => p.trim());
-                    if (parts.length >= 2 && i > 0 && parts[0]) {
+                    // Skip header or empty lines
+                    if (parts.length >= 2 && parts[0] && parts[0].toLowerCase() !== 'student' && parts[0].toLowerCase() !== 'name') {
+                        // Assuming CSV format is: Name, Period
+                        // This fixes the previous swap where it might have been Period, Name
+                        const name = parts[0];
+                        const period = parts[1] || '1';
+
                         state.students.push({
                             id: `std_csv_${Date.now()}_${i}`,
-                            name: parts[0],
-                            period: parts[1],
+                            name: name,
+                            period: period,
                             passesUsed: 0,
                             history: []
                         });
+                        importCount++;
                     }
                 });
-                saveData();
+
+                if (importCount > 0) {
+                    saveData();
+                    updateStatus('success', `Imported ${importCount} students`);
+                }
             };
             reader.readAsText(file);
         };
