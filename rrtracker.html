@@ -109,30 +109,44 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Global State
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
         let db, auth, user;
         let state = { students: [], activePasses: [], currentPeriod: '1' };
+        let isInitialLoad = true;
 
         const updateStatus = (text, type = 'amber') => {
             const el = document.getElementById('cloud-status');
             if (!el) return;
             el.innerText = text;
-            const colors = { amber: 'bg-amber-100 text-amber-600', emerald: 'bg-emerald-100 text-emerald-600', red: 'bg-red-100 text-red-600' };
-            el.className = `px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-all ${colors[type]}`;
+            const colors = { 
+                amber: 'bg-amber-100 text-amber-600', 
+                emerald: 'bg-emerald-100 text-emerald-600', 
+                red: 'bg-red-100 text-red-600' 
+            };
+            el.className = `px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-all ${colors[type] || colors.amber}`;
         };
 
         const bootstrap = async () => {
+            updateStatus('Initializing...');
+            
             try {
-                let config = null;
-                // Wait for config with retries
-                for (let i = 0; i < 10; i++) {
+                // Persistent config check
+                const getConfig = () => {
                     if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                        config = JSON.parse(__firebase_config);
-                        break;
+                        return JSON.parse(__firebase_config);
                     }
-                    await new Promise(r => setTimeout(r, 300));
+                    return null;
+                };
+
+                let config = getConfig();
+                let retries = 0;
+                while (!config && retries < 20) {
+                    await new Promise(r => setTimeout(r, 250));
+                    config = getConfig();
+                    retries++;
                 }
 
                 if (!config) {
@@ -144,38 +158,58 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                updateStatus('Authenticating...');
-                
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                updateStatus('Connecting...');
 
-                onAuthStateChanged(auth, async (u) => {
+                // Auth Logic
+                const performSignIn = async () => {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        return await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        return await signInAnonymously(auth);
+                    }
+                };
+
+                await performSignIn();
+
+                onAuthStateChanged(auth, (u) => {
                     if (u) {
                         user = u;
-                        // Use strict Rule 1 path
-                        const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'main');
-                        
-                        onSnapshot(dataRef, (snap) => {
-                            if (snap.exists()) {
-                                const data = snap.data();
-                                state.students = data.students || [];
-                                state.activePasses = data.activePasses || [];
-                            }
-                            updateStatus('Cloud Synced', 'emerald');
-                            render();
-                        }, (err) => {
-                            console.error("Sync Error:", err);
-                            updateStatus('Permission Error', 'red');
-                        });
+                        setupSync();
+                    } else {
+                        updateStatus('Logged Out', 'red');
                     }
                 });
+
             } catch (err) {
-                console.error("Init Error:", err);
-                updateStatus('Offline Mode', 'amber');
+                console.error("Bootstrap Error:", err);
+                updateStatus('Error', 'red');
             }
+        };
+
+        const setupSync = () => {
+            if (!user || !db) return;
+
+            // Rule 1: Use specific artifacts path
+            const dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'main');
+
+            onSnapshot(dataRef, (snap) => {
+                if (snap.exists()) {
+                    const data = snap.data();
+                    state.students = data.students || [];
+                    state.activePasses = data.activePasses || [];
+                    
+                    if (isInitialLoad && state.students.length > 0) {
+                        const periods = [...new Set(state.students.map(s => s.period))];
+                        if (periods.length > 0) state.currentPeriod = periods[0];
+                        isInitialLoad = false;
+                    }
+                }
+                updateStatus('Synced', 'emerald');
+                render();
+            }, (err) => {
+                console.error("Sync Error:", err);
+                updateStatus('Sync Error', 'red');
+            });
         };
 
         const syncToCloud = async () => {
@@ -188,10 +222,10 @@
                     activePasses: state.activePasses,
                     lastUpdated: Date.now()
                 });
-                updateStatus('Cloud Synced', 'emerald');
+                updateStatus('Synced', 'emerald');
             } catch (e) {
                 console.error("Cloud Save Failed:", e);
-                updateStatus('Save Failed', 'red');
+                updateStatus('Save Error', 'red');
             }
         };
 
@@ -206,12 +240,17 @@
             if (state.students.length === 0) {
                 list.innerHTML = '';
                 empty.classList.remove('hidden');
+                document.getElementById('period-bar').innerHTML = '';
                 return;
             }
             empty.classList.add('hidden');
 
             const periods = [...new Set(state.students.map(s => s.period))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
-            if (!periods.includes(state.currentPeriod)) state.currentPeriod = periods[0] || '1';
+            
+            // Ensure current period exists
+            if (!periods.includes(state.currentPeriod)) {
+                state.currentPeriod = periods[0] || '1';
+            }
 
             document.getElementById('period-bar').innerHTML = periods.map(p => `
                 <button class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${state.currentPeriod === p ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-400'}" 
@@ -227,10 +266,10 @@
                         <div class="flex items-center gap-3">
                             <span class="font-bold text-slate-700">${s.name}</span>
                             <div class="flex gap-1">
-                                <button onclick="window.editStud('${s.id}')" class="text-slate-300 hover:text-indigo-500 p-1">
+                                <button onclick="window.editStud('${s.id}')" title="Edit Student" class="text-slate-300 hover:text-indigo-500 p-1 transition-colors">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-width="2" stroke-linecap="round"></path></svg>
                                 </button>
-                                <button onclick="window.delStud('${s.id}')" class="text-slate-300 hover:text-red-500 p-1">
+                                <button onclick="window.delStud('${s.id}')" title="Delete Student" class="text-slate-300 hover:text-red-500 p-1 transition-colors">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round"></path></svg>
                                 </button>
                             </div>
@@ -244,7 +283,7 @@
                         </div>
                     </td>
                     <td class="px-6 py-5 text-right">
-                        <button onclick="window.togglePass('${s.id}')" class="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase ${isOut ? 'bg-slate-900 text-white' : 'bg-indigo-50 text-indigo-600'}">
+                        <button onclick="window.togglePass('${s.id}')" class="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase ${isOut ? 'bg-slate-900 text-white shadow-inner' : 'bg-indigo-50 text-indigo-600'} transition-all active:scale-95">
                             ${isOut ? 'Return' : 'Issue'}
                         </button>
                     </td>
@@ -253,32 +292,43 @@
             }).join('');
         };
 
+        // Window Handlers
         window.setPeriod = (p) => { state.currentPeriod = p; render(); };
+        
         window.togglePass = (id) => {
             const outIdx = state.activePasses.findIndex(p => p.sid === id);
-            if (outIdx > -1) state.activePasses.splice(outIdx, 1);
-            else {
+            if (outIdx > -1) {
+                state.activePasses.splice(outIdx, 1);
+            } else {
                 state.activePasses.push({ sid: id, start: Date.now() });
                 const s = state.students.find(x => x.id === id);
-                s.history = s.history || [];
-                s.history.push(Date.now());
+                if (s) {
+                    s.history = s.history || [];
+                    s.history.push(Date.now());
+                }
             }
             syncToCloud();
             render();
         };
+
         window.adjPass = (id, delta) => {
             const s = state.students.find(x => x.id === id);
-            s.passesUsed = Math.max(0, (s.passesUsed || 0) + delta);
-            syncToCloud();
-            render();
-        };
-        window.delStud = (id) => {
-            if (confirm("Permanently remove this student?")) {
-                state.students = state.students.filter(s => s.id !== id);
+            if (s) {
+                s.passesUsed = Math.max(0, (s.passesUsed || 0) + delta);
                 syncToCloud();
                 render();
             }
         };
+
+        window.delStud = (id) => {
+            if (confirm("Permanently remove this student?")) {
+                state.students = state.students.filter(s => s.id !== id);
+                state.activePasses = state.activePasses.filter(p => p.sid !== id);
+                syncToCloud();
+                render();
+            }
+        };
+
         window.editStud = (id) => {
             const s = state.students.find(x => x.id === id);
             if (!s) return;
@@ -289,8 +339,12 @@
             document.getElementById('modal-backdrop').classList.remove('hidden');
         };
 
-        // Data Management
-        document.getElementById('menu-trigger').onclick = (e) => { e.stopPropagation(); document.getElementById('data-menu').classList.toggle('show'); };
+        // UI Events
+        document.getElementById('menu-trigger').onclick = (e) => { 
+            e.stopPropagation(); 
+            document.getElementById('data-menu').classList.toggle('show'); 
+        };
+        
         document.onclick = () => document.getElementById('data-menu').classList.remove('show');
 
         document.getElementById('btn-import-csv').onclick = () => document.getElementById('input-csv').click();
@@ -301,7 +355,15 @@
             reader.onload = (ev) => {
                 ev.target.result.split('\n').filter(r => r.trim()).forEach(r => {
                     const [name, period] = r.split(',').map(s => s.trim());
-                    if (name) state.students.push({ id: Math.random().toString(36).substr(2, 9), name, period: period || '1', passesUsed: 0, history: [] });
+                    if (name) {
+                        state.students.push({ 
+                            id: Math.random().toString(36).substr(2, 9), 
+                            name, 
+                            period: period || '1', 
+                            passesUsed: 0, 
+                            history: [] 
+                        });
+                    }
                 });
                 syncToCloud();
                 render();
@@ -322,7 +384,7 @@
                     state.activePasses = data.activePasses || [];
                     syncToCloud();
                     render();
-                } catch (err) { alert("Invalid backup file."); }
+                } catch (err) { alert("Invalid backup file format."); }
             };
             reader.readAsText(file);
         };
@@ -331,12 +393,12 @@
             const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `hallpass_backup_${Date.now()}.json`;
+            a.download = `hallpass_backup_${new Date().toISOString().split('T')[0]}.json`;
             a.click();
         };
 
         document.getElementById('btn-wipe').onclick = () => {
-            if (confirm("Delete all data from cloud?")) {
+            if (confirm("This will delete all student data. Are you sure?")) {
                 state.students = [];
                 state.activePasses = [];
                 syncToCloud();
@@ -347,22 +409,30 @@
         document.getElementById('add-btn').onclick = () => {
             document.getElementById('field-id').value = '';
             document.getElementById('field-name').value = '';
+            document.getElementById('field-period').value = state.currentPeriod || '1';
             document.getElementById('modal-title').innerText = "Add Student";
             document.getElementById('modal-backdrop').classList.remove('hidden');
         };
 
         document.getElementById('modal-cancel').onclick = () => document.getElementById('modal-backdrop').classList.add('hidden');
+        
         document.getElementById('modal-save').onclick = () => {
             const id = document.getElementById('field-id').value;
-            const name = document.getElementById('field-name').value;
-            const per = document.getElementById('field-period').value || '1';
+            const name = document.getElementById('field-name').value.trim();
+            const per = document.getElementById('field-period').value.trim() || '1';
             
             if (name) {
                 if (id) {
                     const s = state.students.find(x => x.id === id);
                     if (s) { s.name = name; s.period = per; }
                 } else {
-                    state.students.push({ id: Date.now().toString(), name, period: per, passesUsed: 0, history: [] });
+                    state.students.push({ 
+                        id: Date.now().toString(), 
+                        name, 
+                        period: per, 
+                        passesUsed: 0, 
+                        history: [] 
+                    });
                 }
                 state.currentPeriod = per;
                 syncToCloud();
