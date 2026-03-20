@@ -33,7 +33,10 @@
         <header class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
                 <h1 class="text-4xl font-black text-slate-900 tracking-tight mb-2">Hall Pass <span class="text-indigo-600">Tracker</span></h1>
-                <p class="text-slate-500 font-medium">Manage student movement and track frequency limits.</p>
+                <div class="flex items-center gap-3">
+                    <p class="text-slate-500 font-medium">Manage student movement and track frequency limits.</p>
+                    <button id="notif-btn" onclick="requestNotifs()" class="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md hover:bg-amber-100 transition-colors uppercase tracking-tighter">Enable Alerts</button>
+                </div>
             </div>
             <div class="flex flex-wrap gap-3">
                 <!-- Sort Dropdown -->
@@ -179,6 +182,7 @@
     <script>
         const PASS_LIMIT = 7;
         const TIME_LIMIT_SECS = 7 * 60;
+        const WARNING_TIME_SECS = 60; // 1 minute warning
 
         let state = {
             students: [],
@@ -201,6 +205,27 @@
             }
         };
 
+        // Notification Logic
+        window.requestNotifs = () => {
+            if (!("Notification" in window)) {
+                updateStatus('error', 'Browser does not support notifications');
+                return;
+            }
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    updateStatus('success', 'Notifications Enabled');
+                    document.getElementById('notif-btn').innerText = "Alerts Enabled";
+                    document.getElementById('notif-btn').className = "text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md transition-colors uppercase tracking-tighter";
+                }
+            });
+        };
+
+        const sendAlert = (title, body) => {
+            if (Notification.permission === "granted") {
+                new Notification(title, { body, icon: 'https://cdn-icons-png.flaticon.com/512/252/252025.png' });
+            }
+        };
+
         const loadData = () => {
             const saved = localStorage.getItem(state.storageKey);
             if (saved) {
@@ -211,6 +236,11 @@
                 } catch (e) { console.error(e); }
             }
             render();
+            // Check if permission already granted
+            if (Notification.permission === "granted") {
+                document.getElementById('notif-btn').innerText = "Alerts Enabled";
+                document.getElementById('notif-btn').className = "text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md transition-colors uppercase tracking-tighter";
+            }
         };
 
         const saveData = () => {
@@ -258,7 +288,13 @@
                 state.students[studentIdx].passesUsed = (state.students[studentIdx].passesUsed || 0) + (isOvertime ? 1 : 0);
                 state.students[studentIdx].history = [{ ts: Date.now(), duration, status: isOvertime ? 'Overtime' : 'On-time' }, ...(state.students[studentIdx].history || [])];
             } else {
-                state.activePasses.push({ studentId: sid, name: state.students[studentIdx].name, startTime: Date.now() });
+                state.activePasses.push({ 
+                    studentId: sid, 
+                    name: state.students[studentIdx].name, 
+                    startTime: Date.now(),
+                    warned: false,
+                    expired: false
+                });
             }
             saveData();
         };
@@ -297,7 +333,19 @@
                 tContainer.classList.remove('hidden');
                 document.getElementById('timers-list').innerHTML = state.activePasses.map(p => {
                     const elapsed = Math.floor((Date.now() - p.startTime) / 1000);
+                    const remaining = TIME_LIMIT_SECS - elapsed;
                     const over = elapsed >= TIME_LIMIT_SECS;
+
+                    // Alert logic
+                    if (!p.warned && remaining <= WARNING_TIME_SECS && remaining > 0) {
+                        p.warned = true;
+                        sendAlert("1 Minute Warning", `${p.name} has 1 minute left on their hall pass.`);
+                    }
+                    if (!p.expired && over) {
+                        p.expired = true;
+                        sendAlert("Time's Up!", `${p.name} is now over the hall pass time limit.`);
+                    }
+
                     return `
                         <div class="glass p-5 rounded-[2rem] border-2 flex items-center justify-between ${over ? 'border-red-500 bg-red-50/50' : 'border-indigo-100'}">
                             <div><h4 class="font-black text-slate-900">${p.name}</h4><p class="text-[9px] font-black uppercase tracking-widest ${over ? 'text-red-500' : 'text-slate-400'}">TIMER ACTIVE</p></div>
