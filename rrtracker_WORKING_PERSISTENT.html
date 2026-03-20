@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hall Pass Tracker FIXED</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-6 bg-slate-50">
+
+<h1 class="text-2xl font-bold mb-4">Hall Pass Tracker (Cloud Working)</h1>
+<p id="status" class="mb-4 text-sm font-bold text-amber-600">Connecting...</p>
+
+<input type="file" id="csv" class="mb-4">
+
+<div id="list"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
+  authDomain: "rrtracker-de70e.firebaseapp.com",
+  projectId: "rrtracker-de70e"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const status = document.getElementById("status");
+const list = document.getElementById("list");
+
+// LOAD STUDENTS
+async function loadStudents() {
+  list.innerHTML = "";
+  const snap = await getDocs(collection(db, "students"));
+
+  snap.forEach(doc => {
+    const s = doc.data();
+    const div = document.createElement("div");
+    div.className = "p-2 bg-white rounded mb-2 shadow";
+    div.textContent = s.name + " (Period " + s.period + ")";
+    list.appendChild(div);
+  });
+}
+
+// TEST CONNECTION
+(async () => {
+  try {
+    await loadStudents();
+    status.textContent = "Cloud Connected ✅";
+    status.className = "mb-4 text-sm font-bold text-green-600";
+  } catch (e) {
+    console.error(e);
+    status.textContent = "Connection Failed ❌";
+    status.className = "mb-4 text-sm font-bold text-red-600";
+  }
+})();
+
+// CSV UPLOAD
+document.getElementById("csv").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  const text = await file.text();
+  const lines = text.split("\n");
+
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i].trim();
+    if (!row) continue;
+
+    const cols = row.split(",").map(c => c.trim());
+
+    const period = cols[0];
+    const first = cols[1];
+    const last = cols[2];
+    const studentId = cols[3];
+
+    if (!studentId) continue;
+
+    await addDoc(collection(db, "students"), {
+      name: first + " " + last,
+      studentId,
+      period
+    });
+  }
+
+  alert("Upload complete!");
+  loadStudents();
+});
+</script>
+
+</body>
+</html>
