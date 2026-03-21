@@ -64,7 +64,10 @@ import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstat
 const firebaseConfig = {
   apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
   authDomain: "rrtracker-de70e.firebaseapp.com",
-  projectId: "rrtracker-de70e"
+  projectId: "rrtracker-de70e",
+  storageBucket: "rrtracker-de70e.firebasestorage.app",
+  messagingSenderId: "1057987490614",
+  appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -250,9 +253,23 @@ document.getElementById("importJson").addEventListener("change", async(e)=>{
 });
 
 async function init(){
-  const snap=await getDoc(docRef);
-  if(!snap.exists()) await setDoc(docRef,state);
-  startSync();
+  try {
+    console.log("Initializing Firebase...");
+
+    const snap = await getDoc(docRef);
+
+    if(!snap.exists()){
+      console.log("Creating initial document...");
+      await setDoc(docRef,state);
+    }
+
+    startSync();
+
+  } catch(e){
+    console.error("INIT ERROR:", e);
+    status.textContent = "Connection Error";
+    status.className = "text-red-600 text-xs font-bold";
+  }
 }
 
 init();
