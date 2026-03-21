@@ -44,6 +44,7 @@
       <input type="file" id="importJson" class="hidden">
       <button onclick="document.getElementById('importJson').click()" class="px-3 py-1 bg-slate-200 rounded text-xs">Restore</button>
       <button onclick="resetPasses()" class="px-3 py-1 bg-red-500 text-white rounded text-xs">Reset Passes</button>
+      <button onclick="wipeAllData()" class="px-3 py-1 bg-black text-white rounded text-xs">Wipe All Data</button>
 
       <div class="flex items-center gap-2 ml-auto">
         <span class="text-xs">Time:</span>
@@ -52,6 +53,7 @@
         <input id="maxPassInput" type="number" class="w-14 px-2 py-1 border rounded text-xs">
         <button onclick="updateSettings()" class="px-2 py-1 bg-slate-700 text-white rounded text-xs">Set</button>
       </div>
+    </div>
     </div>
 
     <!-- SEARCH -->
@@ -229,17 +231,28 @@ function render(){
     if(showLog){
       logDiv.classList.remove("hidden");
       const search = document.getElementById("logSearch")?.value?.toLowerCase() || "";
+
       const filteredLogs = state.logs.filter(l=>l.name.toLowerCase().includes(search));
-      logDiv.innerHTML = filteredLogs.map(l=>`<div class="text-xs border-b py-1 flex justify-between">
-        <span>${l.name}</span>
-        <span>${formatTime(l.duration)}</span>
-      </div>`).join("") || "<div class='text-xs text-slate-400'>No logs yet</div>";
+
+      logDiv.innerHTML = filteredLogs.map(l=>{
+        const status = l.deducted ? 'text-red-600' : 'text-green-600';
+        return `<div class="text-xs border-b py-1">
+          <div class="flex justify-between">
+            <span>${l.name}</span>
+            <span class="${status}">${l.deducted ? 'Pass Used' : 'OK'}</span>
+          </div>
+          <div class="flex justify-between text-[10px] text-slate-400">
+            <span>${formatTime(l.duration)}</span>
+            <span>${l.timestamp || ''}</span>
+          </div>
+        </div>`;
+      }).join("") || "<div class='text-xs text-slate-400'>No logs yet</div>";
     } else {
       logDiv.classList.add("hidden");
     }
   }
 
-  if(alertText){
+  if(alertText){{
     alertBanner.classList.remove("hidden");
     alertBanner.className = "mb-4 p-3 rounded-xl bg-yellow-200 text-yellow-800 font-bold";
     alertBanner.innerText = alertText;
@@ -268,7 +281,12 @@ window.togglePass=(id)=>{
   if(active){
     const duration = Math.floor((Date.now()-active.start)/1000);
     if(duration>state.settings.limitSec) student.passesUsed=(student.passesUsed||0)+1;
-    state.logs.unshift({name:student.name,duration});
+    state.logs.unshift({
+      name: student.name,
+      duration,
+      deducted: duration>state.settings.limitSec,
+      timestamp: new Date().toLocaleTimeString()
+    });
     state.activePasses = state.activePasses.filter(p=>p.id!==id);
   } else {
     state.activePasses.push({id,start:Date.now()});
@@ -278,6 +296,19 @@ window.togglePass=(id)=>{
 };
 
 window.setPeriod=(p)=>{ state.currentPeriod=p; render(); };
+
+window.wipeAllData=()=>{
+  if(confirm("⚠️ This will delete ALL data. Continue?")){
+    state = {
+      students: [],
+      activePasses: [],
+      logs: [],
+      settings: { limitSec: 420, maxPasses: 5 },
+      currentPeriod: null
+    };
+    save(); render();
+  }
+};
 
 window.resetPasses=()=>{
   state.students.forEach(s=>s.passesUsed=0);
