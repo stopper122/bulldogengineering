@@ -29,6 +29,9 @@
                     <p class="text-slate-500 text-[10px] font-bold uppercase tracking-wider ml-1">Sync Code:</p>
                     <input type="text" id="sync-code-input" placeholder="e.g. ROOM101" class="bg-slate-50 border border-slate-100 rounded px-2 py-1 text-xs font-bold text-indigo-600 w-28 focus:ring-1 focus:ring-indigo-500 outline-none uppercase">
                     <button id="set-sync-code" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-[10px] font-bold uppercase hover:bg-indigo-700 transition-all">Set Code</button>
+                    <button id="reset-connection" class="text-slate-400 hover:text-red-500 transition-colors px-1" title="Reset Connection">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                    </button>
                 </div>
                 <p class="text-[9px] text-slate-400 mt-1 ml-1">* Use same code on phone & computer to link data.</p>
             </div>
@@ -118,9 +121,9 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Global Globals
+        // Firebase Configuration (Verified for current project)
         const firebaseConfig = {
             apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
             authDomain: "rrtracker-de70e.firebaseapp.com",
@@ -129,26 +132,35 @@
             messagingSenderId: "1057987490614",
             appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997"
         };
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro';
 
-        let state = { students: [], activePasses: [], history: [], currentPeriod: '1', syncCode: localStorage.getItem('last_sync_code') || '' };
+        let state = { 
+            students: [], 
+            activePasses: [], 
+            history: [], 
+            currentPeriod: '1', 
+            syncCode: localStorage.getItem('last_sync_code') || '' 
+        };
+        
         let user = null;
         let unsub = null;
         let isWriting = false;
 
         const updateStatus = (text, type = 'slate') => {
             const el = document.getElementById('cloud-status');
+            if (!el) return;
             el.innerText = text;
             const styles = {
                 slate: 'bg-slate-200 text-slate-500',
-                indigo: 'bg-indigo-100 text-indigo-600',
+                indigo: 'bg-indigo-100 text-indigo-600 animate-pulse',
                 green: 'bg-emerald-100 text-emerald-600',
                 red: 'bg-red-100 text-red-600'
             };
-            el.className = `px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest ${styles[type]}`;
+            el.className = `px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest ${styles[type] || styles.slate}`;
         };
 
         const render = () => {
@@ -166,7 +178,7 @@
                     <span class="bg-red-200 text-red-800 px-2 py-1 rounded-lg text-[10px] font-black">${s.passesUsed}</span>
                 </div>`).join('') : '<p class="text-[10px] text-slate-400 italic">Clear</p>';
 
-            if (!state.students.length) {
+            if (!state.students || !state.students.length) {
                 list.innerHTML = '';
                 empty.classList.remove('hidden');
                 return;
@@ -186,13 +198,13 @@
                     <td class="px-6 py-4 font-bold text-slate-700">${s.name}</td>
                     <td class="px-6 py-4">
                         <div class="flex items-center gap-2">
-                            <button onclick="window.adj('${s.id}', -1)" class="w-6 h-6 bg-slate-100 rounded text-xs font-bold">-</button>
+                            <button onclick="window.adj('${s.id}', -1)" class="w-6 h-6 bg-slate-100 rounded text-xs font-bold hover:bg-slate-200">-</button>
                             <span class="text-xs font-black w-4 text-center">${s.passesUsed || 0}</span>
-                            <button onclick="window.adj('${s.id}', 1)" class="w-6 h-6 bg-slate-100 rounded text-xs font-bold">+</button>
+                            <button onclick="window.adj('${s.id}', 1)" class="w-6 h-6 bg-slate-100 rounded text-xs font-bold hover:bg-slate-200">+</button>
                         </div>
                     </td>
                     <td class="px-6 py-4 text-right">
-                        <button onclick="window.pass('${s.id}')" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase ${active ? 'bg-slate-800 text-white' : 'bg-indigo-50 text-indigo-600'}">
+                        <button onclick="window.pass('${s.id}')" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${active ? 'bg-slate-800 text-white hover:bg-slate-900' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}">
                             ${active ? 'Return' : 'Issue'}
                         </button>
                     </td>
@@ -201,19 +213,29 @@
         };
 
         const save = async () => {
-            if (!user || isWriting) return;
+            if (!user) return;
             isWriting = true;
             try {
+                // Ensure state is valid before saving
+                const dataToSave = {
+                    students: state.students || [],
+                    activePasses: state.activePasses || [],
+                    history: state.history || [],
+                    lastUpdate: Date.now(),
+                    syncCode: state.syncCode || ''
+                };
+
                 const path = state.syncCode 
                     ? doc(db, 'artifacts', APP_ID, 'public', 'data', `sync_${state.syncCode}`)
                     : doc(db, 'artifacts', APP_ID, 'users', user.uid, 'settings', 'local_data');
                 
-                await setDoc(path, { ...state, lastUpdate: Date.now() });
+                await setDoc(path, dataToSave, { merge: true });
                 updateStatus(state.syncCode ? `Shared: ${state.syncCode}` : 'Cloud Saved', 'green');
             } catch (e) {
+                console.error("Save error:", e);
                 updateStatus('Save Error', 'red');
             } finally {
-                isWriting = false;
+                setTimeout(() => { isWriting = false; }, 500);
             }
         };
 
@@ -225,7 +247,15 @@
                 ? doc(db, 'artifacts', APP_ID, 'public', 'data', `sync_${code}`)
                 : doc(db, 'artifacts', APP_ID, 'users', user.uid, 'settings', 'local_data');
 
+            // Set up a timeout for connection hang
+            const connectTimeout = setTimeout(() => {
+                if (document.getElementById('cloud-status').innerText === 'Connecting...') {
+                    updateStatus('Sync Idle', 'slate');
+                }
+            }, 8000);
+
             unsub = onSnapshot(path, (snap) => {
+                clearTimeout(connectTimeout);
                 if (snap.exists() && !isWriting) {
                     const data = snap.data();
                     state.students = data.students || [];
@@ -235,16 +265,23 @@
                 }
                 updateStatus(code ? `Shared: ${code}` : 'Cloud Active', 'green');
             }, (err) => {
-                updateStatus('Sync Blocked', 'red');
+                console.error("Snapshot error:", err);
+                updateStatus('Sync Error', 'red');
             });
         };
 
-        // Window Bindings
+        // UI Interactions
         window.setPeriod = (p) => { state.currentPeriod = p; render(); };
+        
         window.adj = (id, d) => {
             const s = state.students.find(x => x.id === id);
-            if (s) { s.passesUsed = Math.max(0, (s.passesUsed || 0) + d); save(); render(); }
+            if (s) { 
+                s.passesUsed = Math.max(0, (s.passesUsed || 0) + d); 
+                render();
+                save(); 
+            }
         };
+
         window.pass = (id) => {
             const idx = state.activePasses.findIndex(p => p.sid === id);
             if (idx > -1) {
@@ -259,16 +296,24 @@
             } else {
                 state.activePasses.push({ sid: id, start: Date.now() });
             }
-            save(); render();
+            render();
+            save();
         };
 
-        // UI Listeners
         document.getElementById('set-sync-code').onclick = () => {
-            const code = document.getElementById('sync-code-input').value.trim().toUpperCase();
+            const input = document.getElementById('sync-code-input');
+            const code = input.value.trim().toUpperCase();
             if (!code) return;
             state.syncCode = code;
             localStorage.setItem('last_sync_code', code);
             connect(code);
+        };
+
+        document.getElementById('reset-connection').onclick = () => {
+            localStorage.removeItem('last_sync_code');
+            document.getElementById('sync-code-input').value = '';
+            state.syncCode = '';
+            connect(null);
         };
 
         document.getElementById('add-btn').onclick = () => {
@@ -282,7 +327,8 @@
             const per = document.getElementById('field-period').value.trim() || '1';
             if (!name) return;
             state.students.push({ id: Date.now().toString(), name, period: per, passesUsed: 0 });
-            save(); render();
+            render();
+            save();
             document.getElementById('modal-backdrop').classList.add('hidden');
         };
 
@@ -292,21 +338,39 @@
             e.stopPropagation();
             document.getElementById('data-menu').classList.toggle('show');
         };
-        document.body.onclick = () => document.getElementById('data-menu').classList.remove('show');
+        
+        document.body.onclick = () => {
+            document.getElementById('data-menu').classList.remove('show');
+        };
 
-        // Init
+        document.getElementById('btn-wipe').onclick = () => {
+            if (confirm("Are you sure you want to delete ALL data? This cannot be undone.")) {
+                state.students = [];
+                state.activePasses = [];
+                state.history = [];
+                render();
+                save();
+            }
+        };
+
+        // Initialize App
         (async () => {
             try {
+                updateStatus('Auth...', 'indigo');
                 const cred = await signInAnonymously(auth);
                 user = cred.user;
-                if (state.syncCode) {
-                    document.getElementById('sync-code-input').value = state.syncCode;
-                    connect(state.syncCode);
+                
+                const lastCode = localStorage.getItem('last_sync_code');
+                if (lastCode) {
+                    document.getElementById('sync-code-input').value = lastCode;
+                    state.syncCode = lastCode;
+                    connect(lastCode);
                 } else {
                     connect(null);
                 }
             } catch (e) {
-                updateStatus('Auth Fail', 'red');
+                console.error("Initialization error:", e);
+                updateStatus('Offline Mode', 'slate');
             }
         })();
     </script>
