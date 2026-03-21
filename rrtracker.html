@@ -171,7 +171,13 @@ function render(){
         </div>
         <div class="flex gap-3 items-center">
           ${active ? `<span class="font-mono">${formatTime(duration)}</span>` : ''}
-          <span class="text-xs">${s.passesUsed||0}/${state.settings.maxPasses}</span>
+          <div class="flex flex-col items-center text-xs">
+            <span>${s.passesUsed||0}/${state.settings.maxPasses}</span>
+            <div class="flex gap-1 mt-1">
+              <button onclick="adjustPass('${s.id}',1)" class="bg-slate-200 px-1 rounded">+</button>
+              <button onclick="adjustPass('${s.id}',-1)" class="bg-slate-200 px-1 rounded">-</button>
+            </div>
+          </div>
 
           <!-- EDIT / DELETE BUTTONS -->
           <button onclick="editStudent('${s.id}')" class="text-xs bg-slate-200 px-2 rounded">Edit</button>
@@ -258,6 +264,14 @@ window.editStudent=(id)=>{
   s.name = newName.trim() || s.name;
   s.period = newPeriod.trim() || s.period;
 
+  save(); render();
+};
+
+// MANUAL PASS ADJUST
+window.adjustPass=(id,delta)=>{
+  const s = state.students.find(x=>x.id===id);
+  if(!s) return;
+  s.passesUsed = Math.max(0,(s.passesUsed||0)+delta);
   save(); render();
 };
 
