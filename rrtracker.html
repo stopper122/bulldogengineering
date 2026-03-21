@@ -131,7 +131,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { initializeFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { initializeFirestore, doc, setDoc, onSnapshot, getFirestore, onSnapshotsInSync } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
@@ -144,9 +144,7 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        const db = initializeFirestore(app, {
-            experimentalForceLongPolling: true
-        });
+        const db = getFirestore(app);
         
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro';
 
@@ -184,8 +182,8 @@
                 state.students = data.students || [];
                 state.activePasses = data.activePasses || [];
                 state.history = data.history || [];
-                render();
             }
+            render();
         };
 
         const saveLocal = () => {
@@ -252,7 +250,7 @@
 
         const save = async () => {
             saveLocal();
-            if (!user || isOfflineMode) return;
+            if (isOfflineMode || !user) return;
             isWriting = true;
             try {
                 const dataToSave = {
@@ -280,41 +278,27 @@
             if (unsub) unsub();
             if (connTimeout) clearTimeout(connTimeout);
             
-            updateStatus('Connecting...', 'indigo');
+            updateStatus('Handshaking...', 'indigo');
             isOfflineMode = false;
-            
-            // Critical: Ensure auth is ready before attempting connection
-            if (!user) {
-                try {
-                    const credentials = await signInAnonymously(auth);
-                    user = credentials.user;
-                } catch (err) {
-                    console.error("Auth failed:", err);
-                    isOfflineMode = true;
-                    updateStatus('Offline Mode', 'red');
-                    loadLocal();
-                    return;
-                }
-            }
 
-            const path = code 
-                ? doc(db, 'artifacts', APP_ID, 'public', 'data', `sync_${code}`)
-                : doc(db, 'artifacts', APP_ID, 'users', user.uid, 'settings', 'local_data');
-
-            // Set a strict 3-second timeout for the initial connection
+            // Failsafe: if we don't get a snapshot within 4 seconds, force Local Mode
             connTimeout = setTimeout(() => {
-                if (!isOfflineMode && document.getElementById('cloud-status').innerText.includes('CONNECTING')) {
-                    console.warn("Cloud connection timed out, switching to local mode.");
+                if (!isOfflineMode) {
                     isOfflineMode = true;
-                    updateStatus('Local Mode (Offline)', 'red');
+                    updateStatus('Local Mode (Offline)', 'slate');
                     loadLocal();
                 }
-            }, 3000);
+            }, 4000);
 
             try {
+                const path = code 
+                    ? doc(db, 'artifacts', APP_ID, 'public', 'data', `sync_${code}`)
+                    : doc(db, 'artifacts', APP_ID, 'users', user.uid, 'settings', 'local_data');
+
                 unsub = onSnapshot(path, (snap) => {
                     if (connTimeout) clearTimeout(connTimeout);
                     isOfflineMode = false;
+                    
                     if (snap.exists() && !isWriting) {
                         const data = snap.data();
                         state.students = data.students || [];
@@ -324,17 +308,15 @@
                     }
                     updateStatus(code ? `Shared: ${code}` : 'Cloud Active', 'green');
                 }, (err) => {
-                    console.error("Sync stream error:", err);
-                    if (!isOfflineMode) {
-                        isOfflineMode = true;
-                        updateStatus('Sync Error', 'red');
-                        loadLocal();
-                    }
+                    console.warn("Firestore error, falling back:", err);
+                    isOfflineMode = true;
+                    updateStatus('Offline', 'red');
+                    loadLocal();
                 });
             } catch (err) {
-                console.error("Setup error:", err);
                 isOfflineMode = true;
-                updateStatus('Offline', 'red');
+                updateStatus('Connection Error', 'red');
+                loadLocal();
             }
         };
 
@@ -436,7 +418,6 @@
                     const imported = JSON.parse(ev.target.result);
                     if (imported.students) {
                         state.students = [...state.students, ...imported.students];
-                        // Basic de-duplication by name/period
                         const seen = new Set();
                         state.students = state.students.filter(el => {
                             const duplicate = seen.has(el.name + el.period);
@@ -462,25 +443,19 @@
             }
         };
 
-        const init = () => {
-            updateStatus('Starting...', 'indigo');
-            loadLocal(); 
+        const init = async () => {
+            updateStatus('Authenticating...', 'indigo');
+            loadLocal(); // Show immediate UI
             
             onAuthStateChanged(auth, (u) => {
                 if (u) {
                     user = u;
                     const lastCode = localStorage.getItem('last_sync_code');
-                    if (lastCode) {
-                        document.getElementById('sync-code-input').value = lastCode;
-                        state.syncCode = lastCode;
-                        connect(lastCode);
-                    } else {
-                        connect(null);
-                    }
+                    connect(lastCode || null);
                 } else {
                     signInAnonymously(auth).catch(() => {
                         isOfflineMode = true;
-                        updateStatus('Offline', 'red');
+                        updateStatus('Offline Mode', 'red');
                     });
                 }
             });
