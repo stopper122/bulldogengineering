@@ -206,16 +206,14 @@ function render(){
           <div class="flex flex-col items-center text-xs">
             <span>${s.passesUsed||0}/${state.settings.maxPasses}</span>
             <div class="flex gap-1 mt-1">
-              <button onclick="window.adjustPass('${s.id}',1)" class="bg-slate-200 px-1 rounded">+</button>
-              <button onclick="window.adjustPass('${s.id}',-1)" class="bg-slate-200 px-1 rounded">-</button>
+              <button data-action="add" data-id="${s.id}" class="bg-slate-200 px-1 rounded">+</button>
+              <button data-action="sub" data-id="${s.id}" class="bg-slate-200 px-1 rounded">-</button>
             </div>
           </div>
 
-          <!-- EDIT / DELETE BUTTONS -->
-          <button onclick="window.editStudent('${s.id}')" class="text-xs bg-slate-200 px-2 rounded">Edit</button>
-          <button onclick="window.deleteStudent('${s.id}')" class="text-xs bg-red-500 text-white px-2 rounded">Delete</button>
-
-          <button onclick="window.togglePass('${s.id}')" class="text-xs bg-indigo-600 text-white px-2 rounded">${active?'Return':'Start'}</button>
+          <button data-action="edit" data-id="${s.id}" class="text-xs bg-slate-200 px-2 rounded">Edit</button>
+          <button data-action="delete" data-id="${s.id}" class="text-xs bg-red-500 text-white px-2 rounded">Delete</button>
+          <button data-action="toggle" data-id="${s.id}" class="text-xs bg-indigo-600 text-white px-2 rounded">${active?'Return':'Start'}</button>
         </div>
       </div>
     </div>`;
@@ -403,6 +401,21 @@ async function init(){
   if(!snap.exists()) await setDoc(docRef,state);
   startSync();
 }
+
+// GLOBAL CLICK HANDLER (fixes broken buttons)
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+
+  if(action === 'toggle') window.togglePass(id);
+  if(action === 'add') window.adjustPass(id,1);
+  if(action === 'sub') window.adjustPass(id,-1);
+  if(action === 'edit') window.editStudent(id);
+  if(action === 'delete') window.deleteStudent(id);
+});
 
 init();
 setInterval(()=>{ if(state.activePasses.length) render(); },1000);
