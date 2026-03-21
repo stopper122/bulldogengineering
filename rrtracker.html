@@ -107,7 +107,7 @@
     <input type="file" id="input-json" accept=".json" class="hidden">
 
     <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[300] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
+        <div class="bg-white rounded-[2rem] w-full max-sm p-8 shadow-2xl">
             <h2 id="modal-title" class="text-xl font-black mb-6">Student Details</h2>
             <div class="space-y-4">
                 <input type="hidden" id="field-id">
@@ -305,21 +305,22 @@
 
             const skipTimer = setTimeout(() => {
                 document.getElementById('force-local').style.display = 'inline-block';
-            }, 10000);
+            }, 5000);
 
             try {
-                updateStatus('Connecting...', 'amber');
-                
-                if (typeof __firebase_config === 'undefined') {
-                    throw new Error('Config Missing');
+                // Check if Firebase config exists; if not, wait briefly or default to Local Mode
+                if (typeof __firebase_config === 'undefined' || !__firebase_config) {
+                    updateStatus('Local Mode', 'amber');
+                    console.warn("Firebase config not found. Running in Local Mode.");
+                    return;
                 }
 
+                updateStatus('Connecting...', 'amber');
                 const config = JSON.parse(__firebase_config);
                 const app = initializeApp(config);
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                // Setup listener first to catch the login event
                 onAuthStateChanged(auth, async (u) => {
                     if (u) {
                         user = u;
@@ -329,7 +330,6 @@
                     }
                 });
 
-                // Trigger login
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -338,9 +338,13 @@
 
             } catch (e) {
                 console.error("Firebase startup error:", e);
-                // Fix for "undefined" error: Ensure we have a string to display
                 const errorMsg = e.code || e.message || 'Connection Error';
-                updateStatus('Error: ' + errorMsg, 'red');
+                // If it's a structural error, just stay in Local Mode
+                if (errorMsg.includes('Config Missing') || errorMsg.includes('undefined')) {
+                    updateStatus('Local Mode', 'amber');
+                } else {
+                    updateStatus('Error: ' + errorMsg, 'red');
+                }
             }
         };
 
@@ -392,7 +396,7 @@
             };
 
             document.getElementById('force-local').onclick = () => {
-                updateStatus('Offline Mode', 'amber');
+                updateStatus('Local Mode', 'amber');
                 document.getElementById('force-local').style.display = 'none';
             };
 
