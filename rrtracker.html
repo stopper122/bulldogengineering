@@ -13,11 +13,15 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         #force-local { display: none; }
+        
+        /* Smooth transitions for table rows */
+        tr { transition: background-color 0.3s ease; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-900 font-sans">
+<body class="bg-slate-50 min-h-screen text-slate-900 font-sans pb-20">
 
     <div class="max-w-6xl mx-auto p-4 md:p-8">
+        <!-- Header Section -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
             <div>
                 <div class="flex items-center gap-3">
@@ -51,7 +55,8 @@
             </div>
         </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
             <div class="lg:col-span-3">
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                     <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
@@ -68,44 +73,68 @@
                     </div>
                     <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                         <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Limit</span>
-                        <p class="text-2xl font-black text-slate-800">7</p>
+                        <p class="text-2xl font-black text-slate-800">7m</p>
                     </div>
                 </div>
 
+                <!-- Main Table Section -->
                 <div class="bg-white rounded-[2rem] shadow-xl border border-slate-200/50 overflow-hidden min-h-[400px]">
                     <div id="period-bar" class="flex gap-2 p-4 border-b border-slate-50 overflow-x-auto no-scrollbar"></div>
                     <table class="w-full text-left">
                         <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                             <tr>
                                 <th class="px-6 py-4">Student</th>
-                                <th class="px-6 py-4">Overage (Limit 7)</th>
-                                <th class="px-6 py-4 text-right">Pass</th>
+                                <th class="px-6 py-4">Deductions (Flyers)</th>
+                                <th class="px-6 py-4 text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody id="student-table" class="divide-y divide-slate-50"></tbody>
                     </table>
                     <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 text-center px-6">
                         <h3 class="font-bold text-slate-800">No students found</h3>
-                        <p class="text-slate-500 text-sm mb-6">Add a student or restore a backup to begin.</p>
+                        <p class="text-slate-500 text-sm mb-6">Add a student or use a sync code to load data.</p>
                         <button id="empty-restore-btn" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm">Upload Backup</button>
                     </div>
                 </div>
             </div>
 
-            <div class="lg:col-span-1">
+            <!-- Sidebar -->
+            <div class="lg:col-span-1 space-y-6">
                 <div class="bg-white rounded-[2rem] shadow-lg border border-slate-200/50 p-6 sticky top-8">
-                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Watchlist (3+ Passes)</h3>
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Watchlist (3+ Deductions)</h3>
                     <div id="watchlist" class="space-y-3">
                         <p class="text-xs text-slate-400 italic">No students flagged yet.</p>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- History Log Section -->
+        <div class="mt-12">
+            <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 px-2">Complete Activity Log</h2>
+            <div class="bg-white rounded-[2rem] shadow-lg border border-slate-200/50 overflow-hidden">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-100">
+                        <tr>
+                            <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Student</th>
+                            <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Time Out</th>
+                            <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Duration</th>
+                            <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-log" class="divide-y divide-slate-50">
+                        <!-- History rows injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
+    <!-- Hidden File Inputs -->
     <input type="file" id="input-csv" accept=".csv" class="hidden">
     <input type="file" id="input-json" accept=".json" class="hidden">
 
+    <!-- Modal -->
     <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[300] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
             <h2 id="modal-title" class="text-xl font-black mb-6">Student Details</h2>
@@ -126,16 +155,36 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Global State
-        let db, auth, user;
-        let state = { students: [], activePasses: [], currentPeriod: '1', syncCode: '' };
+        // Firebase Setup
+        const firebaseConfig = {
+            apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
+            authDomain: "rrtracker-de70e.firebaseapp.com",
+            projectId: "rrtracker-de70e",
+            storageBucket: "rrtracker-de70e.firebasestorage.app",
+            messagingSenderId: "1057987490614",
+            appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const APP_ID = "hall-pass-pro-v1";
+
+        // State
+        let state = { 
+            students: [], 
+            activePasses: [], 
+            history: [], 
+            currentPeriod: '1', 
+            syncCode: localStorage.getItem(`sync_code_${APP_ID}`) || '' 
+        };
+        let user = null;
         let isSaving = false;
         let syncUnsubscribe = null;
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
-        const STORAGE_KEY = `hallpass_local_cache_${appId}`;
-        const CODE_KEY = `hallpass_sync_code_${appId}`;
-        
+        const STORAGE_KEY = `hallpass_local_cache_${APP_ID}`;
+
+        // Status Helper
         const updateStatus = (text, type = 'amber') => {
             const el = document.getElementById('cloud-status');
             if (!el) return;
@@ -148,16 +197,19 @@
             el.className = `px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-all ${colors[type]}`;
         };
 
+        // UI Renderer
         const render = () => {
             const list = document.getElementById('student-table');
+            const historyList = document.getElementById('history-log');
             const empty = document.getElementById('empty-state');
             const watchlistEl = document.getElementById('watchlist');
-            if (!list) return;
 
+            // Stats
             document.getElementById('stat-out').innerText = state.activePasses.length;
             document.getElementById('stat-total').innerText = state.students.length;
-            document.getElementById('stat-trips').innerText = state.students.reduce((acc, s) => acc + (s.history?.length || 0), 0);
+            document.getElementById('stat-trips').innerText = state.history.length;
 
+            // Watchlist
             const flagged = state.students.filter(s => (s.passesUsed || 0) >= 3).sort((a,b) => (b.passesUsed || 0) - (a.passesUsed || 0));
             watchlistEl.innerHTML = flagged.length ? flagged.map(s => `
                 <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
@@ -165,76 +217,102 @@
                     <span class="px-2 py-1 bg-red-100 text-red-600 rounded-lg text-xs font-black">${s.passesUsed}</span>
                 </div>`).join('') : '<p class="text-xs text-slate-400 italic">No students flagged yet.</p>';
 
+            // Main List
             if (state.students.length === 0) {
                 list.innerHTML = '';
                 empty.classList.remove('hidden');
                 document.getElementById('period-bar').innerHTML = '';
-                return;
-            }
-            empty.classList.add('hidden');
+            } else {
+                empty.classList.add('hidden');
+                const periods = [...new Set(state.students.map(s => s.period))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
+                if (!periods.includes(state.currentPeriod)) state.currentPeriod = periods[0] || '1';
 
-            const periods = [...new Set(state.students.map(s => s.period))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
-            if (!periods.includes(state.currentPeriod)) state.currentPeriod = periods[0] || '1';
+                document.getElementById('period-bar').innerHTML = periods.map(p => `
+                    <button class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${state.currentPeriod === p ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-400'}" 
+                    onclick="window.setPeriod('${p}')">Period ${p}</button>`).join('');
 
-            document.getElementById('period-bar').innerHTML = periods.map(p => `
-                <button class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${state.currentPeriod === p ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-400'}" 
-                onclick="window.setPeriod('${p}')">Period ${p}</button>`).join('');
+                const filtered = state.students.filter(s => s.period === state.currentPeriod);
+                list.innerHTML = filtered.map(s => {
+                    const active = state.activePasses.find(p => p.sid === s.id);
+                    const isOut = !!active;
+                    let timerHtml = '';
+                    if (isOut) {
+                        const elapsed = Math.floor((Date.now() - active.start) / 60000);
+                        timerHtml = `<span class="ml-2 text-[10px] ${elapsed >= 7 ? 'text-red-500 font-black animate-pulse' : 'text-indigo-400 font-bold'}">(${elapsed}m out)</span>`;
+                    }
 
-            const filtered = state.students.filter(s => s.period === state.currentPeriod);
-            list.innerHTML = filtered.map(s => {
-                const isOut = state.activePasses.some(p => p.sid === s.id);
-                return `
-                <tr class="${isOut ? 'row-active' : ''}">
-                    <td class="px-6 py-5">
-                        <div class="flex items-center gap-3">
-                            <span class="font-bold text-slate-700">${s.name}</span>
-                            <div class="flex gap-1">
-                                <button onclick="window.editStud('${s.id}')" class="text-slate-300 hover:text-indigo-500 p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-width="2" stroke-linecap="round"></path></svg></button>
-                                <button onclick="window.delStud('${s.id}')" class="text-slate-300 hover:text-red-500 p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round"></path></svg></button>
+                    return `
+                    <tr class="${isOut ? 'row-active' : ''}">
+                        <td class="px-6 py-5">
+                            <div class="flex items-center gap-3">
+                                <span class="font-bold text-slate-700">${s.name} ${timerHtml}</span>
+                                <div class="flex gap-1">
+                                    <button onclick="window.editStud('${s.id}')" class="text-slate-300 hover:text-indigo-500 p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-width="2" stroke-linecap="round"></path></svg></button>
+                                    <button onclick="window.delStud('${s.id}')" class="text-slate-300 hover:text-red-500 p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round"></path></svg></button>
+                                </div>
                             </div>
-                        </div>
+                        </td>
+                        <td class="px-6 py-5">
+                            <div class="flex items-center gap-2">
+                                <button onclick="window.adjPass('${s.id}', -1)" class="w-8 h-8 bg-slate-100 rounded-lg font-bold">-</button>
+                                <span class="font-black text-sm w-6 text-center ${s.passesUsed >= 7 ? 'text-red-600' : 'text-slate-700'}">${s.passesUsed || 0}</span>
+                                <button onclick="window.adjPass('${s.id}', 1)" class="w-8 h-8 bg-slate-100 rounded-lg font-bold">+</button>
+                            </div>
+                        </td>
+                        <td class="px-6 py-5 text-right">
+                            <button onclick="window.togglePass('${s.id}')" class="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase ${isOut ? 'bg-slate-900 text-white shadow-inner' : 'bg-indigo-50 text-indigo-600'} transition-all active:scale-95">
+                                ${isOut ? 'Return' : 'Issue'}
+                            </button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            }
+
+            // History Log
+            const historySorted = [...state.history].sort((a,b) => b.end - a.end);
+            historyList.innerHTML = historySorted.length ? historySorted.map(h => {
+                const duration = Math.floor((h.end - h.start) / 60000);
+                const isOver = duration >= 7;
+                return `
+                <tr>
+                    <td class="px-6 py-4">
+                        <p class="font-bold text-slate-800">${h.name}</p>
+                        <p class="text-[10px] text-slate-400">P${h.period}</p>
                     </td>
-                    <td class="px-6 py-5">
-                        <div class="flex items-center gap-2">
-                            <button onclick="window.adjPass('${s.id}', -1)" class="w-8 h-8 bg-slate-100 rounded-lg font-bold">-</button>
-                            <span class="font-black text-sm w-6 text-center ${s.passesUsed >= 7 ? 'text-red-600' : 'text-slate-700'}">${s.passesUsed || 0}</span>
-                            <button onclick="window.adjPass('${s.id}', 1)" class="w-8 h-8 bg-slate-100 rounded-lg font-bold">+</button>
-                        </div>
-                    </td>
-                    <td class="px-6 py-5 text-right">
-                        <button onclick="window.togglePass('${s.id}')" class="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase ${isOut ? 'bg-slate-900 text-white shadow-inner' : 'bg-indigo-50 text-indigo-600'} transition-all active:scale-95">
-                            ${isOut ? 'Return' : 'Issue'}
-                        </button>
+                    <td class="px-6 py-4 text-slate-500 text-xs">${new Date(h.start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                    <td class="px-6 py-4 font-mono text-xs font-bold ${isOver ? 'text-red-500' : 'text-slate-600'}">${duration} mins</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 rounded text-[9px] font-black uppercase ${isOver ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}">
+                            ${isOver ? 'Deducted' : 'Normal'}
+                        </span>
                     </td>
                 </tr>`;
-            }).join('');
+            }).join('') : '<tr><td colspan="4" class="p-8 text-center text-slate-400 italic">No activity history yet.</td></tr>';
         };
 
+        // Sync Logic
         const syncToCloud = async () => {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
             render(); 
-            
-            if (!user || !db) return;
+            if (!user || !db || isSaving) return;
             
             isSaving = true;
-            updateStatus('Saving...', 'amber');
+            updateStatus('Syncing...', 'amber');
             try {
-                let dataRef;
-                if (state.syncCode) {
-                    dataRef = doc(db, 'artifacts', appId, 'public', 'data', `shared_${state.syncCode}`);
-                } else {
-                    dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'hallpass_state');
-                }
+                const docRef = state.syncCode 
+                    ? doc(db, 'artifacts', APP_ID, 'public', 'data', `shared_${state.syncCode}`)
+                    : doc(db, 'artifacts', APP_ID, 'users', user.uid, 'settings', 'hallpass_state');
 
-                await setDoc(dataRef, {
+                await setDoc(docRef, {
                     students: state.students,
                     activePasses: state.activePasses,
+                    history: state.history,
                     updatedAt: Date.now()
                 });
-                updateStatus(state.syncCode ? `Linked: ${state.syncCode}` : 'Cloud Synced', 'emerald');
+                updateStatus(state.syncCode ? `Linked: ${state.syncCode}` : 'Online', 'emerald');
             } catch (e) {
-                console.error("Save failed:", e);
-                updateStatus('Offline Mode', 'amber');
+                console.error(e);
+                updateStatus('Offline', 'red');
             } finally {
                 isSaving = false;
             }
@@ -244,111 +322,69 @@
             if (!user || !db) return;
             if (syncUnsubscribe) syncUnsubscribe();
             
-            let dataRef;
-            if (state.syncCode) {
-                dataRef = doc(db, 'artifacts', appId, 'public', 'data', `shared_${state.syncCode}`);
-            } else {
-                dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'hallpass_state');
-            }
-            
-            updateStatus('Connecting...', 'amber');
+            const docRef = state.syncCode 
+                ? doc(db, 'artifacts', APP_ID, 'public', 'data', `shared_${state.syncCode}`)
+                : doc(db, 'artifacts', APP_ID, 'users', user.uid, 'settings', 'hallpass_state');
 
-            // Initial fetch to check for data and verify connection
-            try {
-                const snap = await getDoc(dataRef);
-                if (snap.exists()) {
-                    const data = snap.data();
-                    state.students = data.students || [];
-                    state.activePasses = data.activePasses || [];
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-                    render();
-                }
-            } catch (e) {
-                console.warn("Initial sync check failed, waiting for listener:", e);
-            }
-            
-            syncUnsubscribe = onSnapshot(dataRef, (snap) => {
+            syncUnsubscribe = onSnapshot(docRef, (snap) => {
                 if (snap.exists() && !isSaving) {
                     const data = snap.data();
                     state.students = data.students || [];
                     state.activePasses = data.activePasses || [];
+                    state.history = data.history || [];
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
                     render();
                 }
-                updateStatus(state.syncCode ? `Linked: ${state.syncCode}` : 'Cloud Synced', 'emerald');
-                document.getElementById('force-local').style.display = 'none';
-            }, (err) => {
-                console.error("Firestore error:", err);
-                updateStatus('Sync Blocked', 'red');
-            });
+                updateStatus(state.syncCode ? `Linked: ${state.syncCode}` : 'Online', 'emerald');
+            }, () => updateStatus('Sync Error', 'red'));
         };
 
-        const init = async () => {
-            const cachedCode = localStorage.getItem(CODE_KEY);
-            if (cachedCode) {
-                state.syncCode = cachedCode;
-                document.getElementById('sync-code-input').value = cachedCode;
-            }
-
-            const cached = localStorage.getItem(STORAGE_KEY);
-            if (cached) {
-                try {
-                    const parsed = JSON.parse(cached);
-                    state.students = parsed.students || [];
-                    state.activePasses = parsed.activePasses || [];
-                    render();
-                } catch(e) {}
-            }
-
-            const skipTimer = setTimeout(() => {
-                document.getElementById('force-local').style.display = 'inline-block';
-            }, 8000);
-
-            try {
-                const config = JSON.parse(__firebase_config);
-                const app = initializeApp(config);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                // Authentication listener first
-                onAuthStateChanged(auth, async (u) => {
-                    if (u) {
-                        user = u;
-                        await setupSync();
-                        clearTimeout(skipTimer);
-                    }
-                });
-
-                // Trigger authentication
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-            } catch (e) {
-                console.error("Firebase startup error:", e);
-                updateStatus('Offline Mode', 'amber');
-            }
-        };
-
-        // UI Handlers
+        // Interaction Handlers
         window.setPeriod = (p) => { state.currentPeriod = p; render(); };
+        
         window.togglePass = (id) => {
             const outIdx = state.activePasses.findIndex(p => p.sid === id);
-            if (outIdx > -1) { state.activePasses.splice(outIdx, 1); } 
-            else {
+            if (outIdx > -1) {
+                // Handle Return
+                const pass = state.activePasses[outIdx];
+                const now = Date.now();
+                const durationMins = (now - pass.start) / 60000;
+                
+                const student = state.students.find(s => s.id === id);
+                if (student) {
+                    // Record to history
+                    state.history.push({
+                        sid: id,
+                        name: student.name,
+                        period: student.period,
+                        start: pass.start,
+                        end: now
+                    });
+                    // Apply deduction if over 7 mins
+                    if (durationMins >= 7) student.passesUsed = (student.passesUsed || 0) + 1;
+                }
+                state.activePasses.splice(outIdx, 1);
+            } else {
+                // Issue Pass
                 state.activePasses.push({ sid: id, start: Date.now() });
-                const s = state.students.find(x => x.id === id);
-                if (s) { s.history = s.history || []; s.history.push(Date.now()); }
             }
             syncToCloud();
         };
+
         window.adjPass = (id, delta) => {
             const s = state.students.find(x => x.id === id);
             if (s) { s.passesUsed = Math.max(0, (s.passesUsed || 0) + delta); syncToCloud(); }
         };
-        window.delStud = (id) => { if (confirm("Delete student?")) { state.students = state.students.filter(s => s.id !== id); state.activePasses = state.activePasses.filter(p => p.sid !== id); syncToCloud(); } };
+
+        window.delStud = (id) => {
+            if (confirm("Delete this student and all their history?")) {
+                state.students = state.students.filter(s => s.id !== id);
+                state.activePasses = state.activePasses.filter(p => p.sid !== id);
+                state.history = state.history.filter(h => h.sid !== id);
+                syncToCloud();
+            }
+        };
+
         window.editStud = (id) => {
             const s = state.students.find(x => x.id === id);
             if (!s) return;
@@ -359,34 +395,38 @@
             document.getElementById('modal-backdrop').classList.remove('hidden');
         };
 
+        // Lifecycle & Events
         document.addEventListener('DOMContentLoaded', () => {
-            const menuTrigger = document.getElementById('menu-trigger');
-            const dataMenu = document.getElementById('data-menu');
-            const inputCsv = document.getElementById('input-csv');
-            const inputJson = document.getElementById('input-json');
-            const codeInput = document.getElementById('sync-code-input');
-            const codeBtn = document.getElementById('set-sync-code');
+            // Load Local Cache immediately
+            const cached = localStorage.getItem(STORAGE_KEY);
+            if (cached) {
+                try {
+                    const parsed = JSON.parse(cached);
+                    state.students = parsed.students || [];
+                    state.activePasses = parsed.activePasses || [];
+                    state.history = parsed.history || [];
+                    render();
+                } catch(e) {}
+            }
 
-            codeBtn.onclick = () => {
+            // Sync Code Input
+            const codeInput = document.getElementById('sync-code-input');
+            codeInput.value = state.syncCode;
+            document.getElementById('set-sync-code').onclick = () => {
                 const code = codeInput.value.trim().toUpperCase();
                 state.syncCode = code;
-                if (code) {
-                    localStorage.setItem(CODE_KEY, code);
-                } else {
-                    localStorage.removeItem(CODE_KEY);
-                }
+                localStorage.setItem(`sync_code_${APP_ID}`, code);
                 setupSync();
                 syncToCloud();
             };
 
-            document.getElementById('force-local').onclick = () => {
-                updateStatus('Offline Mode', 'amber');
-                document.getElementById('force-local').style.display = 'none';
-            };
+            // Data Menus
+            const trigger = document.getElementById('menu-trigger');
+            const menu = document.getElementById('data-menu');
+            trigger.onclick = (e) => { e.stopPropagation(); menu.classList.toggle('show'); };
+            document.addEventListener('click', () => menu.classList.remove('show'));
 
-            menuTrigger.onclick = (e) => { e.stopPropagation(); dataMenu.classList.toggle('show'); };
-            document.addEventListener('click', () => dataMenu.classList.remove('show'));
-
+            // Add Student Modal
             document.getElementById('add-btn').onclick = () => {
                 document.getElementById('field-id').value = '';
                 document.getElementById('field-name').value = '';
@@ -394,79 +434,91 @@
                 document.getElementById('modal-title').innerText = "Add Student";
                 document.getElementById('modal-backdrop').classList.remove('hidden');
             };
-
             document.getElementById('modal-cancel').onclick = () => document.getElementById('modal-backdrop').classList.add('hidden');
             document.getElementById('modal-save').onclick = () => {
                 const id = document.getElementById('field-id').value;
                 const name = document.getElementById('field-name').value.trim();
                 const per = document.getElementById('field-period').value.trim() || '1';
-                if (name) {
-                    if (id) {
-                        const s = state.students.find(x => x.id === id);
-                        if (s) { s.name = name; s.period = per; }
-                    } else {
-                        state.students.push({ id: Date.now().toString(), name, period: per, passesUsed: 0, history: [] });
-                    }
-                    syncToCloud();
-                    document.getElementById('modal-backdrop').classList.add('hidden');
+                if (!name) return;
+
+                if (id) {
+                    const s = state.students.find(x => x.id === id);
+                    if (s) { s.name = name; s.period = per; }
+                } else {
+                    state.students.push({ id: Date.now().toString(), name, period: per, passesUsed: 0 });
                 }
+                syncToCloud();
+                document.getElementById('modal-backdrop').classList.add('hidden');
             };
 
+            // Data Tools
             document.getElementById('btn-export-json').onclick = () => {
-                const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
+                const data = JSON.stringify(state, null, 2);
+                const blob = new Blob([data], { type: 'application/json' });
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
-                a.download = `hallpass_backup_${new Date().toISOString().split('T')[0]}.json`;
+                a.download = `hallpass_pro_backup_${new Date().toISOString().split('T')[0]}.json`;
                 a.click();
             };
 
-            document.getElementById('btn-wipe').onclick = () => { 
-                if (confirm("Permanently wipe all student data?")) { 
-                    state.students = []; 
-                    state.activePasses = []; 
-                    localStorage.removeItem(STORAGE_KEY);
-                    syncToCloud(); 
-                } 
-            };
-
-            document.getElementById('btn-import-csv').onclick = () => inputCsv.click();
-            document.getElementById('btn-restore-json').onclick = () => inputJson.click();
-            document.getElementById('empty-restore-btn').onclick = () => inputJson.click();
-
-            inputCsv.onchange = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const r = new FileReader();
-                r.onload = (ev) => {
-                    ev.target.result.split('\n').filter(l => l.trim()).forEach(l => {
-                        const [name, per] = l.split(',').map(v => v?.trim());
-                        if (name) state.students.push({ id: Math.random().toString(36).substr(2,9), name, period: per || '1', passesUsed: 0, history: [] });
-                    });
-                    syncToCloud();
-                    inputCsv.value = '';
-                };
-                r.readAsText(file);
-            };
-
-            inputJson.onchange = (e) => {
+            document.getElementById('btn-restore-json').onclick = () => document.getElementById('input-json').click();
+            document.getElementById('empty-restore-btn').onclick = () => document.getElementById('input-json').click();
+            document.getElementById('input-json').onchange = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 const r = new FileReader();
                 r.onload = (ev) => {
                     try {
                         const data = JSON.parse(ev.target.result);
-                        if (data.students) { 
-                            state = data; 
-                            syncToCloud(); 
+                        if (data.students) {
+                            state.students = data.students || [];
+                            state.activePasses = data.activePasses || [];
+                            state.history = data.history || [];
+                            syncToCloud();
                         }
-                    } catch (err) { alert("Invalid backup file."); }
-                    inputJson.value = '';
+                    } catch(err) { alert("Invalid backup file."); }
                 };
                 r.readAsText(file);
             };
 
-            init();
+            document.getElementById('btn-import-csv').onclick = () => document.getElementById('input-csv').click();
+            document.getElementById('input-csv').onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const r = new FileReader();
+                r.onload = (ev) => {
+                    ev.target.result.split('\n').filter(l => l.trim()).forEach(l => {
+                        const [name, per] = l.split(',').map(v => v?.trim());
+                        if (name) state.students.push({ id: Math.random().toString(36).substr(2,9), name, period: per || '1', passesUsed: 0 });
+                    });
+                    syncToCloud();
+                };
+                r.readAsText(file);
+            };
+
+            document.getElementById('btn-wipe').onclick = () => {
+                if (confirm("DANGER: This will permanently delete ALL data. Are you sure?")) {
+                    state.students = [];
+                    state.activePasses = [];
+                    state.history = [];
+                    syncToCloud();
+                }
+            };
+
+            // Update timers every minute
+            setInterval(render, 30000);
+
+            // Auth Init
+            onAuthStateChanged(auth, async (u) => {
+                if (u) {
+                    user = u;
+                    setupSync();
+                } else {
+                    signInAnonymously(auth);
+                }
+            });
         });
+
     </script>
 </body>
 </html>
