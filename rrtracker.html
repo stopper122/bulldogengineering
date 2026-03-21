@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hall Pass Tracker - Classroom Ready</title>
+<title>Hall Pass Tracker (Stable)</title>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-50 min-h-screen p-6 font-sans">
 
 <div class="max-w-7xl mx-auto grid grid-cols-4 gap-6">
 
-  <!-- MAIN -->
   <div class="col-span-3">
 
     <div class="flex justify-between items-center mb-6">
@@ -18,80 +17,19 @@
       <span id="status" class="text-xs font-bold uppercase text-amber-600">Connecting...</span>
     </div>
 
-    <!-- ALERT BANNER -->
-    <div id="alertBanner" class="hidden mb-4 p-3 rounded-xl font-bold"></div>
-
-    <!-- STATS -->
-    <div class="grid grid-cols-3 gap-4 mb-6">
-      <div class="bg-white p-4 rounded-xl shadow">
-        <div class="text-xs text-slate-400">Active</div>
-        <div id="statActive" class="text-xl font-bold">0</div>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow">
-        <div class="text-xs text-slate-400">Total Trips</div>
-        <div id="statTrips" class="text-xl font-bold">0</div>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow">
-        <div class="text-xs text-slate-400">Avg Time</div>
-        <div id="statAvg" class="text-xl font-bold">0:00</div>
-      </div>
-    </div>
-
-    <!-- CONTROLS -->
-    <div class="bg-white p-4 rounded-xl shadow mb-6 flex flex-wrap gap-3 items-center">
-      <input type="file" id="csv">
-      <button onclick="window.exportData()" class="px-3 py-1 bg-slate-800 text-white rounded text-xs">Export</button>
-      <input type="file" id="importJson" class="hidden">
-      <button onclick="document.getElementById('importJson').click()" class="px-3 py-1 bg-slate-200 rounded text-xs">Restore</button>
-      <button onclick="window.resetPasses()" class="px-3 py-1 bg-red-500 text-white rounded text-xs">Reset Passes</button>
-      <button onclick="window.wipeAllData()" class="px-3 py-1 bg-black text-white rounded text-xs">Wipe All Data</button>
-
-      <div class="flex items-center gap-2 ml-auto">
-        <span class="text-xs">Time:</span>
-        <input id="limitInput" type="number" class="w-14 px-2 py-1 border rounded text-xs">
-        <span class="text-xs">Passes:</span>
-        <input id="maxPassInput" type="number" class="w-14 px-2 py-1 border rounded text-xs">
-        <button onclick="window.updateSettings()" class="px-2 py-1 bg-slate-700 text-white rounded text-xs">Set</button>
-      </div>
-    </div>
-
-    <!-- SEARCH -->
     <input id="search" placeholder="Search student..." class="w-full mb-4 px-3 py-2 border rounded" oninput="render()">
 
-    <!-- PERIOD TABS -->
     <div id="periodTabs" class="flex flex-wrap gap-2 mb-4"></div>
 
-    <!-- ACTIVE PASSES -->
-    <div id="activeSection" class="mb-6"></div>
-
-    <!-- STUDENTS -->
     <div id="app" class="grid gap-3"></div>
 
   </div>
 
-  <!-- SIDEBAR -->
-  <div class="space-y-6">
-
-    <div class="bg-white p-4 rounded-xl shadow">
-      <h3 class="text-xs font-bold uppercase text-slate-400 mb-3">Top Users</h3>
-      <div id="topUsers"></div>
-    </div>
-
+  <div>
     <div class="bg-white p-4 rounded-xl shadow">
       <h3 class="text-xs font-bold uppercase text-slate-400 mb-3">Watchlist (3+)</h3>
       <div id="watch"></div>
     </div>
-
-    <!-- MASTER LOG -->
-    <div class="bg-white p-4 rounded-xl shadow">
-      <div class="flex justify-between items-center mb-2">
-        <h3 class="text-xs font-bold uppercase text-slate-400">Master Log</h3>
-        <button onclick="window.toggleLog()" class="text-xs text-indigo-600">Toggle</button>
-      </div>
-      <input id="logSearch" placeholder="Search..." class="w-full mb-2 px-2 py-1 border rounded text-xs" oninput="render()">
-      <div id="log" class="hidden max-h-64 overflow-y-auto"></div>
-    </div>
-
   </div>
 
 </div>
@@ -119,10 +57,8 @@ let state = {
 };
 
 const appDiv = document.getElementById("app");
-let showLog = false;
-const status = document.getElementById("status");
 const tabsDiv = document.getElementById("periodTabs");
-const alertBanner = document.getElementById("alertBanner");
+const status = document.getElementById("status");
 
 function formatTime(sec){
   const m=Math.floor(sec/60);
@@ -130,37 +66,13 @@ function formatTime(sec){
   return `${m}:${s}`;
 }
 
-// Ensure global handlers exist before render
-window.togglePass = window.togglePass || function(){};
-window.adjustPass = window.adjustPass || function(){};
-window.editStudent = window.editStudent || function(){};
-window.deleteStudent = window.deleteStudent || function(){};
-window.setPeriod = window.setPeriod || function(){};
-
 function render(){
-
-  const logDiv = document.getElementById("log");
-
-  const watchDiv = document.getElementById("watch");
-  const topDiv = document.getElementById("topUsers");
-
-  document.getElementById("statActive").innerText = state.activePasses.length;
-  document.getElementById("statTrips").innerText = state.logs.length;
-
-  const avg = state.logs.length ? Math.floor(state.logs.reduce((a,b)=>a+b.duration,0)/state.logs.length) : 0;
-  document.getElementById("statAvg").innerText = formatTime(avg);
 
   const periods = [...new Set(state.students.map(s=>s.period))].sort();
   if(!state.currentPeriod && periods.length) state.currentPeriod = periods[0];
 
   tabsDiv.innerHTML = periods.map(p=>`
-    <button onclick="window.setPeriod('${p}')"
-      class="px-4 py-2 rounded-full text-xs font-bold transition-all
-      ${state.currentPeriod===p
-        ? 'bg-indigo-600 text-white shadow'
-        : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}">
-      Period ${p}
-    </button>
+    <button onclick="window.setPeriod('${p}')" class="px-3 py-1 rounded ${state.currentPeriod===p?'bg-indigo-600 text-white':'bg-slate-200'}">P${p}</button>
   `).join("");
 
   const search = document.getElementById("search")?.value?.toLowerCase() || "";
@@ -169,108 +81,31 @@ function render(){
     .filter(s=>s.period===state.currentPeriod)
     .filter(s=>s.name.toLowerCase().includes(search));
 
-  // sort active first
-  filtered.sort((a,b)=>{
-    const aActive = state.activePasses.find(p=>p.id===a.id);
-    const bActive = state.activePasses.find(p=>p.id===b.id);
-    return (bActive?1:0)-(aActive?1:0);
-  });
-
-  let alertText = "";
-
   appDiv.innerHTML = filtered.map(s=>{
-    const active = state.activePasses.find(p=>p.id===s.id);
+    const active = state.activePasses.find(p=>String(p.id)===String(s.id));
     const duration = active ? Math.floor((Date.now()-active.start)/1000) : 0;
 
-    const warn = state.settings.limitSec - 60;
-
-    let alertClass = "";
-
-    if(duration >= state.settings.limitSec){
-      alertClass = "bg-red-100 border-red-400";
-      alertText = "⚠️ A student has exceeded time limit";
-    }
-    else if(duration >= warn){
-      alertClass = "bg-yellow-100 border-yellow-400";
-      alertText = "⚠️ 1 minute remaining";
-    }
-
-    return `<div class="border p-3 rounded-xl ${alertClass}">
-      <div class="flex justify-between items-center">
-        <div>
-          <div class="font-semibold">${s.name}</div>
-          <div class="text-[10px] text-slate-400">ID: ${s.id || ''}</div>
-        </div>
-        <div class="flex gap-3 items-center">
-          ${active ? `<span class="font-mono">${formatTime(duration)}</span>` : ''}
-          <div class="flex flex-col items-center text-xs">
-            <span>${s.passesUsed||0}/${state.settings.maxPasses}</span>
-            <div class="flex gap-1 mt-1">
-              <button data-action="add" data-id="${s.id}" class="bg-slate-200 px-1 rounded">+</button>
-              <button data-action="sub" data-id="${s.id}" class="bg-slate-200 px-1 rounded">-</button>
-            </div>
+    return `<div class="bg-white p-3 rounded-xl flex justify-between items-center">
+      <div>${s.name}</div>
+      <div class="flex gap-3 items-center">
+        ${active ? `<span>${formatTime(duration)}</span>` : ''}
+        <div class="text-xs">
+          ${s.passesUsed||0}/${state.settings.maxPasses}
+          <div class="flex gap-1">
+            <button onclick="window.adjustPass('${s.id}',1)" class="bg-slate-200 px-1">+</button>
+            <button onclick="window.adjustPass('${s.id}',-1)" class="bg-slate-200 px-1">-</button>
           </div>
-
-          <button data-action="edit" data-id="${s.id}" class="text-xs bg-slate-200 px-2 rounded">Edit</button>
-          <button data-action="delete" data-id="${s.id}" class="text-xs bg-red-500 text-white px-2 rounded">Delete</button>
-          <button data-action="toggle" data-id="${s.id}" class="text-xs bg-indigo-600 text-white px-2 rounded">${active?'Return':'Start'}</button>
         </div>
+        <button onclick="window.editStudent('${s.id}')" class="text-xs bg-slate-200 px-2">Edit</button>
+        <button onclick="window.deleteStudent('${s.id}')" class="text-xs bg-red-500 text-white px-2">Delete</button>
+        <button onclick="window.togglePass('${s.id}')" class="text-xs bg-indigo-600 text-white px-2">${active?'Return':'Start'}</button>
       </div>
     </div>`;
   }).join("");
 
-    // WATCHLIST (3+ passes)
-  const flagged = state.students.filter(s => (s.passesUsed||0) >= 3);
-  if(watchDiv){
-    watchDiv.innerHTML = flagged.length
-      ? flagged.map(s => `<div class="text-xs">${s.name} (${s.passesUsed})</div>`).join("")
-      : "<div class='text-xs text-slate-400'>None</div>";
-  }
-
-  // TOP USERS
-  if(topDiv){
-    const sorted = [...state.students]
-      .sort((a,b)=>(b.passesUsed||0)-(a.passesUsed||0))
-      .slice(0,5);
-
-    topDiv.innerHTML = sorted.length
-      ? sorted.map(s => `<div class="text-xs">${s.name} (${s.passesUsed||0})</div>`).join("")
-      : "<div class='text-xs text-slate-400'>None</div>";
-  }
-
-    // MASTER LOG RENDER
-  if(logDiv){
-    if(showLog){
-      logDiv.classList.remove("hidden");
-      const search = document.getElementById("logSearch")?.value?.toLowerCase() || "";
-
-      const filteredLogs = state.logs.filter(l=>l.name.toLowerCase().includes(search));
-
-      logDiv.innerHTML = filteredLogs.map(l=>{
-        const status = l.deducted ? 'text-red-600' : 'text-green-600';
-        return `<div class="text-xs border-b py-1">
-          <div class="flex justify-between">
-            <span>${l.name}</span>
-            <span class="${status}">${l.deducted ? 'Pass Used' : 'OK'}</span>
-          </div>
-          <div class="flex justify-between text-[10px] text-slate-400">
-            <span>${formatTime(l.duration)}</span>
-            <span>${l.timestamp || ''}</span>
-          </div>
-        </div>`;
-      }).join("") || "<div class='text-xs text-slate-400'>No logs yet</div>";
-    } else {
-      logDiv.classList.add("hidden");
-    }
-  }
-
-  if(alertText){
-    alertBanner.classList.remove("hidden");
-    alertBanner.className = "mb-4 p-3 rounded-xl bg-yellow-200 text-yellow-800 font-bold";
-    alertBanner.innerText = alertText;
-  } else {
-    alertBanner.classList.add("hidden");
-  }
+  const watch = document.getElementById("watch");
+  const flagged = state.students.filter(s=>s.passesUsed>=3);
+  watch.innerHTML = flagged.map(s=>`<div class="text-xs">${s.name} (${s.passesUsed})</div>`).join("") || "None";
 }
 
 async function save(){ await setDoc(docRef,state); }
@@ -279,7 +114,7 @@ function startSync(){
   onSnapshot(docRef,(snap)=>{
     if(snap.exists()){
       state = snap.data();
-      if(!state.settings) state.settings = { limitSec:420,maxPasses:5 };
+      if(!state.settings) state.settings={limitSec:420,maxPasses:5};
       render();
     }
     status.innerText="Connected";
@@ -292,13 +127,8 @@ window.togglePass=(id)=>{
 
   if(active){
     const duration = Math.floor((Date.now()-active.start)/1000);
-    if(duration>state.settings.limitSec) student.passesUsed=(student.passesUsed||0)+1;
-    state.logs.unshift({
-      name: student.name,
-      duration,
-      deducted: duration>state.settings.limitSec,
-      timestamp: new Date().toLocaleTimeString()
-    });
+    if(duration>state.settings.limitSec) student.passesUsed++;
+    state.logs.unshift({name:student.name,duration});
     state.activePasses = state.activePasses.filter(p=>String(p.id)!==String(id));
   } else {
     state.activePasses.push({id,start:Date.now()});
@@ -307,119 +137,37 @@ window.togglePass=(id)=>{
   save(); render();
 };
 
-window.setPeriod=(p)=>{ state.currentPeriod=p; render(); };
-
-window.wipeAllData=()=>{
-  if(confirm("⚠️ This will delete ALL data. Continue?")){
-    state = {
-      students: [],
-      activePasses: [],
-      logs: [],
-      settings: { limitSec: 420, maxPasses: 5 },
-      currentPeriod: null
-    };
-    save(); render();
-  }
-};
-
-window.resetPasses=()=>{
-  state.students.forEach(s=>s.passesUsed=0);
+window.adjustPass=(id,d)=>{
+  const s = state.students.find(x=>String(x.id)===String(id));
+  if(!s) return;
+  s.passesUsed=Math.max(0,(s.passesUsed||0)+d);
   save(); render();
 };
 
-window.exportData=()=>{
-  const blob=new Blob([JSON.stringify(state)]);
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='backup.json';
-  a.click();
-};
-
-window.updateSettings=()=>{
-  const t=parseInt(document.getElementById("limitInput").value);
-  const p=parseInt(document.getElementById("maxPassInput").value);
-  if(t) state.settings.limitSec=t*60;
-  if(p) state.settings.maxPasses=p;
-  save(); render();
-};
-
-window.toggleLog=()=>{
-  showLog = !showLog;
-  render();
-};
-
-// EDIT STUDENT
 window.editStudent=(id)=>{
   const s = state.students.find(x=>String(x.id)===String(id));
   if(!s) return;
-
-  const newName = prompt("Edit student name:", s.name);
-  if(newName===null) return;
-
-  const newPeriod = prompt("Edit period:", s.period);
-  if(newPeriod===null) return;
-
-  s.name = newName.trim() || s.name;
-  s.period = newPeriod.trim() || s.period;
-
+  const name=prompt("Name",s.name);
+  const period=prompt("Period",s.period);
+  if(name) s.name=name;
+  if(period) s.period=period;
   save(); render();
 };
 
-// MANUAL PASS ADJUST
-window.adjustPass=(id,delta)=>{
-  const s = state.students.find(x=>String(x.id)===String(id));
-  if(!s) return;
-  s.passesUsed = Math.max(0,(s.passesUsed||0)+delta);
-  save(); render();
-};
-
-// DELETE STUDENT
 window.deleteStudent=(id)=>{
-  const s = state.students.find(x=>String(x.id)===String(id));
-  if(!s) return;
-
-  if(confirm(`Delete ${s.name}?`)){
-    state.students = state.students.filter(x=>x.id!==id);
-    state.activePasses = state.activePasses.filter(p=>String(p.id)!==String(id));
+  if(confirm("Delete student?")){
+    state.students = state.students.filter(s=>String(s.id)!==String(id));
     save(); render();
   }
 };
 
-document.getElementById("csv").addEventListener("change", async(e)=>{
-  const text=await e.target.files[0].text();
-  text.split("\n").slice(1).forEach(line=>{
-    const [period,first,last,id]=line.split(",");
-    if(first && !state.students.find(s=>s.id===id)){
-      state.students.push({id:String(id||Math.random()),name:first+" "+last,period,passesUsed:0});
-    }
-  });
-  save(); render();
-});
+window.setPeriod=(p)=>{ state.currentPeriod=p; render(); };
 
 async function init(){
   const snap=await getDoc(docRef);
   if(!snap.exists()) await setDoc(docRef,state);
   startSync();
 }
-
-// GLOBAL CLICK HANDLER (fixes broken buttons)
-document.addEventListener('click', (e)=>{
-  const btn = e.target.closest('[data-action]');
-  if(!btn) return;
-
-  const id = btn.dataset.id;
-  const action = btn.dataset.action;
-
-  if(!action) return;
-
-  e.preventDefault();
-
-  if(action === 'toggle') window.togglePass(id);
-  if(action === 'add') window.adjustPass(id,1);
-  if(action === 'sub') window.adjustPass(id,-1);
-  if(action === 'edit') window.editStudent(id);
-  if(action === 'delete') window.deleteStudent(id);
-});
 
 init();
 setInterval(()=>{ if(state.activePasses.length) render(); },1000);
