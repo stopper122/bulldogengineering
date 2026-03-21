@@ -29,31 +29,32 @@
             </div>
         </div>
 
-        <!-- Manual Override Section -->
-        <div id="manual-config-area" class="mt-6 hidden">
-            <p class="text-[10px] font-bold text-slate-400 uppercase mb-2">Manual Config Override</p>
-            <textarea id="manual-config-input" placeholder='Paste {"apiKey": "...", ...} here' class="w-full h-20 p-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-[10px] outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-            <button id="apply-manual-btn" class="mt-2 w-full py-2 bg-slate-800 text-white rounded-lg text-xs font-bold">Apply & Retry</button>
-        </div>
-
         <div id="debug-log" class="mt-8 p-4 bg-slate-900 rounded-xl font-mono text-[10px] text-emerald-400 h-40 overflow-y-auto no-scrollbar">
             > Initializing test sequence...<br>
         </div>
 
         <div class="flex gap-2 mt-6">
             <button id="retry-btn" class="hidden flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
-                Retry Auto
-            </button>
-            <button id="show-manual-btn" class="hidden flex-1 py-3 bg-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-300 transition-all">
-                Manual Fix
+                Retry Connection
             </button>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+        // Hardcoded credentials provided by the user
+        const firebaseConfig = {
+            apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
+            authDomain: "rrtracker-de70e.firebaseapp.com",
+            projectId: "rrtracker-de70e",
+            storageBucket: "rrtracker-de70e.firebasestorage.app",
+            messagingSenderId: "1057987490614",
+            appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
+            measurementId: "G-X31008YT0P"
+        };
 
         const log = (msg, isError = false) => {
             const el = document.getElementById('debug-log');
@@ -76,68 +77,27 @@
             el.className = `text-xs font-black px-2 py-1 rounded uppercase ${colors[type]}`;
         };
 
-        async function runTest(manualConfig = null) {
-            log("Starting connection test...");
+        async function runTest() {
+            log("Starting connection test with provided credentials...");
             document.getElementById('retry-btn').classList.add('hidden');
-            document.getElementById('show-manual-btn').classList.add('hidden');
 
-            // STEP 1: Polling for injected config or use manual
-            let config = manualConfig;
-            
-            if (!config) {
-                let attempts = 0;
-                const maxAttempts = 50; // 5 seconds
-
-                const waitForConfig = async () => {
-                    return new Promise((resolve) => {
-                        const check = () => {
-                            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                                resolve(JSON.parse(__firebase_config));
-                            } else if (attempts < maxAttempts) {
-                                attempts++;
-                                if (attempts % 10 === 0) log(`Searching for variables... (${attempts/10}s)`);
-                                setTimeout(check, 100);
-                            } else {
-                                resolve(null);
-                            }
-                        };
-                        check();
-                    });
-                };
-                config = await waitForConfig();
-            }
-
-            if (!config) {
-                setStep('step-vars', 'Missing', 'fail');
-                log("Error: Configuration variables not found.", true);
-                log("Try clicking 'Manual Fix' if this persists.", true);
-                document.getElementById('retry-btn').classList.remove('hidden');
-                document.getElementById('show-manual-btn').classList.remove('hidden');
-                return;
-            }
-
-            setStep('step-vars', 'Found', 'ok');
-            log("Firebase config detected successfully.");
+            // STEP 1: Apply hardcoded config
+            setStep('step-vars', 'Provided', 'ok');
+            log("Using manually provided Firebase config.");
 
             // STEP 2: Initialize and Auth
             try {
-                const app = initializeApp(config);
+                const app = initializeApp(firebaseConfig);
                 const auth = getAuth(app);
                 const db = getFirestore(app);
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'test-app';
+                
+                // Note: We use a fixed ID for testing since we aren't using the environment appId
+                const appId = "rr-tracker-manual";
 
                 setStep('step-auth', 'Authenticating', 'wait');
-                log("Attempting sign-in...");
+                log("Attempting anonymous sign-in...");
 
-                let userCredential;
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    log("Using custom token...");
-                    userCredential = await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    log("Using anonymous login fallback...");
-                    userCredential = await signInAnonymously(auth);
-                }
-
+                const userCredential = await signInAnonymously(auth);
                 const user = userCredential.user;
                 setStep('step-auth', 'Success', 'ok');
                 log(`Authenticated UID: ${user.uid}`);
@@ -146,7 +106,10 @@
                 setStep('step-db', 'Testing', 'wait');
                 log("Testing Firestore write/read...");
 
+                // Path corrected for standard storage structure
                 const testRef = doc(db, 'artifacts', appId, 'users', user.uid, 'test', 'ping');
+                
+                log("Attempting write to " + testRef.path);
                 await setDoc(testRef, { timestamp: Date.now(), status: 'online' });
                 log("Write operation successful.");
 
@@ -160,31 +123,18 @@
 
             } catch (e) {
                 log(`Critical Failure: ${e.message}`, true);
+                if (e.message.includes('permission-denied')) {
+                    log("PERMISSION ERROR: Your Firestore Rules must allow access to /artifacts/...", true);
+                }
                 setStep('step-auth', 'Failed', 'fail');
                 setStep('step-db', 'Blocked', 'fail');
                 document.getElementById('retry-btn').classList.remove('hidden');
-                document.getElementById('show-manual-btn').classList.remove('hidden');
             }
         }
 
         document.getElementById('retry-btn').onclick = () => {
-            log("--- Restarting Auto ---");
+            log("--- Restarting ---");
             runTest();
-        };
-
-        document.getElementById('show-manual-btn').onclick = () => {
-            document.getElementById('manual-config-area').classList.toggle('hidden');
-        };
-
-        document.getElementById('apply-manual-btn').onclick = () => {
-            const val = document.getElementById('manual-config-input').value.trim();
-            try {
-                const parsed = JSON.parse(val);
-                log("Applying manual configuration...");
-                runTest(parsed);
-            } catch (e) {
-                log("Invalid JSON format in manual input.", true);
-            }
         };
 
         // Start immediately
