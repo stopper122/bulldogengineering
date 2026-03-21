@@ -68,22 +68,39 @@
             log("Starting connection test...");
             document.getElementById('retry-btn').classList.add('hidden');
 
-            // STEP 1: Check for injected config
+            // STEP 1: Polling for injected config
             let config;
-            try {
-                if (typeof __firebase_config !== 'undefined') {
-                    config = JSON.parse(__firebase_config);
-                    setStep('step-vars', 'Found', 'ok');
-                    log("Firebase config detected.");
-                } else {
-                    throw new Error("Config not injected yet.");
-                }
-            } catch (e) {
+            let attempts = 0;
+            const maxAttempts = 100; // 10 seconds total
+
+            const waitForConfig = async () => {
+                return new Promise((resolve) => {
+                    const check = () => {
+                        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                            resolve(JSON.parse(__firebase_config));
+                        } else if (attempts < maxAttempts) {
+                            attempts++;
+                            if (attempts % 10 === 0) log(`Still waiting for variables (Attempt ${attempts/10}s)...`);
+                            setTimeout(check, 100);
+                        } else {
+                            resolve(null);
+                        }
+                    };
+                    check();
+                });
+            };
+
+            config = await waitForConfig();
+
+            if (!config) {
                 setStep('step-vars', 'Missing', 'fail');
-                log("Error: Environment variables missing. (Local Mode)", true);
+                log("Error: Environment variables (__firebase_config) never appeared. This suggests a platform-level injection issue.", true);
                 document.getElementById('retry-btn').classList.remove('hidden');
                 return;
             }
+
+            setStep('step-vars', 'Found', 'ok');
+            log("Firebase config detected successfully.");
 
             // STEP 2: Initialize and Auth
             try {
@@ -100,7 +117,7 @@
                     log("Using custom token...");
                     userCredential = await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
-                    log("Using anonymous login...");
+                    log("Using anonymous login fallback...");
                     userCredential = await signInAnonymously(auth);
                 }
 
@@ -126,20 +143,19 @@
 
             } catch (e) {
                 log(`Critical Failure: ${e.message}`, true);
-                if (e.message.includes('permission-denied')) {
-                    log("Check Firestore Rules: Ensure path /artifacts/{appId}/users/{userId}/ matches exactly.", true);
-                }
                 setStep('step-auth', 'Failed', 'fail');
                 setStep('step-db', 'Blocked', 'fail');
                 document.getElementById('retry-btn').classList.remove('hidden');
             }
         }
 
-        document.getElementById('retry-btn').onclick = runTest;
+        document.getElementById('retry-btn').onclick = () => {
+            log("--- Restarting ---");
+            runTest();
+        };
 
-        // Give the environment 2 seconds to inject variables before failing
-        log("Waiting for environment injection...");
-        setTimeout(runTest, 2000);
+        // Start immediately
+        runTest();
 
     </script>
 </body>
