@@ -120,6 +120,9 @@ function formatTime(sec){
 
 function render(){
 
+  const watchDiv = document.getElementById("watch");
+  const topDiv = document.getElementById("topUsers");
+
   document.getElementById("statActive").innerText = state.activePasses.length;
   document.getElementById("statTrips").innerText = state.logs.length;
 
@@ -188,6 +191,25 @@ function render(){
       </div>
     </div>`;
   }).join("");
+
+    // WATCHLIST (3+ passes)
+  const flagged = state.students.filter(s => (s.passesUsed||0) >= 3);
+  if(watchDiv){
+    watchDiv.innerHTML = flagged.length
+      ? flagged.map(s => `<div class="text-xs">${s.name} (${s.passesUsed})</div>`).join("")
+      : "<div class='text-xs text-slate-400'>None</div>";
+  }
+
+  // TOP USERS
+  if(topDiv){
+    const sorted = [...state.students]
+      .sort((a,b)=>(b.passesUsed||0)-(a.passesUsed||0))
+      .slice(0,5);
+
+    topDiv.innerHTML = sorted.length
+      ? sorted.map(s => `<div class="text-xs">${s.name} (${s.passesUsed||0})</div>`).join("")
+      : "<div class='text-xs text-slate-400'>None</div>";
+  }
 
   if(alertText){
     alertBanner.classList.remove("hidden");
