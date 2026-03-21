@@ -24,7 +24,7 @@
       <button onclick="exportData()" class="px-3 py-1 bg-slate-800 text-white rounded text-xs">Export</button>
       <input type="file" id="importJson" class="hidden">
       <button onclick="document.getElementById('importJson').click()" class="px-3 py-1 bg-slate-200 rounded text-xs">Restore</button>
-      <button onclick="toggleLog()" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs">Toggle Log</button>
+      <button onclick="toggleLog()" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs">View Master Log</button>
 
       <!-- SETTINGS -->
       <div class="flex items-center gap-2 ml-auto">
@@ -47,7 +47,13 @@
     <!-- STUDENTS -->
     <div id="app" class="grid gap-3"></div>
 
-    <div id="log" class="hidden bg-white p-4 rounded-xl shadow mt-6"></div>
+    <div id="log" class="hidden bg-white p-4 rounded-xl shadow mt-6">
+  <div class="flex justify-between items-center mb-2">
+    <div class="font-bold">Master Log</div>
+    <button onclick="toggleLog()" class="text-xs text-red-500">Close</button>
+  </div>
+  <div id="logContent"></div>
+</div>
 
   </div>
 
@@ -176,7 +182,12 @@ function render() {
 
   if(showLog){
     logDiv.classList.remove("hidden");
-    logDiv.innerHTML = state.logs.map(l=>`<div class="text-xs border-b py-1">${l.name} - ${formatTime(l.duration)} - ${l.deducted?'Pass Used':''}</div>`).join("");
+    const logContent = document.getElementById("logContent");
+    logContent.innerHTML = state.logs.map(l=>`<div class="text-xs border-b py-1 flex justify-between">
+      <span>${l.name}</span>
+      <span>${formatTime(l.duration)}</span>
+      <span class="${l.deducted?'text-red-600':'text-green-600'}">${l.deducted?'Pass Used':'OK'}</span>
+    </div>`).join("") || "<div class='text-xs text-slate-400'>No activity yet</div>";
   } else logDiv.classList.add("hidden");
 }
 
