@@ -3,491 +3,231 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hall Pass Tracker Pro</title>
+    <title>Connectivity Diagnostic - Hall Pass Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
-        #data-menu { display: none; transform: translateY(-10px); opacity: 0; transition: all 0.2s ease; }
-        #data-menu.show { display: block; transform: translateY(0); opacity: 1; }
-        .row-active { background-color: #f0f4ff; border-left: 4px solid #4f46e5; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        tr { transition: background-color 0.3s ease; }
-        @keyframes pulse-indigo {
-            0%, 100% { background-color: #e0e7ff; color: #4f46e5; }
-            50% { background-color: #c7d2fe; color: #4338ca; }
-        }
-        .status-syncing { animation: pulse-indigo 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        #debug-console { display: none; font-family: monospace; font-size: 10px; line-height: 1.2; }
+        .log-entry { font-family: 'Courier New', monospace; border-bottom: 1px solid #e2e8f0; padding: 4px 0; font-size: 12px; }
+        .log-time { color: #94a3b8; margin-right: 8px; }
+        .log-error { color: #ef4444; font-weight: bold; }
+        .log-success { color: #10b981; font-weight: bold; }
+        .log-info { color: #3b82f6; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .loading { animation: pulse 1.5s infinite; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-900 font-sans pb-20">
+<body class="bg-slate-900 text-slate-100 min-h-screen p-6">
 
-    <div class="max-w-6xl mx-auto p-4 md:p-8">
-        <!-- Header Section -->
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-            <div>
-                <div class="flex items-center gap-3">
-                    <h1 class="text-3xl font-black tracking-tight text-slate-900">Hall Pass <span class="text-indigo-600">Pro</span></h1>
-                    <div id="cloud-status" class="px-2 py-1 bg-slate-200 text-slate-500 rounded text-[10px] font-bold uppercase tracking-widest transition-all text-nowrap">Initializing...</div>
-                    <button id="show-debug" class="text-[9px] text-slate-400 hover:text-indigo-600 font-bold uppercase underline">Debug</button>
-                </div>
-                
-                <!-- Debug Console Overlay -->
-                <div id="debug-console" class="mt-2 p-3 bg-slate-900 text-emerald-400 rounded-lg max-h-32 overflow-y-auto border border-slate-700 shadow-inner">
-                    <div class="flex justify-between border-b border-slate-700 pb-1 mb-1">
-                        <span class="text-slate-500 uppercase font-bold">Network Diagnostics</span>
-                        <button onclick="document.getElementById('debug-console').style.display='none'" class="text-red-400">Close</button>
-                    </div>
-                    <div id="debug-logs"></div>
-                </div>
-
-                <div class="flex items-center gap-2 mt-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm w-fit">
-                    <p class="text-slate-500 text-[10px] font-bold uppercase tracking-wider ml-1">Sync Code:</p>
-                    <input type="text" id="sync-code-input" placeholder="e.g. ROOM101" class="bg-slate-50 border border-slate-100 rounded px-2 py-1 text-xs font-bold text-indigo-600 w-28 focus:ring-1 focus:ring-indigo-500 outline-none uppercase">
-                    <button id="set-sync-code" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-[10px] font-bold uppercase hover:bg-indigo-700 transition-all">Set Code</button>
-                    <button id="reset-connection" class="text-slate-400 hover:text-red-500 transition-colors px-1" title="Force Connection Refresh">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                    </button>
-                </div>
-                <p class="text-[9px] text-slate-400 mt-1 ml-1">* Use same code on phone & computer to link data.</p>
-            </div>
-
-            <div class="flex gap-2 relative">
-                <button id="add-btn" class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 active:scale-95 transition-all">
-                    + Add Student
-                </button>
-                
-                <div class="relative">
-                    <button id="menu-trigger" class="bg-white border border-slate-200 text-slate-700 px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm active:bg-slate-50">
-                        Tools
-                    </button>
-                    <div id="data-menu" class="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl py-2 z-[200]">
-                        <button id="btn-import-csv" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-slate-50 text-slate-600">Import CSV</button>
-                        <button id="btn-import-backup" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-slate-50 text-slate-600">Import Backup</button>
-                        <button id="btn-export-json" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-slate-50 text-slate-600 border-b border-slate-100">Export Backup</button>
-                        <button id="btn-wipe" class="w-full text-left px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50">Wipe All Data</button>
-                    </div>
-                </div>
-            </div>
+    <div class="max-w-3xl mx-auto">
+        <header class="mb-8 border-b border-slate-700 pb-4">
+            <h1 class="text-2xl font-black text-white">System <span class="text-indigo-400">Diagnostic</span></h1>
+            <p class="text-slate-400 text-sm mt-1">Evaluating Firestore connectivity in the current environment...</p>
         </header>
 
-        <!-- Invisible File Inputs -->
-        <input type="file" id="input-csv" accept=".csv" class="hidden">
-        <input type="file" id="input-backup" accept=".json" class="hidden">
-
-        <!-- Stats Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
-            <div class="lg:col-span-3">
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Out Now</span>
-                        <p id="stat-out" class="text-2xl font-black text-indigo-600">0</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Today's Trips</span>
-                        <p id="stat-trips" class="text-2xl font-black text-slate-800">0</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Time Limit</span>
-                        <p class="text-2xl font-black text-slate-800">7m</p>
-                    </div>
-                </div>
-
-                <!-- Main Table -->
-                <div class="bg-white rounded-[2rem] shadow-xl border border-slate-200/50 overflow-hidden min-h-[400px]">
-                    <div id="period-bar" class="flex gap-2 p-4 border-b border-slate-50 overflow-x-auto no-scrollbar"></div>
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            <tr>
-                                <th class="px-6 py-4">Student</th>
-                                <th class="px-6 py-4">Deductions</th>
-                                <th class="px-6 py-4 text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="student-table" class="divide-y divide-slate-50"></tbody>
-                    </table>
-                    <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 text-center px-6">
-                        <h3 class="font-bold text-slate-800">No students yet</h3>
-                        <p class="text-slate-500 text-xs mt-1">Add students, import data, or set a sync code.</p>
-                    </div>
-                </div>
+        <!-- Status Panel -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Environment</p>
+                <p id="env-status" class="text-lg font-bold text-yellow-500">Checking...</p>
             </div>
-
-            <!-- Watchlist Sidebar -->
-            <div class="lg:col-span-1">
-                <div class="bg-white rounded-[2rem] shadow-lg border border-slate-200/50 p-6">
-                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Watchlist</h3>
-                    <div id="watchlist" class="space-y-3"></div>
-                </div>
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Auth State</p>
+                <p id="auth-status" class="text-lg font-bold text-yellow-500">Checking...</p>
+            </div>
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Firestore Sync</p>
+                <p id="db-status" class="text-lg font-bold text-yellow-500">Checking...</p>
             </div>
         </div>
-    </div>
 
-    <!-- Modal -->
-    <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[300] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-[2rem] w-full max-sm p-8 shadow-2xl">
-            <h2 id="modal-title" class="text-xl font-black mb-6 text-slate-800">Student Details</h2>
-            <div class="space-y-4">
-                <input type="hidden" id="field-id">
-                <input type="text" id="field-name" placeholder="Name" class="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none font-bold">
-                <input type="text" id="field-period" placeholder="Period (e.g. 1)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none font-bold">
+        <!-- Diagnostic Actions -->
+        <div class="flex gap-4 mb-6">
+            <button id="btn-test-write" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">Test Cloud Write</button>
+            <button id="btn-clear-logs" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">Clear Logs</button>
+            <button onclick="window.location.reload()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">Reboot</button>
+        </div>
+
+        <!-- Log Console -->
+        <div class="bg-black rounded-2xl border border-slate-700 overflow-hidden">
+            <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex justify-between items-center">
+                <span class="text-[10px] font-bold text-slate-400 uppercase">Live Diagnostic Stream</span>
+                <div id="activity-light" class="w-2 h-2 rounded-full bg-slate-600"></div>
             </div>
-            <div class="flex gap-3 mt-8">
-                <button id="modal-cancel" class="flex-1 font-bold text-slate-400">Cancel</button>
-                <button id="modal-save" class="flex-[1.5] py-3 bg-indigo-600 text-white rounded-xl font-black shadow-lg">Save</button>
+            <div id="log-console" class="p-4 h-[400px] overflow-y-auto bg-slate-950">
+                <!-- Logs appear here -->
             </div>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { initializeFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { initializeFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
-            authDomain: "rrtracker-de70e.firebaseapp.com",
-            projectId: "rrtracker-de70e",
-            storageBucket: "rrtracker-de70e.firebasestorage.app",
-            messagingSenderId: "1057987490614",
-            appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997"
+        // Global Diagnostics
+        const logs = document.getElementById('log-console');
+        const envStatus = document.getElementById('env-status');
+        const authStatus = document.getElementById('auth-status');
+        const dbStatus = document.getElementById('db-status');
+        const activityLight = document.getElementById('activity-light');
+
+        const log = (msg, type = 'info') => {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            
+            let typeClass = 'log-info';
+            if (type === 'error') typeClass = 'log-error';
+            if (type === 'success') typeClass = 'log-success';
+
+            entry.innerHTML = `<span class="log-time">[${time}]</span><span class="${typeClass}">${msg}</span>`;
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
+            
+            activityLight.className = 'w-2 h-2 rounded-full bg-indigo-400';
+            setTimeout(() => activityLight.className = 'w-2 h-2 rounded-full bg-slate-600', 100);
         };
+
+        log("System boot initiated.");
+        
+        let firebaseConfig;
+        try {
+            firebaseConfig = JSON.parse(__firebase_config);
+            log("Firebase Config loaded from environment.", "success");
+            envStatus.innerText = "Configured";
+            envStatus.className = "text-lg font-bold text-emerald-500";
+        } catch (e) {
+            log("CRITICAL: __firebase_config not found. Using hardcoded fallback.", "error");
+            firebaseConfig = {
+                apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
+                authDomain: "rrtracker-de70e.firebaseapp.com",
+                projectId: "rrtracker-de70e",
+                storageBucket: "rrtracker-de70e.firebasestorage.app",
+                messagingSenderId: "1057987490614",
+                appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997"
+            };
+            envStatus.innerText = "Fallback";
+            envStatus.className = "text-lg font-bold text-yellow-500";
+        }
+
+        // App ID logic
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-tracker-v1';
+        log(`App ID set to: ${appId}`);
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         
-        // CRITICAL FIX: Ensure Long Polling is forced AND timeout settings are adjusted
+        // Force Long Polling for environment stability
+        log("Initializing Firestore with experimentalForceLongPolling: true...");
         const db = initializeFirestore(app, {
-            experimentalForceLongPolling: true,
-            useFetchStreams: false // Extra precaution for some iframe browsers
+            experimentalForceLongPolling: true
         });
 
-        // Use a consistent ID to avoid path conflicts
-        const APP_ID = "rr-tracker-v1";
-
-        let state = { 
-            students: [], 
-            activePasses: [], 
-            history: [], 
-            currentPeriod: '1', 
-            syncCode: localStorage.getItem('last_sync_code') || '' 
-        };
-        
         let currentUser = null;
-        let unsub = null;
-        let isWriting = false;
-        let isOfflineMode = false;
+        let unsubscribeData = null;
 
-        const debugLog = (msg) => {
-            const logs = document.getElementById('debug-logs');
-            const time = new Date().toLocaleTimeString();
-            logs.innerHTML += `<div><span class="text-slate-500">[${time}]</span> ${msg}</div>`;
-            logs.parentElement.scrollTop = logs.parentElement.scrollHeight;
-        };
-
-        const updateStatus = (text, type = 'slate') => {
-            const el = document.getElementById('cloud-status');
-            if (!el) return;
-            el.innerText = text;
-            const styles = {
-                slate: 'bg-slate-200 text-slate-500',
-                indigo: 'status-syncing',
-                green: 'bg-emerald-100 text-emerald-600',
-                red: 'bg-red-100 text-red-600'
-            };
-            el.className = `px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-all ${styles[type] || styles.slate}`;
-        };
-
-        const loadLocal = () => {
-            const saved = localStorage.getItem('hpt_local_backup');
-            if (saved) {
-                try {
-                    const data = JSON.parse(saved);
-                    state.students = data.students || [];
-                    state.activePasses = data.activePasses || [];
-                    state.history = data.history || [];
-                    debugLog("Loaded fallback data from LocalStorage.");
-                } catch(e) { console.error("Local load failed", e); }
-            }
-            render();
-        };
-
-        const saveLocal = () => {
-            localStorage.setItem('hpt_local_backup', JSON.stringify({
-                students: state.students,
-                activePasses: state.activePasses,
-                history: state.history
-            }));
-        };
-
-        const render = () => {
-            const list = document.getElementById('student-table');
-            const empty = document.getElementById('empty-state');
-            const watchlist = document.getElementById('watchlist');
-            
-            document.getElementById('stat-out').innerText = (state.activePasses || []).length;
-            document.getElementById('stat-trips').innerText = (state.history || []).filter(h => new Date(h.end).toDateString() === new Date().toDateString()).length;
-
-            const flagged = (state.students || []).filter(s => (s.passesUsed || 0) >= 3);
-            watchlist.innerHTML = flagged.length ? flagged.map(s => `
-                <div class="p-3 bg-red-50 border border-red-100 rounded-xl flex justify-between items-center">
-                    <span class="text-xs font-bold text-red-800">${s.name}</span>
-                    <span class="bg-red-200 text-red-800 px-2 py-1 rounded-lg text-[10px] font-black">${s.passesUsed}</span>
-                </div>`).join('') : '<p class="text-[10px] text-slate-400 italic">Clear</p>';
-
-            if (!state.students || !state.students.length) {
-                list.innerHTML = '';
-                empty.classList.remove('hidden');
-                document.getElementById('period-bar').innerHTML = '';
-                return;
-            }
-            empty.classList.add('hidden');
-
-            const periods = [...new Set(state.students.map(s => s.period))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
-            if (!periods.includes(state.currentPeriod) && periods.length > 0) {
-                state.currentPeriod = periods[0];
-            }
-
-            document.getElementById('period-bar').innerHTML = periods.map(p => `
-                <button onclick="window.setPeriod('${p}')" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${state.currentPeriod === p ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}">Period ${p}</button>
-            `).join('');
-
-            const filtered = state.students.filter(s => s.period === state.currentPeriod);
-            list.innerHTML = filtered.map(s => {
-                const active = (state.activePasses || []).find(p => p.sid === s.id);
-                return `
-                <tr class="${active ? 'row-active' : ''}">
-                    <td class="px-6 py-4 font-bold text-slate-700">${s.name}</td>
-                    <td class="px-6 py-4">
-                        <div class="flex items-center gap-2">
-                            <button onclick="window.adj('${s.id}', -1)" class="w-6 h-6 bg-slate-100 rounded text-xs font-bold hover:bg-slate-200">-</button>
-                            <span class="text-xs font-black w-4 text-center">${s.passesUsed || 0}</span>
-                            <button onclick="window.adj('${s.id}', 1)" class="w-6 h-6 bg-slate-100 rounded text-xs font-bold hover:bg-slate-200">+</button>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 text-right">
-                        <button onclick="window.pass('${s.id}')" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${active ? 'bg-slate-800 text-white hover:bg-slate-900' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}">
-                            ${active ? 'Return' : 'Issue'}
-                        </button>
-                    </td>
-                </tr>`;
-            }).join('');
-        };
-
-        const save = async () => {
-            saveLocal();
-            if (isOfflineMode || !currentUser) {
-                debugLog("Sync skipped: User offline or not authenticated.");
-                return;
-            }
-            
-            isWriting = true;
-            try {
-                const dataToSave = {
-                    students: state.students || [],
-                    activePasses: state.activePasses || [],
-                    history: state.history || [],
-                    lastUpdate: Date.now()
-                };
-
-                const path = state.syncCode 
-                    ? doc(db, 'artifacts', APP_ID, 'public', 'data', `sync_${state.syncCode}`)
-                    : doc(db, 'artifacts', APP_ID, 'users', currentUser.uid, 'settings', 'local_data');
-                
-                debugLog(`Attempting cloud write to ${state.syncCode ? 'Public' : 'Private'} storage...`);
-                await setDoc(path, dataToSave, { merge: true });
-                updateStatus(state.syncCode ? `Code: ${state.syncCode}` : 'Cloud Saved', 'green');
-                debugLog("Cloud Write Successful.");
-            } catch (e) {
-                debugLog(`Cloud Save Error: ${e.message}`);
-                updateStatus('Offline Save', 'slate');
-            } finally {
-                setTimeout(() => { isWriting = false; }, 800);
-            }
-        };
-
-        const connect = async (code) => {
-            if (unsub) unsub();
-            updateStatus('Connecting...', 'indigo');
-            debugLog(`Initializing listener: ${code ? 'Sync Code '+code : 'Private Cloud'}`);
+        const initAuth = async () => {
+            log("Beginning Auth handshake...");
+            authStatus.innerText = "Authenticating...";
+            authStatus.className = "text-lg font-bold text-indigo-400 loading";
 
             try {
-                const path = code 
-                    ? doc(db, 'artifacts', APP_ID, 'public', 'data', `sync_${code}`)
-                    : doc(db, 'artifacts', APP_ID, 'users', currentUser.uid, 'settings', 'local_data');
-
-                unsub = onSnapshot(path, (snap) => {
-                    isOfflineMode = false;
-                    debugLog("Cloud heartbeat received.");
-                    if (snap.exists() && !isWriting) {
-                        const data = snap.data();
-                        state.students = data.students || [];
-                        state.activePasses = data.activePasses || [];
-                        state.history = data.history || [];
-                        render();
-                        debugLog("UI Synced with cloud data.");
-                    }
-                    updateStatus(code ? `Sync: ${code}` : 'Cloud Active', 'green');
-                }, (err) => {
-                    debugLog(`Connection Failed: ${err.code} - ${err.message}`);
-                    isOfflineMode = true;
-                    updateStatus('Offline Mode', 'red');
-                    loadLocal();
-                });
-            } catch (err) {
-                debugLog(`Listener Setup Error: ${err.message}`);
-                isOfflineMode = true;
-                updateStatus('Offline', 'red');
-            }
-        };
-
-        window.setPeriod = (p) => { state.currentPeriod = p; render(); };
-        window.adj = (id, d) => {
-            const s = state.students.find(x => x.id === id);
-            if (s) { s.passesUsed = Math.max(0, (s.passesUsed || 0) + d); render(); save(); }
-        };
-        window.pass = (id) => {
-            const idx = state.activePasses.findIndex(p => p.sid === id);
-            if (idx > -1) {
-                const p = state.activePasses[idx];
-                const dur = (Date.now() - p.start) / 60000;
-                if (dur >= 7) {
-                    const s = state.students.find(x => x.id === id);
-                    if (s) s.passesUsed = (s.passesUsed || 0) + 1;
-                }
-                state.history.push({ ...p, end: Date.now() });
-                state.activePasses.splice(idx, 1);
-            } else {
-                state.activePasses.push({ sid: id, start: Date.now() });
-            }
-            render(); save();
-        };
-
-        document.getElementById('show-debug').onclick = () => {
-            const el = document.getElementById('debug-console');
-            el.style.display = el.style.display === 'none' ? 'block' : 'none';
-        };
-
-        document.getElementById('set-sync-code').onclick = () => {
-            const input = document.getElementById('sync-code-input');
-            const code = input.value.trim().toUpperCase();
-            if (!code) return;
-            state.syncCode = code;
-            localStorage.setItem('last_sync_code', code);
-            debugLog(`Sync Code switched to: ${code}`);
-            if (currentUser) connect(code);
-        };
-
-        document.getElementById('reset-connection').onclick = () => {
-            debugLog("Forcing Application Reset...");
-            localStorage.removeItem('last_sync_code');
-            window.location.reload();
-        };
-
-        document.getElementById('add-btn').onclick = () => {
-            document.getElementById('field-id').value = '';
-            document.getElementById('field-name').value = '';
-            document.getElementById('modal-backdrop').classList.remove('hidden');
-        };
-
-        document.getElementById('modal-save').onclick = () => {
-            const name = document.getElementById('field-name').value.trim();
-            const per = document.getElementById('field-period').value.trim() || '1';
-            if (!name) return;
-            state.students.push({ id: Date.now().toString(), name, period: per, passesUsed: 0 });
-            render(); save();
-            document.getElementById('modal-backdrop').classList.add('hidden');
-        };
-
-        document.getElementById('modal-cancel').onclick = () => document.getElementById('modal-backdrop').classList.add('hidden');
-        
-        document.getElementById('menu-trigger').onclick = (e) => {
-            e.stopPropagation();
-            document.getElementById('data-menu').classList.toggle('show');
-        };
-        document.body.onclick = () => document.getElementById('data-menu').classList.remove('show');
-
-        document.getElementById('btn-export-json').onclick = () => {
-            const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `hallpass_backup_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-        };
-
-        document.getElementById('btn-import-csv').onclick = () => document.getElementById('input-csv').click();
-        document.getElementById('btn-import-backup').onclick = () => document.getElementById('input-backup').click();
-
-        document.getElementById('input-csv').onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                ev.target.result.split('\n').forEach(line => {
-                    const [name, per] = line.split(',').map(s => s?.trim());
-                    if (name && name.toLowerCase() !== 'name') {
-                        state.students.push({ id: Math.random().toString(36).substr(2, 9), name, period: per || '1', passesUsed: 0 });
-                    }
-                });
-                render(); save();
-                e.target.value = '';
-            };
-            reader.readAsText(file);
-        };
-
-        document.getElementById('input-backup').onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                try {
-                    const imported = JSON.parse(ev.target.result);
-                    if (imported.students) {
-                        state.students = imported.students;
-                        state.activePasses = imported.activePasses || [];
-                        state.history = imported.history || [];
-                        render(); save();
-                    }
-                } catch (err) { console.error("Import failed", err); }
-                e.target.value = '';
-            };
-            reader.readAsText(file);
-        };
-
-        document.getElementById('btn-wipe').onclick = () => {
-            if (confirm("Wipe all data?")) {
-                state.students = [];
-                state.activePasses = [];
-                state.history = [];
-                render(); save();
-            }
-        };
-
-        const init = async () => {
-            debugLog("Booting App...");
-            updateStatus('Starting...', 'indigo');
-            loadLocal();
-
-            onAuthStateChanged(auth, (u) => {
-                if (u) {
-                    debugLog(`Auth Successful. UID: ${u.uid}`);
-                    currentUser = u;
-                    const code = localStorage.getItem('last_sync_code');
-                    connect(code);
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    log("Found custom auth token. Signing in...");
+                    await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
-                    debugLog("No Auth found. Attempting Anonymous Sign-in...");
-                    signInAnonymously(auth).catch((err) => {
-                        debugLog(`Auth Error: ${err.message}`);
-                        isOfflineMode = true;
-                        updateStatus('Local Mode', 'slate');
-                    });
+                    log("No custom token found. Using Anonymous sign-in...");
+                    await signInAnonymously(auth);
                 }
-            });
+            } catch (e) {
+                log(`Auth Error: ${e.code} - ${e.message}`, "error");
+                authStatus.innerText = "Failed";
+                authStatus.className = "text-lg font-bold text-red-500";
+            }
         };
 
-        window.addEventListener('load', init);
+        const connect = (user) => {
+            if (unsubscribeData) unsubscribeData();
+
+            log(`User authenticated: ${user.uid}`, "success");
+            authStatus.innerText = "Connected";
+            authStatus.className = "text-lg font-bold text-emerald-500";
+            
+            dbStatus.innerText = "Listening...";
+            dbStatus.className = "text-lg font-bold text-indigo-400 loading";
+
+            /**
+             * RULE 1 FIX:
+             * Paths must have even segments. 
+             * segments: artifacts (1), appId (2), public (3), data (4), collectionName (5), docId (6)
+             * Current failing path had 5 segments. We must ensure 6.
+             */
+            const collectionName = 'diagnostics';
+            const docId = 'pulse';
+            
+            const publicPath = doc(db, 'artifacts', appId, 'public', 'data', collectionName, docId);
+            
+            log(`Opening listener at: artifacts/${appId}/public/data/${collectionName}/${docId}`);
+
+            unsubscribeData = onSnapshot(publicPath, 
+                (snap) => {
+                    log("Cloud heartbeat received successfully.", "success");
+                    dbStatus.innerText = "Online";
+                    dbStatus.className = "text-lg font-bold text-emerald-500";
+                    if (snap.exists()) {
+                        log(`Cloud Data: ${JSON.stringify(snap.data())}`);
+                    } else {
+                        log("Cloud doc is currently empty (normal for first run).");
+                    }
+                }, 
+                (err) => {
+                    log(`Firestore Error: ${err.code} - ${err.message}`, "error");
+                    dbStatus.innerText = "Blocked";
+                    dbStatus.className = "text-lg font-bold text-red-500";
+                    
+                    if (err.code === 'permission-denied') {
+                        log("CRITICAL: Path violation or security rule mismatch.", "error");
+                    }
+                }
+            );
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                connect(user);
+            } else {
+                log("Auth state: No user signed in.");
+                initAuth();
+            }
+        });
+
+        document.getElementById('btn-test-write').onclick = async () => {
+            if (!currentUser) {
+                log("Write test failed: No authenticated user.", "error");
+                return;
+            }
+
+            log("Attempting test write...");
+            const testPath = doc(db, 'artifacts', appId, 'public', 'data', 'diagnostics', 'pulse');
+            
+            try {
+                await setDoc(testPath, {
+                    lastPulse: Date.now(),
+                    tester: currentUser.uid,
+                    environment: "Canvas Sandbox"
+                }, { merge: true });
+                log("Test write successful!", "success");
+            } catch (e) {
+                log(`Write Error: ${e.message}`, "error");
+            }
+        };
+
+        document.getElementById('btn-clear-logs').onclick = () => {
+            logs.innerHTML = '';
+            log("Logs cleared.");
+        };
+
+        log("Ready. Waiting for Firebase background tasks...");
     </script>
 </body>
 </html>
