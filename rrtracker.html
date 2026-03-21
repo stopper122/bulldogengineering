@@ -18,19 +18,30 @@
       <span id="status" class="text-xs font-bold uppercase text-amber-600">Connecting...</span>
     </div>
 
-    <div class="bg-white p-4 rounded-xl shadow mb-6 flex gap-3 items-center">
+    <!-- CONTROLS -->
+    <div class="bg-white p-4 rounded-xl shadow mb-6 flex flex-wrap gap-3 items-center">
       <input type="file" id="csv">
       <button onclick="exportData()" class="px-3 py-1 bg-slate-800 text-white rounded text-xs">Export</button>
       <input type="file" id="importJson" class="hidden">
       <button onclick="document.getElementById('importJson').click()" class="px-3 py-1 bg-slate-200 rounded text-xs">Restore</button>
       <button onclick="toggleLog()" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs">Toggle Log</button>
+
+      <!-- PASS TIME SETTING -->
+      <div class="flex items-center gap-2 ml-auto">
+        <span class="text-xs">Pass Limit (min):</span>
+        <input id="limitInput" type="number" min="1" class="w-16 px-2 py-1 border rounded text-xs">
+        <button onclick="updateLimit()" class="px-2 py-1 bg-slate-700 text-white rounded text-xs">Set</button>
+      </div>
     </div>
+
+    <!-- PERIOD TABS -->
+    <div id="periodTabs" class="flex gap-2 mb-4"></div>
 
     <!-- ACTIVE PASSES -->
     <div id="activeSection" class="mb-6"></div>
 
-    <!-- STUDENTS BY PERIOD -->
-    <div id="app" class="grid gap-6"></div>
+    <!-- STUDENTS -->
+    <div id="app" class="grid gap-3"></div>
 
     <div id="log" class="hidden bg-white p-4 rounded-xl shadow mt-6"></div>
 
@@ -60,7 +71,14 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const docRef = doc(db, "hallpass", "shared");
 
-let state = { students: [], activePasses: [], logs: [] };
+let state = {
+  students: [],
+  activePasses: [],
+  logs: [],
+  settings: { limitSec: 420 },
+  currentPeriod: null
+};
+
 let showLog = false;
 
 const appDiv = document.getElementById("app");
@@ -68,6 +86,7 @@ const logDiv = document.getElementById("log");
 const watchDiv = document.getElementById("watch");
 const activeDiv = document.getElementById("activeSection");
 const status = document.getElementById("status");
+const tabsDiv = document.getElementById("periodTabs");
 
 function formatTime(sec){
   const m=Math.floor(sec/60);
@@ -77,7 +96,16 @@ function formatTime(sec){
 
 function render() {
 
-  // ACTIVE PASSES TOP
+  // PERIOD TABS
+  const periods = [...new Set(state.students.map(s=>s.period))].sort();
+  if(!state.currentPeriod && periods.length) state.currentPeriod = periods[0];
+
+  tabsDiv.innerHTML = periods.map(p=>`
+    <button onclick="setPeriod('${p}')" class="px-3 py-1 rounded text-xs ${state.currentPeriod===p?'bg-indigo-600 text-white':'bg-slate-200'}">
+      P${p}
+    </button>`).join("");
+
+  // ACTIVE
   if(state.activePasses.length > 0){
     activeDiv.innerHTML = `
       <div class="bg-red-50 border border-red-200 rounded-xl p-4">
@@ -85,46 +113,43 @@ function render() {
         ${state.activePasses.map(p=>{
           const student = state.students.find(s=>s.id===p.id);
           const duration = Math.floor((Date.now()-p.start)/1000);
-          return `<div class="text-sm font-mono ${duration>420?'text-red-600':''}">${student?.name} - ${formatTime(duration)}</div>`;
+          return `<div class="text-sm font-mono ${duration>state.settings.limitSec?'text-red-600':''}">${student?.name} - ${formatTime(duration)}</div>`;
         }).join("")}
       </div>`;
   } else activeDiv.innerHTML = "";
 
-  // GROUP BY PERIOD
-  const grouped = {};
-  state.students.forEach(s=>{
-    if(!grouped[s.period]) grouped[s.period]=[];
-    grouped[s.period].push(s);
-  });
+  // STUDENTS (filtered by period)
+  const filtered = state.students.filter(s=>s.period===state.currentPeriod);
 
-  appDiv.innerHTML = Object.keys(grouped).sort().map(period=>{
+  appDiv.innerHTML = filtered.map(s=>{
+    const active = state.activePasses.find(p=>p.id===s.id);
+    const duration = active ? Math.floor((Date.now()-active.start)/1000) : 0;
+    const remaining = 7 - (s.passesUsed||0);
+
     return `
-      <div>
-        <div class="font-bold text-lg mb-2">Period ${period}</div>
-        <div class="grid gap-3">
-          ${grouped[period].map(s=>{
-            const active = state.activePasses.find(p=>p.id===s.id);
-            const duration = active ? Math.floor((Date.now()-active.start)/1000) : 0;
-            const remaining = 7 - (s.passesUsed||0);
+      <div class="bg-white border rounded-xl p-4 flex justify-between items-center ${active?'bg-indigo-50 border-indigo-400':''}">
+        <div>
+          <div class="font-bold">${s.name}</div>
+          <div class="text-xs text-slate-400">ID: ${s.id}</div>
+        </div>
 
-            return `
-              <div class="bg-white border rounded-xl p-4 flex justify-between items-center ${active?'bg-indigo-50 border-indigo-400':''}">
-                <div>
-                  <div class="font-bold">${s.name}</div>
-                  <div class="text-xs text-slate-400">ID: ${s.id || 'N/A'}</div>
-                </div>
-                <div class="flex items-center gap-4">
-                  ${active ? `<div class="font-mono text-sm ${duration>420?'text-red-600':''}">${formatTime(duration)}</div>` : ''}
-                  <div class="text-xs">
-                    <div class="font-bold">Used: ${s.passesUsed||0}</div>
-                    <div class="text-slate-400">Left: ${remaining}</div>
-                  </div>
-                  <button onclick="togglePass('${s.id}')" class="px-3 py-1 rounded text-xs ${active?'bg-slate-800 text-white':'bg-indigo-600 text-white'}">
-                    ${active?'Return':'Start'}
-                  </button>
-                </div>
-              </div>`;
-          }).join("")}
+        <div class="flex items-center gap-4">
+          ${active ? `<div class="font-mono text-sm ${duration>state.settings.limitSec?'text-red-600':''}">${formatTime(duration)}</div>` : ''}
+
+          <div class="text-xs">
+            <div class="font-bold">Used: ${s.passesUsed||0}</div>
+            <div class="text-slate-400">Left: ${remaining}</div>
+          </div>
+
+          <!-- MANUAL ADJUST -->
+          <div class="flex flex-col gap-1">
+            <button onclick="adjustPass('${s.id}',1)" class="text-xs bg-slate-200 px-2 rounded">+</button>
+            <button onclick="adjustPass('${s.id}',-1)" class="text-xs bg-slate-200 px-2 rounded">-</button>
+          </div>
+
+          <button onclick="togglePass('${s.id}')" class="px-3 py-1 rounded text-xs ${active?'bg-slate-800 text-white':'bg-indigo-600 text-white'}">
+            ${active?'Return':'Start'}
+          </button>
         </div>
       </div>`;
   }).join("");
@@ -145,10 +170,27 @@ async function save(){ await setDoc(docRef,state); }
 function startSync(){
   onSnapshot(docRef,(snap)=>{
     if(snap.exists()){ state=snap.data(); render(); }
-    status.textContent="Connected (Live Sync)";
+    status.textContent="Connected";
     status.className="text-green-600 text-xs font-bold";
   });
 }
+
+window.setPeriod=(p)=>{ state.currentPeriod=p; render(); };
+
+window.adjustPass=(id,delta)=>{
+  const s = state.students.find(x=>x.id===id);
+  if(!s) return;
+  s.passesUsed = Math.max(0,(s.passesUsed||0)+delta);
+  save(); render();
+};
+
+window.updateLimit=()=>{
+  const val = parseInt(document.getElementById("limitInput").value);
+  if(val>0){
+    state.settings.limitSec = val*60;
+    save(); render();
+  }
+};
 
 window.togglePass=(id)=>{
   const active = state.activePasses.find(p=>p.id===id);
@@ -156,7 +198,7 @@ window.togglePass=(id)=>{
 
   if(active){
     const duration = Math.floor((Date.now()-active.start)/1000);
-    const deduct = duration>420;
+    const deduct = duration>state.settings.limitSec;
 
     if(deduct) student.passesUsed=(student.passesUsed||0)+1;
 
