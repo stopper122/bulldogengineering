@@ -23,6 +23,7 @@
                 <div class="flex items-center gap-3">
                     <h1 class="text-3xl font-black tracking-tight text-slate-900">Hall Pass <span class="text-indigo-600">Pro</span></h1>
                     <div id="cloud-status" class="px-2 py-1 bg-amber-100 text-amber-600 rounded text-[10px] font-bold uppercase tracking-widest transition-all text-nowrap">Initializing...</div>
+                    <button id="retry-conn" class="hidden px-2 py-1 bg-indigo-600 text-white rounded text-[10px] font-bold uppercase hover:bg-indigo-700 transition-all">Retry Cloud</button>
                     <button id="force-local" class="px-2 py-1 bg-slate-200 text-slate-600 rounded text-[10px] font-bold uppercase hover:bg-slate-300 transition-all">Skip Cloud</button>
                 </div>
                 <div class="flex items-center gap-2 mt-2">
@@ -131,6 +132,7 @@
         let state = { students: [], activePasses: [], currentPeriod: '1', syncCode: '' };
         let isSaving = false;
         let syncUnsubscribe = null;
+        let authInitialized = false;
 
         // Use environment provided variables
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
@@ -235,17 +237,15 @@
                 updateStatus(state.syncCode ? `Linked: ${state.syncCode}` : 'Cloud Synced', 'emerald');
             } catch (e) {
                 console.error("Save failed:", e);
-                updateStatus('Offline Mode', 'amber');
+                updateStatus('Cloud Saved (Local Cache)', 'amber');
             } finally {
                 isSaving = false;
             }
         };
 
         const setupSync = async () => {
-            if (!user || !db) {
-                updateStatus('Waiting for Auth...', 'amber');
-                return;
-            }
+            if (!user || !db) return;
+            
             if (syncUnsubscribe) syncUnsubscribe();
             
             let dataRef;
@@ -255,7 +255,7 @@
                 dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'hallpass_state');
             }
             
-            updateStatus('Syncing...', 'amber');
+            updateStatus('Fetching Data...', 'amber');
 
             try {
                 const snap = await getDoc(dataRef);
@@ -280,15 +280,16 @@
                 }
                 updateStatus(state.syncCode ? `Linked: ${state.syncCode}` : 'Cloud Synced', 'emerald');
                 document.getElementById('force-local').style.display = 'none';
+                document.getElementById('retry-conn').classList.add('hidden');
             }, (err) => {
                 console.error("Firestore error:", err);
-                updateStatus('Sync Blocked', 'red');
+                updateStatus('Sync Limited', 'amber');
             });
         };
 
         const startFirebase = async () => {
             if (typeof __firebase_config === 'undefined') {
-                throw new Error("Config Missing");
+                throw new Error("Config not found yet");
             }
             
             updateStatus('Connecting...', 'amber');
@@ -298,21 +299,28 @@
             db = getFirestore(app);
 
             onAuthStateChanged(auth, async (u) => {
-                if (u) {
+                if (u && !authInitialized) {
+                    authInitialized = true;
                     user = u;
                     await setupSync();
                 }
             });
 
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
+            // Priority: Custom Token -> Anonymous
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Auth failed:", err);
+                throw err;
             }
         };
 
         const init = async () => {
-            // Load code & local data first
+            // Priority 1: Instant render from cache
             const cachedCode = localStorage.getItem(CODE_KEY);
             if (cachedCode) {
                 state.syncCode = cachedCode;
@@ -325,22 +333,22 @@
                     const parsed = JSON.parse(cached);
                     state.students = parsed.students || [];
                     state.activePasses = parsed.activePasses || [];
-                    render();
                 } catch(e) {}
             }
+            render();
 
-            // Attempt Firebase with retries
+            // Priority 2: Establish cloud connection
             let attempts = 0;
             const tryInit = async () => {
                 try {
                     await startFirebase();
                 } catch (e) {
                     attempts++;
-                    if (attempts < 5) {
-                        setTimeout(tryInit, 1000 * Math.pow(2, attempts - 1));
+                    if (attempts < 10) { // More persistent polling
+                        setTimeout(tryInit, 500);
                     } else {
                         updateStatus('Local Mode', 'amber');
-                        document.getElementById('force-local').style.display = 'none';
+                        document.getElementById('retry-conn').classList.remove('hidden');
                     }
                 }
             };
@@ -391,13 +399,18 @@
                 } else {
                     localStorage.removeItem(CODE_KEY);
                 }
-                setupSync();
+                if (user) setupSync();
                 syncToCloud();
             };
 
             document.getElementById('force-local').onclick = () => {
                 updateStatus('Local Mode', 'amber');
                 document.getElementById('force-local').style.display = 'none';
+            };
+            
+            document.getElementById('retry-conn').onclick = () => {
+                updateStatus('Retrying...', 'amber');
+                init();
             };
 
             menuTrigger.onclick = (e) => { e.stopPropagation(); dataMenu.classList.toggle('show'); };
