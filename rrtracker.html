@@ -124,7 +124,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         // Global State
         let db, auth, user;
@@ -214,7 +214,6 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
             render(); 
             
-            // Mandatory Rule 3: Guard Firestore operation
             if (!user || !db) return;
             
             isSaving = true;
@@ -222,10 +221,8 @@
             try {
                 let dataRef;
                 if (state.syncCode) {
-                    // Mandatory Rule 1: Public path
                     dataRef = doc(db, 'artifacts', appId, 'public', 'data', `shared_${state.syncCode}`);
                 } else {
-                    // Mandatory Rule 1: User private path
                     dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'hallpass_state');
                 }
 
@@ -243,23 +240,33 @@
             }
         };
 
-        const setupSync = () => {
-            // Mandatory Rule 3: Guard before queries
+        const setupSync = async () => {
             if (!user || !db) return;
             if (syncUnsubscribe) syncUnsubscribe();
             
             let dataRef;
             if (state.syncCode) {
-                // Shared Path Rule 1
                 dataRef = doc(db, 'artifacts', appId, 'public', 'data', `shared_${state.syncCode}`);
             } else {
-                // Private Path Rule 1
                 dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'hallpass_state');
             }
             
             updateStatus('Connecting...', 'amber');
+
+            // Initial fetch to check for data and verify connection
+            try {
+                const snap = await getDoc(dataRef);
+                if (snap.exists()) {
+                    const data = snap.data();
+                    state.students = data.students || [];
+                    state.activePasses = data.activePasses || [];
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                    render();
+                }
+            } catch (e) {
+                console.warn("Initial sync check failed, waiting for listener:", e);
+            }
             
-            // Mandatory Rule 2: Simple snapshot listener
             syncUnsubscribe = onSnapshot(dataRef, (snap) => {
                 if (snap.exists() && !isSaving) {
                     const data = snap.data();
@@ -271,8 +278,8 @@
                 updateStatus(state.syncCode ? `Linked: ${state.syncCode}` : 'Cloud Synced', 'emerald');
                 document.getElementById('force-local').style.display = 'none';
             }, (err) => {
-                console.error("Sync error:", err);
-                updateStatus('Offline Mode', 'amber');
+                console.error("Firestore error:", err);
+                updateStatus('Sync Blocked', 'red');
             });
         };
 
@@ -295,37 +302,33 @@
 
             const skipTimer = setTimeout(() => {
                 document.getElementById('force-local').style.display = 'inline-block';
-            }, 5000);
+            }, 8000);
 
             try {
-                // Get config from global provided by environment
                 const config = JSON.parse(__firebase_config);
                 const app = initializeApp(config);
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                // Mandatory Rule 3: Auth FIRST and AWAIT it
-                const initAuth = async () => {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                };
-
-                onAuthStateChanged(auth, (u) => {
+                // Authentication listener first
+                onAuthStateChanged(auth, async (u) => {
                     if (u) {
                         user = u;
-                        setupSync();
+                        await setupSync();
+                        clearTimeout(skipTimer);
                     }
                 });
 
-                await initAuth();
+                // Trigger authentication
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
             } catch (e) {
-                console.error("Init Error:", e);
+                console.error("Firebase startup error:", e);
                 updateStatus('Offline Mode', 'amber');
-            } finally {
-                clearTimeout(skipTimer);
             }
         };
 
@@ -366,17 +369,14 @@
 
             codeBtn.onclick = () => {
                 const code = codeInput.value.trim().toUpperCase();
+                state.syncCode = code;
                 if (code) {
-                    state.syncCode = code;
                     localStorage.setItem(CODE_KEY, code);
-                    setupSync();
-                    syncToCloud();
                 } else {
-                    state.syncCode = '';
                     localStorage.removeItem(CODE_KEY);
-                    setupSync();
-                    syncToCloud();
                 }
+                setupSync();
+                syncToCloud();
             };
 
             document.getElementById('force-local').onclick = () => {
