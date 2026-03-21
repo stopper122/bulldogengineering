@@ -81,6 +81,16 @@
       <div id="watch"></div>
     </div>
 
+    <!-- MASTER LOG -->
+    <div class="bg-white p-4 rounded-xl shadow">
+      <div class="flex justify-between items-center mb-2">
+        <h3 class="text-xs font-bold uppercase text-slate-400">Master Log</h3>
+        <button onclick="toggleLog()" class="text-xs text-indigo-600">Toggle</button>
+      </div>
+      <input id="logSearch" placeholder="Search..." class="w-full mb-2 px-2 py-1 border rounded text-xs" oninput="render()">
+      <div id="log" class="hidden max-h-64 overflow-y-auto"></div>
+    </div>
+
   </div>
 
 </div>
@@ -108,6 +118,7 @@ let state = {
 };
 
 const appDiv = document.getElementById("app");
+let showLog = false;
 const status = document.getElementById("status");
 const tabsDiv = document.getElementById("periodTabs");
 const alertBanner = document.getElementById("alertBanner");
@@ -119,6 +130,8 @@ function formatTime(sec){
 }
 
 function render(){
+
+  const logDiv = document.getElementById("log");
 
   const watchDiv = document.getElementById("watch");
   const topDiv = document.getElementById("topUsers");
@@ -211,6 +224,21 @@ function render(){
       : "<div class='text-xs text-slate-400'>None</div>";
   }
 
+    // MASTER LOG RENDER
+  if(logDiv){
+    if(showLog){
+      logDiv.classList.remove("hidden");
+      const search = document.getElementById("logSearch")?.value?.toLowerCase() || "";
+      const filteredLogs = state.logs.filter(l=>l.name.toLowerCase().includes(search));
+      logDiv.innerHTML = filteredLogs.map(l=>`<div class="text-xs border-b py-1 flex justify-between">
+        <span>${l.name}</span>
+        <span>${formatTime(l.duration)}</span>
+      </div>`).join("") || "<div class='text-xs text-slate-400'>No logs yet</div>";
+    } else {
+      logDiv.classList.add("hidden");
+    }
+  }
+
   if(alertText){
     alertBanner.classList.remove("hidden");
     alertBanner.className = "mb-4 p-3 rounded-xl bg-yellow-200 text-yellow-800 font-bold";
@@ -270,6 +298,11 @@ window.updateSettings=()=>{
   if(t) state.settings.limitSec=t*60;
   if(p) state.settings.maxPasses=p;
   save(); render();
+};
+
+window.toggleLog=()=>{
+  showLog = !showLog;
+  render();
 };
 
 // EDIT STUDENT
