@@ -23,7 +23,7 @@
             <div>
                 <div class="flex items-center gap-3">
                     <h1 class="text-3xl font-black tracking-tight text-slate-900">Hall Pass <span class="text-indigo-600">Pro</span></h1>
-                    <div id="cloud-status" class="px-2 py-1 bg-slate-200 text-slate-500 rounded text-[10px] font-bold uppercase tracking-widest transition-all text-nowrap">Offline</div>
+                    <div id="cloud-status" class="px-2 py-1 bg-slate-200 text-slate-500 rounded text-[10px] font-bold uppercase tracking-widest transition-all text-nowrap">Initializing...</div>
                 </div>
                 <div class="flex items-center gap-2 mt-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm w-fit">
                     <p class="text-slate-500 text-[10px] font-bold uppercase tracking-wider ml-1">Sync Code:</p>
@@ -120,10 +120,9 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Firebase Configuration (Verified for current project)
         const firebaseConfig = {
             apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
             authDomain: "rrtracker-de70e.firebaseapp.com",
@@ -168,10 +167,10 @@
             const empty = document.getElementById('empty-state');
             const watchlist = document.getElementById('watchlist');
             
-            document.getElementById('stat-out').innerText = state.activePasses.length;
-            document.getElementById('stat-trips').innerText = state.history.filter(h => new Date(h.end).toDateString() === new Date().toDateString()).length;
+            document.getElementById('stat-out').innerText = (state.activePasses || []).length;
+            document.getElementById('stat-trips').innerText = (state.history || []).filter(h => new Date(h.end).toDateString() === new Date().toDateString()).length;
 
-            const flagged = state.students.filter(s => (s.passesUsed || 0) >= 3);
+            const flagged = (state.students || []).filter(s => (s.passesUsed || 0) >= 3);
             watchlist.innerHTML = flagged.length ? flagged.map(s => `
                 <div class="p-3 bg-red-50 border border-red-100 rounded-xl flex justify-between items-center">
                     <span class="text-xs font-bold text-red-800">${s.name}</span>
@@ -192,7 +191,7 @@
 
             const filtered = state.students.filter(s => s.period === state.currentPeriod);
             list.innerHTML = filtered.map(s => {
-                const active = state.activePasses.find(p => p.sid === s.id);
+                const active = (state.activePasses || []).find(p => p.sid === s.id);
                 return `
                 <tr class="${active ? 'row-active' : ''}">
                     <td class="px-6 py-4 font-bold text-slate-700">${s.name}</td>
@@ -216,7 +215,6 @@
             if (!user) return;
             isWriting = true;
             try {
-                // Ensure state is valid before saving
                 const dataToSave = {
                     students: state.students || [],
                     activePasses: state.activePasses || [],
@@ -232,7 +230,6 @@
                 await setDoc(path, dataToSave, { merge: true });
                 updateStatus(state.syncCode ? `Shared: ${state.syncCode}` : 'Cloud Saved', 'green');
             } catch (e) {
-                console.error("Save error:", e);
                 updateStatus('Save Error', 'red');
             } finally {
                 setTimeout(() => { isWriting = false; }, 500);
@@ -247,15 +244,7 @@
                 ? doc(db, 'artifacts', APP_ID, 'public', 'data', `sync_${code}`)
                 : doc(db, 'artifacts', APP_ID, 'users', user.uid, 'settings', 'local_data');
 
-            // Set up a timeout for connection hang
-            const connectTimeout = setTimeout(() => {
-                if (document.getElementById('cloud-status').innerText === 'Connecting...') {
-                    updateStatus('Sync Idle', 'slate');
-                }
-            }, 8000);
-
             unsub = onSnapshot(path, (snap) => {
-                clearTimeout(connectTimeout);
                 if (snap.exists() && !isWriting) {
                     const data = snap.data();
                     state.students = data.students || [];
@@ -265,23 +254,16 @@
                 }
                 updateStatus(code ? `Shared: ${code}` : 'Cloud Active', 'green');
             }, (err) => {
-                console.error("Snapshot error:", err);
-                updateStatus('Sync Error', 'red');
+                updateStatus('Sync Blocked', 'red');
             });
         };
 
-        // UI Interactions
+        // Window Bindings
         window.setPeriod = (p) => { state.currentPeriod = p; render(); };
-        
         window.adj = (id, d) => {
             const s = state.students.find(x => x.id === id);
-            if (s) { 
-                s.passesUsed = Math.max(0, (s.passesUsed || 0) + d); 
-                render();
-                save(); 
-            }
+            if (s) { s.passesUsed = Math.max(0, (s.passesUsed || 0) + d); render(); save(); }
         };
-
         window.pass = (id) => {
             const idx = state.activePasses.findIndex(p => p.sid === id);
             if (idx > -1) {
@@ -296,10 +278,10 @@
             } else {
                 state.activePasses.push({ sid: id, start: Date.now() });
             }
-            render();
-            save();
+            render(); save();
         };
 
+        // UI Listeners
         document.getElementById('set-sync-code').onclick = () => {
             const input = document.getElementById('sync-code-input');
             const code = input.value.trim().toUpperCase();
@@ -327,52 +309,40 @@
             const per = document.getElementById('field-period').value.trim() || '1';
             if (!name) return;
             state.students.push({ id: Date.now().toString(), name, period: per, passesUsed: 0 });
-            render();
-            save();
+            render(); save();
             document.getElementById('modal-backdrop').classList.add('hidden');
         };
 
         document.getElementById('modal-cancel').onclick = () => document.getElementById('modal-backdrop').classList.add('hidden');
-
         document.getElementById('menu-trigger').onclick = (e) => {
             e.stopPropagation();
             document.getElementById('data-menu').classList.toggle('show');
         };
-        
-        document.body.onclick = () => {
-            document.getElementById('data-menu').classList.remove('show');
-        };
+        document.body.onclick = () => document.getElementById('data-menu').classList.remove('show');
 
-        document.getElementById('btn-wipe').onclick = () => {
-            if (confirm("Are you sure you want to delete ALL data? This cannot be undone.")) {
-                state.students = [];
-                state.activePasses = [];
-                state.history = [];
-                render();
-                save();
-            }
-        };
-
-        // Initialize App
-        (async () => {
+        // Initial Auth Setup
+        window.onload = async () => {
             try {
                 updateStatus('Auth...', 'indigo');
-                const cred = await signInAnonymously(auth);
-                user = cred.user;
-                
-                const lastCode = localStorage.getItem('last_sync_code');
-                if (lastCode) {
-                    document.getElementById('sync-code-input').value = lastCode;
-                    state.syncCode = lastCode;
-                    connect(lastCode);
-                } else {
-                    connect(null);
-                }
+                onAuthStateChanged(auth, (u) => {
+                    if (u) {
+                        user = u;
+                        const lastCode = localStorage.getItem('last_sync_code');
+                        if (lastCode) {
+                            document.getElementById('sync-code-input').value = lastCode;
+                            state.syncCode = lastCode;
+                            connect(lastCode);
+                        } else {
+                            connect(null);
+                        }
+                    } else {
+                        signInAnonymously(auth).catch(e => updateStatus('Offline', 'red'));
+                    }
+                });
             } catch (e) {
-                console.error("Initialization error:", e);
                 updateStatus('Offline Mode', 'slate');
             }
-        })();
+        };
     </script>
 </body>
 </html>
