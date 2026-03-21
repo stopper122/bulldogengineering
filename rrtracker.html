@@ -3,529 +3,470 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Hall Pass System</title>
+    <title>Hall Pass Tracker Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .timer-warning { animation: pulse-yellow 2s infinite; }
-        .timer-danger { animation: pulse-red 1s infinite; }
-        @keyframes pulse-yellow { 0%, 100% { background-color: #fefce8; } 50% { background-color: #fef08a; } }
-        @keyframes pulse-red { 0%, 100% { background-color: #fef2f2; } 50% { background-color: #fee2e2; } }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
+        #data-menu { display: none; transform: translateY(-10px); opacity: 0; transition: all 0.2s ease; }
+        #data-menu.show { display: block; transform: translateY(0); opacity: 1; }
+        .row-active { background-color: #f0f4ff; border-left: 4px solid #4f46e5; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        #force-local { display: none; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen font-sans text-slate-900 overflow-hidden">
+<body class="bg-slate-50 min-h-screen text-slate-900 font-sans">
 
-    <div id="app" class="flex h-screen w-full">
-        <!-- Sidebar: Watchlist & Controls -->
-        <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shadow-xl z-10">
-            <div class="p-6 border-b border-slate-100">
-                <h1 class="text-xl font-black text-indigo-600 tracking-tight">HALL PASS PRO</h1>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Advanced Monitor</p>
-            </div>
-
-            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                <div class="mb-6">
-                    <h2 class="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-eye text-amber-500"></i> Frequent Flyers (3+)
-                    </h2>
-                    <div id="watchlist" class="space-y-2">
-                        <!-- High usage students here -->
-                    </div>
+    <div class="max-w-6xl mx-auto p-4 md:p-8">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+            <div>
+                <div class="flex items-center gap-3">
+                    <h1 class="text-3xl font-black tracking-tight text-slate-900">Hall Pass <span class="text-indigo-600">Pro</span></h1>
+                    <div id="cloud-status" class="px-2 py-1 bg-amber-100 text-amber-600 rounded text-[10px] font-bold uppercase tracking-widest transition-all text-nowrap">Initializing...</div>
+                    <button id="force-local" class="px-2 py-1 bg-slate-200 text-slate-600 rounded text-[10px] font-bold uppercase hover:bg-slate-300 transition-all">Skip Cloud</button>
                 </div>
-
-                <div class="mt-auto pt-6 border-t border-slate-100 space-y-2">
-                    <button id="import-csv-btn" class="w-full flex items-center justify-between py-3 px-4 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-600 transition-colors">
-                        <span>Import Roster</span>
-                        <i class="fa-solid fa-file-import opacity-50"></i>
-                    </button>
-                    <button id="backup-btn" class="w-full flex items-center justify-between py-3 px-4 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-600 transition-colors">
-                        <span>Backup Data (JSON)</span>
-                        <i class="fa-solid fa-download opacity-50"></i>
-                    </button>
-                    <label class="w-full flex items-center justify-between py-3 px-4 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-600 transition-colors cursor-pointer">
-                        <span>Restore Backup</span>
-                        <i class="fa-solid fa-upload opacity-50"></i>
-                        <input type="file" id="restore-input" class="hidden" accept=".json">
-                    </label>
-                    <button id="export-btn" class="w-full flex items-center justify-between py-3 px-4 bg-indigo-50 hover:bg-indigo-100 rounded-xl text-sm font-bold text-indigo-600 transition-colors">
-                        <span>Export CSV Log</span>
-                        <i class="fa-solid fa-file-export opacity-50"></i>
-                    </button>
+                <div class="flex items-center gap-2 mt-2">
+                    <p class="text-slate-500 text-sm">Sync Code:</p>
+                    <input type="text" id="sync-code-input" placeholder="Enter a code" class="bg-white border border-slate-200 rounded px-2 py-0.5 text-xs font-bold text-indigo-600 w-32 focus:ring-1 focus:ring-indigo-500 outline-none">
+                    <button id="set-sync-code" class="text-[10px] font-bold text-slate-400 hover:text-indigo-600 uppercase tracking-tighter">Set Code</button>
                 </div>
             </div>
-        </aside>
 
-        <!-- Main Workspace -->
-        <main class="flex-1 flex flex-col relative bg-slate-50">
-            <!-- Top Bar -->
-            <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
-                <div class="flex items-center gap-6">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-black text-slate-400 uppercase">Period:</span>
-                        <select id="period-filter" class="bg-transparent font-bold text-indigo-600 outline-none">
-                            <option value="all">All Classes</option>
-                            <option value="1">Period 1</option>
-                            <option value="2">Period 2</option>
-                            <option value="3">Period 3</option>
-                            <option value="4">Period 4</option>
-                            <option value="5">Period 5</option>
-                            <option value="6">Period 6</option>
-                        </select>
-                    </div>
-                    <div class="h-4 w-[1px] bg-slate-200"></div>
-                    <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">System Live</span>
+            <div class="flex gap-2 relative">
+                <button id="add-btn" class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 active:scale-95 transition-all">
+                    + Add Student
+                </button>
+                
+                <div class="relative">
+                    <button id="menu-trigger" class="bg-white border border-slate-200 text-slate-700 px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm active:bg-slate-50">
+                        Data Tools
+                    </button>
+                    <div id="data-menu" class="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl py-2 z-[200]">
+                        <button id="btn-import-csv" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-slate-50">Import CSV</button>
+                        <button id="btn-export-json" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-slate-50">Export Backup (.json)</button>
+                        <button id="btn-restore-json" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-slate-50 border-b border-slate-100">Restore from File</button>
+                        <button id="btn-wipe" class="w-full text-left px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50">Wipe All Data</button>
                     </div>
                 </div>
-                <div id="global-timer" class="text-xs font-mono font-bold text-slate-400"></div>
-            </header>
+            </div>
+        </header>
 
-            <!-- Dashboard Content -->
-            <div class="flex-1 p-8 overflow-y-auto custom-scrollbar space-y-10">
-                <!-- Active Grid -->
-                <div>
-                    <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Active Passes</h2>
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="active-grid">
-                        <!-- Active Passes Cards -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <div class="lg:col-span-3">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Out Now</span>
+                        <p id="stat-out" class="text-2xl font-black text-indigo-600">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Today's Trips</span>
+                        <p id="stat-trips" class="text-2xl font-black text-slate-800">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Students</span>
+                        <p id="stat-total" class="text-2xl font-black text-slate-800">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Limit</span>
+                        <p class="text-2xl font-black text-slate-800">7</p>
                     </div>
                 </div>
 
-                <!-- Complete Log History -->
-                <div>
-                    <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Activity Log (Full History)</h2>
-                    <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-slate-50 border-b border-slate-100">
-                                <tr>
-                                    <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Student</th>
-                                    <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Destination</th>
-                                    <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Time Out</th>
-                                    <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Duration</th>
-                                    <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="full-history-log" class="divide-y divide-slate-50">
-                                <!-- Log items injected here -->
-                            </tbody>
-                        </table>
+                <div class="bg-white rounded-[2rem] shadow-xl border border-slate-200/50 overflow-hidden min-h-[400px]">
+                    <div id="period-bar" class="flex gap-2 p-4 border-b border-slate-50 overflow-x-auto no-scrollbar"></div>
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            <tr>
+                                <th class="px-6 py-4">Student</th>
+                                <th class="px-6 py-4">Overage (Limit 7)</th>
+                                <th class="px-6 py-4 text-right">Pass</th>
+                            </tr>
+                        </thead>
+                        <tbody id="student-table" class="divide-y divide-slate-50"></tbody>
+                    </table>
+                    <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 text-center px-6">
+                        <h3 class="font-bold text-slate-800">No students found</h3>
+                        <p class="text-slate-500 text-sm mb-6">Add a student or restore a backup to begin.</p>
+                        <button id="empty-restore-btn" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm">Upload Backup</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Floating Action Button -->
-            <button id="new-pass-btn" class="fixed bottom-8 right-8 bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black shadow-2xl shadow-indigo-200 flex items-center gap-3 hover:scale-105 active:scale-95 transition-all">
-                <i class="fa-solid fa-plus text-lg"></i>
-                ISSUE NEW PASS
-            </button>
-        </main>
-    </div>
-
-    <!-- Import Modal -->
-    <div id="import-overlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8">
-            <h3 class="text-xl font-black text-slate-800 mb-2">Import Student Roster</h3>
-            <p class="text-sm text-slate-500 mb-6">Upload a CSV with headers: <code class="bg-slate-100 px-1 rounded">period, first, last, id</code></p>
-            <input type="file" id="csv-file-input" accept=".csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
-            <div class="mt-8 flex justify-end gap-3">
-                <button onclick="document.getElementById('import-overlay').classList.add('hidden')" class="px-6 py-2 font-bold text-slate-400">Cancel</button>
-                <button id="process-csv-btn" class="px-6 py-2 bg-indigo-600 text-white rounded-xl font-black">Process Upload</button>
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-[2rem] shadow-lg border border-slate-200/50 p-6 sticky top-8">
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Watchlist (3+ Passes)</h3>
+                    <div id="watchlist" class="space-y-3">
+                        <p class="text-xs text-slate-400 italic">No students flagged yet.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Issue Pass Modal -->
-    <div id="modal-overlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 max-h-[90vh] flex flex-col">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-black text-slate-800">New Hall Pass</h3>
-                <button onclick="document.getElementById('modal-overlay').classList.add('hidden')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
-            </div>
+    <input type="file" id="input-csv" accept=".csv" class="hidden">
+    <input type="file" id="input-json" accept=".json" class="hidden">
 
-            <div class="mb-4">
-                <input type="text" id="student-search" placeholder="Search by name or ID..." class="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-4 outline-none focus:border-indigo-500 transition-colors font-bold">
+    <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[300] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
+            <h2 id="modal-title" class="text-xl font-black mb-6">Student Details</h2>
+            <div class="space-y-4">
+                <input type="hidden" id="field-id">
+                <input type="text" id="field-name" placeholder="Student Name" class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold">
+                <input type="text" id="field-period" placeholder="Period (e.g. 1)" class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold">
             </div>
-
-            <div id="student-results" class="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar min-h-[200px]">
-                <!-- Search results injected here -->
-            </div>
-
-            <div class="mt-6 pt-6 border-t border-slate-100">
-                <p class="text-[10px] font-black text-slate-400 uppercase mb-3">Destination</p>
-                <div class="grid grid-cols-2 gap-3" id="destination-select">
-                    <button class="dest-btn p-3 rounded-xl border-2 border-slate-100 font-bold text-sm bg-slate-50 hover:border-indigo-500 transition-all" data-val="Restroom">🚽 Restroom</button>
-                    <button class="dest-btn p-3 rounded-xl border-2 border-slate-100 font-bold text-sm bg-slate-50 hover:border-indigo-500 transition-all" data-val="Nurse">🏥 Nurse</button>
-                    <button class="dest-btn p-3 rounded-xl border-2 border-slate-100 font-bold text-sm bg-slate-50 hover:border-indigo-500 transition-all" data-val="Office">🏫 Office</button>
-                    <button class="dest-btn p-3 rounded-xl border-2 border-slate-100 font-bold text-sm bg-slate-50 hover:border-indigo-500 transition-all" data-val="Library">📚 Library</button>
-                </div>
-                <button id="confirm-pass-btn" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black mt-6 disabled:opacity-50" disabled>ISSUE PASS</button>
+            <div class="flex gap-3 mt-8">
+                <button id="modal-cancel" class="flex-1 py-3 text-slate-400 font-bold text-sm uppercase">Cancel</button>
+                <button id="modal-save" class="flex-[1.5] py-3 bg-indigo-600 text-white rounded-xl font-black text-sm uppercase shadow-lg shadow-indigo-100">Save</button>
             </div>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, onSnapshot, updateDoc, doc, serverTimestamp, getDocs, setDoc, increment } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
-            authDomain: "rrtracker-de70e.firebaseapp.com",
-            projectId: "rrtracker-de70e",
-            storageBucket: "rrtracker-de70e.firebasestorage.app",
-            messagingSenderId: "1057987490614",
-            appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997"
-        };
+        // Global State
+        let db, auth, user;
+        let state = { students: [], activePasses: [], currentPeriod: '1', syncCode: '' };
+        let isSaving = false;
+        let syncUnsubscribe = null;
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const APP_ID = "hall-pass-v2-advanced";
-
-        let students = [];
-        let allPasses = [];
-        let selectedStudent = null;
-        let selectedDest = null;
-        let currentPeriod = 'all';
-
-        // Initialize Auth
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                initListeners();
-            } else {
-                signInAnonymously(auth);
-            }
-        });
-
-        function initListeners() {
-            // Watch Students
-            onSnapshot(collection(db, 'artifacts', APP_ID, 'public', 'data', 'students'), (snap) => {
-                students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderWatchlist();
-            }, (err) => console.error("Students listener error:", err));
-
-            // Watch All Passes
-            onSnapshot(collection(db, 'artifacts', APP_ID, 'public', 'data', 'passes'), (snap) => {
-                allPasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                // Sort by creation time (descending)
-                allPasses.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-                renderActiveGrid();
-                renderFullHistory();
-            }, (err) => console.error("Passes listener error:", err));
-        }
-
-        // Timer Loop
-        setInterval(() => {
-            document.getElementById('global-timer').innerText = new Date().toLocaleTimeString();
-            updateTimers();
-        }, 1000);
-
-        function updateTimers() {
-            allPasses.forEach(pass => {
-                if (pass.returnedAt) return;
-                const el = document.getElementById(`timer-${pass.id}`);
-                const card = document.getElementById(`card-${pass.id}`);
-                if (!el || !pass.createdAt) return;
-
-                const start = pass.createdAt.toDate();
-                const diff = (new Date() - start) / 1000;
-                const remaining = 420 - diff; // 7 mins = 420s
-
-                const mins = Math.floor(Math.abs(remaining) / 60);
-                const secs = Math.floor(Math.abs(remaining) % 60);
-                const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
-
-                if (remaining <= 0) {
-                    el.innerText = `OVERDUE: ${timeStr}`;
-                    card.className = "p-6 rounded-3xl border-2 border-red-200 bg-red-50 flex justify-between items-center shadow-sm timer-danger";
-                } else if (remaining <= 60) {
-                    el.innerText = `1 MIN LEFT: ${timeStr}`;
-                    card.className = "p-6 rounded-3xl border-2 border-amber-200 bg-amber-50 flex justify-between items-center shadow-sm timer-warning";
-                } else {
-                    el.innerText = `Time Left: ${timeStr}`;
-                }
-            });
-        }
-
-        // Backup & Restore
-        document.getElementById('backup-btn').onclick = () => {
-            const data = {
-                students,
-                passes: allPasses,
-                exportedAt: new Date().toISOString()
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
+        const STORAGE_KEY = `hallpass_local_cache_${appId}`;
+        const CODE_KEY = `hallpass_sync_code_${appId}`;
+        
+        const updateStatus = (text, type = 'amber') => {
+            const el = document.getElementById('cloud-status');
+            if (!el) return;
+            el.innerText = text;
+            const colors = { 
+                amber: 'bg-amber-100 text-amber-600', 
+                emerald: 'bg-emerald-100 text-emerald-600', 
+                red: 'bg-red-100 text-red-600' 
             };
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `hall_pass_backup_${new Date().toLocaleDateString()}.json`;
-            a.click();
+            el.className = `px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-all ${colors[type]}`;
         };
 
-        document.getElementById('restore-input').onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+        const render = () => {
+            const list = document.getElementById('student-table');
+            const empty = document.getElementById('empty-state');
+            const watchlistEl = document.getElementById('watchlist');
+            if (!list) return;
 
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                try {
-                    const data = JSON.parse(event.target.result);
-                    if (!confirm(`Restore ${data.students?.length || 0} students and ${data.passes?.length || 0} logs? This may create duplicates.`)) return;
-                    
-                    // Bulk Restore Students
-                    for (const s of (data.students || [])) {
-                        await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'students', s.id), s);
-                    }
-                    // Bulk Restore Passes
-                    const passesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'passes');
-                    for (const p of (data.passes || [])) {
-                        const { id, ...cleanPass } = p;
-                        // Handle server timestamps if they exist as objects
-                        await addDoc(passesRef, cleanPass);
-                    }
-                    alert("Restore complete!");
-                } catch (err) {
-                    alert("Failed to restore: Invalid file format.");
-                    console.error(err);
-                }
-            };
-            reader.readAsText(file);
-        };
+            document.getElementById('stat-out').innerText = state.activePasses.length;
+            document.getElementById('stat-total').innerText = state.students.length;
+            document.getElementById('stat-trips').innerText = state.students.reduce((acc, s) => acc + (s.history?.length || 0), 0);
 
-        // CSV Processing
-        document.getElementById('process-csv-btn').onclick = async () => {
-            const fileInput = document.getElementById('csv-file-input');
-            if (!fileInput.files.length) return;
+            const flagged = state.students.filter(s => (s.passesUsed || 0) >= 3).sort((a,b) => (b.passesUsed || 0) - (a.passesUsed || 0));
+            watchlistEl.innerHTML = flagged.length ? flagged.map(s => `
+                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <div><p class="text-sm font-bold text-slate-700">${s.name}</p><p class="text-[10px] text-slate-400 font-bold uppercase">P${s.period}</p></div>
+                    <span class="px-2 py-1 bg-red-100 text-red-600 rounded-lg text-xs font-black">${s.passesUsed}</span>
+                </div>`).join('') : '<p class="text-xs text-slate-400 italic">No students flagged yet.</p>';
 
-            const text = await fileInput.files[0].text();
-            const lines = text.split('\n').filter(l => l.trim());
-            const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
-            
-            for (let i = 1; i < lines.length; i++) {
-                const values = lines[i].split(',').map(v => v.trim());
-                const data = {};
-                headers.forEach((h, idx) => data[h] = values[idx]);
-
-                const studentId = data.id || `s-${Date.now()}-${i}`;
-                await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'students', studentId), {
-                    period: data.period || '1',
-                    firstName: data.first || 'Unknown',
-                    lastName: data.last || 'Student',
-                    studentId: studentId,
-                    passesUsed: 0,
-                    restroomAllowance: 5
-                });
+            if (state.students.length === 0) {
+                list.innerHTML = '';
+                empty.classList.remove('hidden');
+                document.getElementById('period-bar').innerHTML = '';
+                return;
             }
-            document.getElementById('import-overlay').classList.add('hidden');
-        };
+            empty.classList.add('hidden');
 
-        // Rendering logic
-        function renderWatchlist() {
-            const list = document.getElementById('watchlist');
-            const frequent = students.filter(s => s.passesUsed >= 3);
-            list.innerHTML = frequent.length ? '' : '<p class="text-xs text-slate-400 text-center py-4 italic">No frequent flyers today</p>';
-            
-            frequent.sort((a,b) => b.passesUsed - a.passesUsed).forEach(s => {
-                const item = document.createElement('div');
-                item.className = "p-3 bg-slate-50 rounded-xl flex justify-between items-center border border-slate-100";
-                item.innerHTML = `
-                    <div class="overflow-hidden">
-                        <p class="text-xs font-black text-slate-800 truncate">${s.firstName} ${s.lastName}</p>
-                        <p class="text-[9px] font-bold text-slate-400">ID: ${s.studentId}</p>
-                    </div>
-                    <span class="px-2 py-1 bg-red-100 text-red-600 text-[10px] font-black rounded-lg">${s.passesUsed} USED</span>
-                `;
-                list.appendChild(item);
-            });
-        }
+            const periods = [...new Set(state.students.map(s => s.period))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
+            if (!periods.includes(state.currentPeriod)) state.currentPeriod = periods[0] || '1';
 
-        function renderActiveGrid() {
-            const grid = document.getElementById('active-grid');
-            const active = allPasses.filter(p => !p.returnedAt && (currentPeriod === 'all' || p.period === currentPeriod));
-            grid.innerHTML = active.length ? '' : `
-                <div class="col-span-full py-12 text-center border-2 border-dashed border-slate-200 rounded-3xl opacity-50">
-                    <p class="font-bold text-slate-400">No active passes</p>
-                </div>
-            `;
+            document.getElementById('period-bar').innerHTML = periods.map(p => `
+                <button class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${state.currentPeriod === p ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-400'}" 
+                onclick="window.setPeriod('${p}')">Period ${p}</button>`).join('');
 
-            active.forEach(pass => {
-                const card = document.createElement('div');
-                card.id = `card-${pass.id}`;
-                card.className = "p-6 rounded-3xl bg-white border border-slate-100 shadow-sm flex justify-between items-center";
-                card.innerHTML = `
-                    <div class="flex items-center gap-4">
-                        <div class="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-2xl">
-                             ${pass.destination === 'Restroom' ? '🚽' : pass.destination === 'Nurse' ? '🏥' : pass.destination === 'Office' ? '🏫' : '📚'}
+            const filtered = state.students.filter(s => s.period === state.currentPeriod);
+            list.innerHTML = filtered.map(s => {
+                const isOut = state.activePasses.some(p => p.sid === s.id);
+                return `
+                <tr class="${isOut ? 'row-active' : ''}">
+                    <td class="px-6 py-5">
+                        <div class="flex items-center gap-3">
+                            <span class="font-bold text-slate-700">${s.name}</span>
+                            <div class="flex gap-1">
+                                <button onclick="window.editStud('${s.id}')" class="text-slate-300 hover:text-indigo-500 p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-width="2" stroke-linecap="round"></path></svg></button>
+                                <button onclick="window.delStud('${s.id}')" class="text-slate-300 hover:text-red-500 p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round"></path></svg></button>
+                            </div>
                         </div>
-                        <div>
-                            <p class="font-black text-slate-800 text-lg">${pass.studentName}</p>
-                            <p id="timer-${pass.id}" class="text-xs font-mono font-bold text-slate-500 uppercase">Calculating...</p>
-                        </div>
-                    </div>
-                    <button class="return-btn bg-slate-900 text-white px-6 py-3 rounded-xl text-xs font-black shadow-lg hover:bg-slate-800 active:scale-95 transition-all" data-id="${pass.id}" data-sid="${pass.studentId}">RETURN</button>
-                `;
-                grid.appendChild(card);
-            });
-
-            document.querySelectorAll('.return-btn').forEach(btn => {
-                btn.onclick = async () => {
-                    const passId = btn.dataset.id;
-                    const studentId = btn.dataset.sid;
-                    const passData = allPasses.find(p => p.id === passId);
-                    
-                    const now = new Date();
-                    const start = passData.createdAt?.toDate() || now;
-                    const diffMins = (now - start) / 60000;
-                    
-                    const passRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'passes', passId);
-                    const studentRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'students', studentId);
-                    
-                    if (diffMins >= 7 && passData.destination === 'Restroom') {
-                        await updateDoc(studentRef, { passesUsed: increment(1) });
-                    }
-                    await updateDoc(passRef, { returnedAt: serverTimestamp() });
-                };
-            });
-        }
-
-        function renderFullHistory() {
-            const logBody = document.getElementById('full-history-log');
-            const filtered = allPasses.filter(p => currentPeriod === 'all' || p.period === currentPeriod);
-            
-            logBody.innerHTML = filtered.length ? '' : '<tr><td colspan="5" class="px-6 py-10 text-center text-slate-400">No activity recorded yet</td></tr>';
-
-            filtered.forEach(pass => {
-                const tr = document.createElement('tr');
-                const start = pass.createdAt?.toDate();
-                const end = pass.returnedAt?.toDate();
-                const diffMins = (start && end) ? Math.floor((end - start) / 60000) : (start ? Math.floor((new Date() - start) / 60000) : '-');
-                
-                let statusHtml = '';
-                if (!pass.returnedAt) {
-                    statusHtml = `<span class="px-2 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded uppercase">Out Now</span>`;
-                } else if (diffMins >= 7 && pass.destination === 'Restroom') {
-                    statusHtml = `<span class="px-2 py-1 bg-red-50 text-red-600 text-[10px] font-black rounded uppercase">Pass Lost</span>`;
-                } else {
-                    statusHtml = `<span class="px-2 py-1 bg-slate-50 text-slate-400 text-[10px] font-black rounded uppercase">Returned</span>`;
-                }
-
-                tr.innerHTML = `
-                    <td class="px-6 py-4">
-                        <p class="font-bold text-slate-800">${pass.studentName}</p>
-                        <p class="text-[10px] text-slate-400">ID: ${pass.studentId}</p>
                     </td>
-                    <td class="px-6 py-4 text-slate-600 font-medium">${pass.destination}</td>
-                    <td class="px-6 py-4 text-slate-400 text-xs">${start ? start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '...'}</td>
-                    <td class="px-6 py-4 font-mono text-xs font-bold ${diffMins >= 7 ? 'text-red-500' : 'text-slate-600'}">${diffMins}m</td>
-                    <td class="px-6 py-4">${statusHtml}</td>
-                `;
-                logBody.appendChild(tr);
-            });
-        }
-
-        // Search & Modal Management
-        document.getElementById('new-pass-btn').onclick = () => {
-            document.getElementById('modal-overlay').classList.remove('hidden');
-            renderSearchResults('');
-        };
-
-        document.getElementById('student-search').oninput = (e) => renderSearchResults(e.target.value);
-
-        function renderSearchResults(queryStr) {
-            const results = document.getElementById('student-results');
-            results.innerHTML = '';
-            
-            const filtered = students.filter(s => 
-                (currentPeriod === 'all' || s.period === currentPeriod) &&
-                (`${s.firstName} ${s.lastName} ${s.studentId}`.toLowerCase().includes(queryStr.toLowerCase()))
-            );
-
-            filtered.forEach(s => {
-                const btn = document.createElement('button');
-                btn.className = `w-full text-left p-4 rounded-xl border-2 transition-all flex justify-between items-center ${selectedStudent?.id === s.id ? 'border-indigo-600 bg-indigo-50' : 'border-slate-50 bg-white hover:border-slate-200'}`;
-                btn.innerHTML = `
-                    <div>
-                        <p class="font-black text-slate-800">${s.firstName} ${s.lastName}</p>
-                        <p class="text-[10px] font-bold text-slate-400">ID: ${s.studentId} | Period ${s.period}</p>
-                    </div>
-                    <div class="text-right">
-                        <span class="text-[10px] font-black uppercase text-slate-400 block mb-1">Passes Used</span>
-                        <div class="flex gap-1">
-                            ${Array(5).fill(0).map((_, i) => `
-                                <div class="w-1.5 h-1.5 rounded-full ${i < s.passesUsed ? 'bg-red-400' : 'bg-emerald-400'}"></div>
-                            `).join('')}
+                    <td class="px-6 py-5">
+                        <div class="flex items-center gap-2">
+                            <button onclick="window.adjPass('${s.id}', -1)" class="w-8 h-8 bg-slate-100 rounded-lg font-bold">-</button>
+                            <span class="font-black text-sm w-6 text-center ${s.passesUsed >= 7 ? 'text-red-600' : 'text-slate-700'}">${s.passesUsed || 0}</span>
+                            <button onclick="window.adjPass('${s.id}', 1)" class="w-8 h-8 bg-slate-100 rounded-lg font-bold">+</button>
                         </div>
-                    </div>
-                `;
-                btn.onclick = () => {
-                    selectedStudent = s;
-                    renderSearchResults(queryStr);
-                    checkFormReady();
-                };
-                results.appendChild(btn);
-            });
-        }
+                    </td>
+                    <td class="px-6 py-5 text-right">
+                        <button onclick="window.togglePass('${s.id}')" class="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase ${isOut ? 'bg-slate-900 text-white shadow-inner' : 'bg-indigo-50 text-indigo-600'} transition-all active:scale-95">
+                            ${isOut ? 'Return' : 'Issue'}
+                        </button>
+                    </td>
+                </tr>`;
+            }).join('');
+        };
 
-        document.querySelectorAll('.dest-btn').forEach(btn => {
-            btn.onclick = () => {
-                document.querySelectorAll('.dest-btn').forEach(b => b.classList.remove('border-indigo-600', 'bg-indigo-50'));
-                btn.classList.add('border-indigo-600', 'bg-indigo-50');
-                selectedDest = btn.dataset.val;
-                checkFormReady();
+        const syncToCloud = async () => {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            render(); 
+            
+            if (!user || !db) return;
+            
+            isSaving = true;
+            updateStatus('Saving...', 'amber');
+            try {
+                let dataRef;
+                if (state.syncCode) {
+                    dataRef = doc(db, 'artifacts', appId, 'public', 'data', `shared_${state.syncCode}`);
+                } else {
+                    dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'hallpass_state');
+                }
+
+                await setDoc(dataRef, {
+                    students: state.students,
+                    activePasses: state.activePasses,
+                    updatedAt: Date.now()
+                });
+                updateStatus(state.syncCode ? `Linked: ${state.syncCode}` : 'Cloud Synced', 'emerald');
+            } catch (e) {
+                console.error("Save failed:", e);
+                updateStatus('Offline Mode', 'amber');
+            } finally {
+                isSaving = false;
+            }
+        };
+
+        const setupSync = async () => {
+            if (!user || !db) return;
+            if (syncUnsubscribe) syncUnsubscribe();
+            
+            let dataRef;
+            if (state.syncCode) {
+                dataRef = doc(db, 'artifacts', appId, 'public', 'data', `shared_${state.syncCode}`);
+            } else {
+                dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'hallpass_state');
+            }
+            
+            updateStatus('Connecting...', 'amber');
+
+            // Initial fetch to check for data and verify connection
+            try {
+                const snap = await getDoc(dataRef);
+                if (snap.exists()) {
+                    const data = snap.data();
+                    state.students = data.students || [];
+                    state.activePasses = data.activePasses || [];
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                    render();
+                }
+            } catch (e) {
+                console.warn("Initial sync check failed, waiting for listener:", e);
+            }
+            
+            syncUnsubscribe = onSnapshot(dataRef, (snap) => {
+                if (snap.exists() && !isSaving) {
+                    const data = snap.data();
+                    state.students = data.students || [];
+                    state.activePasses = data.activePasses || [];
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                    render();
+                }
+                updateStatus(state.syncCode ? `Linked: ${state.syncCode}` : 'Cloud Synced', 'emerald');
+                document.getElementById('force-local').style.display = 'none';
+            }, (err) => {
+                console.error("Firestore error:", err);
+                updateStatus('Sync Blocked', 'red');
+            });
+        };
+
+        const init = async () => {
+            const cachedCode = localStorage.getItem(CODE_KEY);
+            if (cachedCode) {
+                state.syncCode = cachedCode;
+                document.getElementById('sync-code-input').value = cachedCode;
+            }
+
+            const cached = localStorage.getItem(STORAGE_KEY);
+            if (cached) {
+                try {
+                    const parsed = JSON.parse(cached);
+                    state.students = parsed.students || [];
+                    state.activePasses = parsed.activePasses || [];
+                    render();
+                } catch(e) {}
+            }
+
+            const skipTimer = setTimeout(() => {
+                document.getElementById('force-local').style.display = 'inline-block';
+            }, 8000);
+
+            try {
+                const config = JSON.parse(__firebase_config);
+                const app = initializeApp(config);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Authentication listener first
+                onAuthStateChanged(auth, async (u) => {
+                    if (u) {
+                        user = u;
+                        await setupSync();
+                        clearTimeout(skipTimer);
+                    }
+                });
+
+                // Trigger authentication
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+            } catch (e) {
+                console.error("Firebase startup error:", e);
+                updateStatus('Offline Mode', 'amber');
+            }
+        };
+
+        // UI Handlers
+        window.setPeriod = (p) => { state.currentPeriod = p; render(); };
+        window.togglePass = (id) => {
+            const outIdx = state.activePasses.findIndex(p => p.sid === id);
+            if (outIdx > -1) { state.activePasses.splice(outIdx, 1); } 
+            else {
+                state.activePasses.push({ sid: id, start: Date.now() });
+                const s = state.students.find(x => x.id === id);
+                if (s) { s.history = s.history || []; s.history.push(Date.now()); }
+            }
+            syncToCloud();
+        };
+        window.adjPass = (id, delta) => {
+            const s = state.students.find(x => x.id === id);
+            if (s) { s.passesUsed = Math.max(0, (s.passesUsed || 0) + delta); syncToCloud(); }
+        };
+        window.delStud = (id) => { if (confirm("Delete student?")) { state.students = state.students.filter(s => s.id !== id); state.activePasses = state.activePasses.filter(p => p.sid !== id); syncToCloud(); } };
+        window.editStud = (id) => {
+            const s = state.students.find(x => x.id === id);
+            if (!s) return;
+            document.getElementById('field-id').value = s.id;
+            document.getElementById('field-name').value = s.name;
+            document.getElementById('field-period').value = s.period;
+            document.getElementById('modal-title').innerText = "Edit Student";
+            document.getElementById('modal-backdrop').classList.remove('hidden');
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const menuTrigger = document.getElementById('menu-trigger');
+            const dataMenu = document.getElementById('data-menu');
+            const inputCsv = document.getElementById('input-csv');
+            const inputJson = document.getElementById('input-json');
+            const codeInput = document.getElementById('sync-code-input');
+            const codeBtn = document.getElementById('set-sync-code');
+
+            codeBtn.onclick = () => {
+                const code = codeInput.value.trim().toUpperCase();
+                state.syncCode = code;
+                if (code) {
+                    localStorage.setItem(CODE_KEY, code);
+                } else {
+                    localStorage.removeItem(CODE_KEY);
+                }
+                setupSync();
+                syncToCloud();
             };
+
+            document.getElementById('force-local').onclick = () => {
+                updateStatus('Offline Mode', 'amber');
+                document.getElementById('force-local').style.display = 'none';
+            };
+
+            menuTrigger.onclick = (e) => { e.stopPropagation(); dataMenu.classList.toggle('show'); };
+            document.addEventListener('click', () => dataMenu.classList.remove('show'));
+
+            document.getElementById('add-btn').onclick = () => {
+                document.getElementById('field-id').value = '';
+                document.getElementById('field-name').value = '';
+                document.getElementById('field-period').value = state.currentPeriod;
+                document.getElementById('modal-title').innerText = "Add Student";
+                document.getElementById('modal-backdrop').classList.remove('hidden');
+            };
+
+            document.getElementById('modal-cancel').onclick = () => document.getElementById('modal-backdrop').classList.add('hidden');
+            document.getElementById('modal-save').onclick = () => {
+                const id = document.getElementById('field-id').value;
+                const name = document.getElementById('field-name').value.trim();
+                const per = document.getElementById('field-period').value.trim() || '1';
+                if (name) {
+                    if (id) {
+                        const s = state.students.find(x => x.id === id);
+                        if (s) { s.name = name; s.period = per; }
+                    } else {
+                        state.students.push({ id: Date.now().toString(), name, period: per, passesUsed: 0, history: [] });
+                    }
+                    syncToCloud();
+                    document.getElementById('modal-backdrop').classList.add('hidden');
+                }
+            };
+
+            document.getElementById('btn-export-json').onclick = () => {
+                const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `hallpass_backup_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+            };
+
+            document.getElementById('btn-wipe').onclick = () => { 
+                if (confirm("Permanently wipe all student data?")) { 
+                    state.students = []; 
+                    state.activePasses = []; 
+                    localStorage.removeItem(STORAGE_KEY);
+                    syncToCloud(); 
+                } 
+            };
+
+            document.getElementById('btn-import-csv').onclick = () => inputCsv.click();
+            document.getElementById('btn-restore-json').onclick = () => inputJson.click();
+            document.getElementById('empty-restore-btn').onclick = () => inputJson.click();
+
+            inputCsv.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const r = new FileReader();
+                r.onload = (ev) => {
+                    ev.target.result.split('\n').filter(l => l.trim()).forEach(l => {
+                        const [name, per] = l.split(',').map(v => v?.trim());
+                        if (name) state.students.push({ id: Math.random().toString(36).substr(2,9), name, period: per || '1', passesUsed: 0, history: [] });
+                    });
+                    syncToCloud();
+                    inputCsv.value = '';
+                };
+                r.readAsText(file);
+            };
+
+            inputJson.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const r = new FileReader();
+                r.onload = (ev) => {
+                    try {
+                        const data = JSON.parse(ev.target.result);
+                        if (data.students) { 
+                            state = data; 
+                            syncToCloud(); 
+                        }
+                    } catch (err) { alert("Invalid backup file."); }
+                    inputJson.value = '';
+                };
+                r.readAsText(file);
+            };
+
+            init();
         });
-
-        function checkFormReady() {
-            document.getElementById('confirm-pass-btn').disabled = !(selectedStudent && selectedDest);
-        }
-
-        document.getElementById('confirm-pass-btn').onclick = async () => {
-            if (!selectedStudent || !selectedDest) return;
-            await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'passes'), {
-                studentId: selectedStudent.studentId,
-                studentName: `${selectedStudent.firstName} ${selectedStudent.lastName}`,
-                period: selectedStudent.period,
-                destination: selectedDest,
-                createdAt: serverTimestamp(),
-                returnedAt: null
-            });
-            selectedStudent = null;
-            selectedDest = null;
-            document.getElementById('modal-overlay').classList.add('hidden');
-        };
-
-        // Filters & Exports
-        document.getElementById('period-filter').onchange = (e) => {
-            currentPeriod = e.target.value;
-            renderActiveGrid();
-            renderFullHistory();
-        };
-
-        document.getElementById('import-csv-btn').onclick = () => document.getElementById('import-overlay').classList.remove('hidden');
-
-        document.getElementById('export-btn').onclick = () => {
-            const headers = ["Student", "ID", "Period", "Dest", "Out", "In", "Duration(m)", "PassLost"];
-            const rows = allPasses.map(p => {
-                const start = p.createdAt?.toDate();
-                const end = p.returnedAt?.toDate();
-                const dur = (start && end) ? Math.floor((end - start) / 60000) : 0;
-                return [
-                    p.studentName, p.studentId, p.period, p.destination,
-                    start?.toLocaleString() || '', end?.toLocaleString() || '',
-                    dur, (dur >= 7 && p.destination === 'Restroom') ? 'YES' : 'NO'
-                ];
-            });
-            const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'full_hall_pass_report.csv';
-            a.click();
-        };
-
     </script>
 </body>
 </html>
