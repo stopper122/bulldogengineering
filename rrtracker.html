@@ -133,6 +133,7 @@
         let isSaving = false;
         let syncUnsubscribe = null;
         let authInitialized = false;
+        let firebaseStarted = false;
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
         const STORAGE_KEY = `hallpass_local_cache_${appId}`;
@@ -244,7 +245,6 @@
 
         const setupSync = async () => {
             if (!user || !db) return;
-            
             if (syncUnsubscribe) syncUnsubscribe();
             
             let dataRef;
@@ -286,43 +286,48 @@
         };
 
         const startFirebase = async () => {
-            // Wait for configuration with high frequency polling
+            if (firebaseStarted) return;
+            
             const getConfig = () => {
-                if (typeof __firebase_config !== 'undefined') return JSON.parse(__firebase_config);
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) return JSON.parse(__firebase_config);
                 return null;
             };
 
             const config = getConfig();
-            if (!config) throw new Error("Waiting for config");
+            if (!config) return false;
             
+            firebaseStarted = true;
             updateStatus('Connecting...', 'amber');
-            const app = initializeApp(config);
-            auth = getAuth(app);
-            db = getFirestore(app);
-
-            onAuthStateChanged(auth, async (u) => {
-                if (u && !authInitialized) {
-                    authInitialized = true;
-                    user = u;
-                    await setupSync();
-                }
-            });
-
-            // Priority: Custom Token -> Anonymous fallback
+            
             try {
+                const app = initializeApp(config);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                onAuthStateChanged(auth, async (u) => {
+                    if (u && !authInitialized) {
+                        authInitialized = true;
+                        user = u;
+                        await setupSync();
+                    }
+                });
+
+                // Simplified Auth Logic: Try token, then auto-fallback
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
+                    await signInWithCustomToken(auth, __initial_auth_token).catch(() => signInAnonymously(auth));
                 } else {
                     await signInAnonymously(auth);
                 }
+                return true;
             } catch (err) {
-                console.warn("Auth token failed, trying anonymous...", err);
-                await signInAnonymously(auth);
+                console.error("Firebase startup error:", err);
+                firebaseStarted = false;
+                return false;
             }
         };
 
         const init = async () => {
-            // 1. Initial Local Render
+            // 1. Initial Local Load
             const cachedCode = localStorage.getItem(CODE_KEY);
             if (cachedCode) {
                 state.syncCode = cachedCode;
@@ -339,19 +344,25 @@
             }
             render();
 
-            // 2. Cloud Connection with increased retry persistence
+            // 2. Resilience: MutationObserver to catch environment variable injection
+            const observer = new MutationObserver(async () => {
+                if (await startFirebase()) {
+                    observer.disconnect();
+                }
+            });
+            observer.observe(document.head, { childList: true, subtree: true });
+
+            // 3. Resilience: Extended Polling (60 seconds)
             let attempts = 0;
             const tryInit = async () => {
-                try {
-                    await startFirebase();
-                } catch (e) {
-                    attempts++;
-                    if (attempts < 20) { // Polling up to 10 seconds
-                        setTimeout(tryInit, 500);
-                    } else {
-                        updateStatus('Local Mode', 'amber');
-                        document.getElementById('retry-conn').classList.remove('hidden');
-                    }
+                if (await startFirebase()) return;
+                attempts++;
+                if (attempts < 120) { 
+                    setTimeout(tryInit, 500);
+                } else {
+                    updateStatus('Local Mode', 'amber');
+                    document.getElementById('retry-conn').classList.remove('hidden');
+                    observer.disconnect();
                 }
             };
             
@@ -407,6 +418,7 @@
 
             document.getElementById('retry-conn').onclick = () => {
                 updateStatus('Retrying...', 'amber');
+                firebaseStarted = false;
                 init();
             };
 
