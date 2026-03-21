@@ -145,7 +145,7 @@
                 emerald: 'bg-emerald-100 text-emerald-600', 
                 red: 'bg-red-100 text-red-600' 
             };
-            el.className = `px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-all ${colors[type]}`;
+            el.className = `px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-all ${colors[type] || colors.amber}`;
         };
 
         const render = () => {
@@ -241,7 +241,10 @@
         };
 
         const setupSync = async () => {
-            if (!user || !db) return;
+            if (!user || !db) {
+                updateStatus('Waiting for Auth...', 'amber');
+                return;
+            }
             if (syncUnsubscribe) syncUnsubscribe();
             
             let dataRef;
@@ -251,10 +254,10 @@
                 dataRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'hallpass_state');
             }
             
-            updateStatus('Connecting...', 'amber');
+            updateStatus('Syncing...', 'amber');
 
-            // Initial fetch to check for data and verify connection
             try {
+                // Verify path access
                 const snap = await getDoc(dataRef);
                 if (snap.exists()) {
                     const data = snap.data();
@@ -264,7 +267,7 @@
                     render();
                 }
             } catch (e) {
-                console.warn("Initial sync check failed, waiting for listener:", e);
+                console.warn("Initial sync check failed, path may be empty or new.");
             }
             
             syncUnsubscribe = onSnapshot(dataRef, (snap) => {
@@ -302,24 +305,26 @@
 
             const skipTimer = setTimeout(() => {
                 document.getElementById('force-local').style.display = 'inline-block';
-            }, 8000);
+            }, 10000);
 
             try {
+                updateStatus('Connecting...', 'amber');
                 const config = JSON.parse(__firebase_config);
                 const app = initializeApp(config);
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                // Authentication listener first
+                // Setup listener first to catch the login event
                 onAuthStateChanged(auth, async (u) => {
                     if (u) {
                         user = u;
+                        console.log("User Authenticated:", user.uid);
                         await setupSync();
                         clearTimeout(skipTimer);
                     }
                 });
 
-                // Trigger authentication
+                // Trigger login
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -328,7 +333,7 @@
 
             } catch (e) {
                 console.error("Firebase startup error:", e);
-                updateStatus('Offline Mode', 'amber');
+                updateStatus('Error: ' + e.code, 'red');
             }
         };
 
