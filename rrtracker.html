@@ -26,11 +26,15 @@
       <button onclick="document.getElementById('importJson').click()" class="px-3 py-1 bg-slate-200 rounded text-xs">Restore</button>
       <button onclick="toggleLog()" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs">Toggle Log</button>
 
-      <!-- PASS TIME SETTING -->
+      <!-- SETTINGS -->
       <div class="flex items-center gap-2 ml-auto">
-        <span class="text-xs">Pass Limit (min):</span>
+        <span class="text-xs">Time (min):</span>
         <input id="limitInput" type="number" min="1" class="w-16 px-2 py-1 border rounded text-xs">
-        <button onclick="updateLimit()" class="px-2 py-1 bg-slate-700 text-white rounded text-xs">Set</button>
+
+        <span class="text-xs">Passes:</span>
+        <input id="maxPassInput" type="number" min="1" class="w-16 px-2 py-1 border rounded text-xs">
+
+        <button onclick="updateSettings()" class="px-2 py-1 bg-slate-700 text-white rounded text-xs">Set</button>
       </div>
     </div>
 
@@ -78,7 +82,7 @@ let state = {
   students: [],
   activePasses: [],
   logs: [],
-  settings: { limitSec: 420 },
+  settings: { limitSec: 420, maxPasses: 5 },
   currentPeriod: null
 };
 
@@ -99,7 +103,6 @@ function formatTime(sec){
 
 function render() {
 
-  // PERIOD TABS
   const periods = [...new Set(state.students.map(s=>s.period))].sort();
   if(!state.currentPeriod && periods.length) state.currentPeriod = periods[0];
 
@@ -116,18 +119,30 @@ function render() {
         ${state.activePasses.map(p=>{
           const student = state.students.find(s=>s.id===p.id);
           const duration = Math.floor((Date.now()-p.start)/1000);
-          return `<div class="text-sm font-mono ${duration>state.settings.limitSec?'text-red-600':''}">${student?.name} - ${formatTime(duration)}</div>`;
+
+          const warn = state.settings.limitSec - 60;
+
+          let color = "";
+          if(duration >= state.settings.limitSec) color = "text-red-600 font-bold";
+          else if(duration >= warn) color = "text-yellow-600 font-bold";
+
+          return `<div class="text-sm font-mono ${color}">${student?.name} - ${formatTime(duration)}</div>`;
         }).join("")}
       </div>`;
   } else activeDiv.innerHTML = "";
 
-  // STUDENTS (filtered by period)
   const filtered = state.students.filter(s=>s.period===state.currentPeriod);
 
   appDiv.innerHTML = filtered.map(s=>{
     const active = state.activePasses.find(p=>p.id===s.id);
     const duration = active ? Math.floor((Date.now()-active.start)/1000) : 0;
-    const remaining = 7 - (s.passesUsed||0);
+    const remaining = state.settings.maxPasses - (s.passesUsed||0);
+
+    const warn = state.settings.limitSec - 60;
+
+    let timerColor = "";
+    if(duration >= state.settings.limitSec) timerColor = "text-red-600";
+    else if(duration >= warn) timerColor = "text-yellow-600";
 
     return `
       <div class="bg-white border rounded-xl p-4 flex justify-between items-center ${active?'bg-indigo-50 border-indigo-400':''}">
@@ -137,14 +152,13 @@ function render() {
         </div>
 
         <div class="flex items-center gap-4">
-          ${active ? `<div class="font-mono text-sm ${duration>state.settings.limitSec?'text-red-600':''}">${formatTime(duration)}</div>` : ''}
+          ${active ? `<div class="font-mono text-sm ${timerColor}">${formatTime(duration)}</div>` : ''}
 
           <div class="text-xs">
             <div class="font-bold">Used: ${s.passesUsed||0}</div>
             <div class="text-slate-400">Left: ${remaining}</div>
           </div>
 
-          <!-- MANUAL ADJUST -->
           <div class="flex flex-col gap-1">
             <button onclick="adjustPass('${s.id}',1)" class="text-xs bg-slate-200 px-2 rounded">+</button>
             <button onclick="adjustPass('${s.id}',-1)" class="text-xs bg-slate-200 px-2 rounded">-</button>
@@ -157,11 +171,9 @@ function render() {
       </div>`;
   }).join("");
 
-  // watchlist
   const flagged = state.students.filter(s => (s.passesUsed||0)>=3);
   watchDiv.innerHTML = flagged.map(s=>`<div class="text-xs mb-1">${s.name} (${s.passesUsed})</div>`).join("") || "<div class='text-xs text-slate-400'>None</div>";
 
-  // log
   if(showLog){
     logDiv.classList.remove("hidden");
     logDiv.innerHTML = state.logs.map(l=>`<div class="text-xs border-b py-1">${l.name} - ${formatTime(l.duration)} - ${l.deducted?'Pass Used':''}</div>`).join("");
@@ -174,17 +186,12 @@ function startSync(){
   onSnapshot(docRef,(snap)=>{
     if(snap.exists()){
       state = snap.data();
-      // ensure settings exists (fix older saved data)
-      if(!state.settings){ state.settings = { limitSec: 420 }; }
-      if(!state.settings.limitSec){ state.settings.limitSec = 420; }
+      if(!state.settings){ state.settings = { limitSec: 420, maxPasses: 5 }; }
+      if(!state.settings.maxPasses){ state.settings.maxPasses = 5; }
       render();
     }
-    status.textContent = "Connected";
-    status.className = "text-green-600 text-xs font-bold";
-  },(err)=>{
-    console.error(err);
-    status.textContent = "Check Firestore Rules";
-    status.className = "text-red-600 text-xs font-bold";
+    status.textContent="Connected";
+    status.className="text-green-600 text-xs font-bold";
   });
 }
 
@@ -197,12 +204,14 @@ window.adjustPass=(id,delta)=>{
   save(); render();
 };
 
-window.updateLimit=()=>{
-  const val = parseInt(document.getElementById("limitInput").value);
-  if(val>0){
-    state.settings.limitSec = val*60;
-    save(); render();
-  }
+window.updateSettings=()=>{
+  const time = parseInt(document.getElementById("limitInput").value);
+  const passes = parseInt(document.getElementById("maxPassInput").value);
+
+  if(time>0) state.settings.limitSec = time*60;
+  if(passes>0) state.settings.maxPasses = passes;
+
+  save(); render();
 };
 
 window.togglePass=(id)=>{
@@ -235,8 +244,6 @@ window.exportData=()=>{
 
 window.toggleLog=()=>{ showLog=!showLog; render(); };
 
-// CSV
-
 document.getElementById("csv").addEventListener("change", async(e)=>{
   const text=await e.target.files[0].text();
   const lines=text.split("\n");
@@ -248,31 +255,15 @@ document.getElementById("csv").addEventListener("change", async(e)=>{
   save(); render();
 });
 
-// Restore
-
 document.getElementById("importJson").addEventListener("change", async(e)=>{
   const data=JSON.parse(await e.target.files[0].text());
   state=data; save(); render();
 });
 
 async function init(){
-  try {
-    console.log("Initializing Firebase...");
-
-    const snap = await getDoc(docRef);
-
-    if(!snap.exists()){
-      console.log("Creating initial document...");
-      await setDoc(docRef,state);
-    }
-
-    startSync();
-
-  } catch(e){
-    console.error("INIT ERROR:", e);
-    status.textContent = "Connection Error";
-    status.className = "text-red-600 text-xs font-bold";
-  }
+  const snap=await getDoc(docRef);
+  if(!snap.exists()) await setDoc(docRef,state);
+  startSync();
 }
 
 init();
