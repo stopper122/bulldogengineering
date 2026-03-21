@@ -164,11 +164,19 @@ function render(){
     }
 
     return `<div class="border p-3 rounded-xl ${alertClass}">
-      <div class="flex justify-between">
-        <div>${s.name}</div>
+      <div class="flex justify-between items-center">
+        <div>
+          <div class="font-semibold">${s.name}</div>
+          <div class="text-[10px] text-slate-400">ID: ${s.id || ''}</div>
+        </div>
         <div class="flex gap-3 items-center">
-          ${active ? `<span>${formatTime(duration)}</span>` : ''}
-          <span>${s.passesUsed||0}/${state.settings.maxPasses}</span>
+          ${active ? `<span class="font-mono">${formatTime(duration)}</span>` : ''}
+          <span class="text-xs">${s.passesUsed||0}/${state.settings.maxPasses}</span>
+
+          <!-- EDIT / DELETE BUTTONS -->
+          <button onclick="editStudent('${s.id}')" class="text-xs bg-slate-200 px-2 rounded">Edit</button>
+          <button onclick="deleteStudent('${s.id}')" class="text-xs bg-red-500 text-white px-2 rounded">Delete</button>
+
           <button onclick="togglePass('${s.id}')" class="text-xs bg-indigo-600 text-white px-2 rounded">${active?'Return':'Start'}</button>
         </div>
       </div>
@@ -234,6 +242,35 @@ window.updateSettings=()=>{
   if(t) state.settings.limitSec=t*60;
   if(p) state.settings.maxPasses=p;
   save(); render();
+};
+
+// EDIT STUDENT
+window.editStudent=(id)=>{
+  const s = state.students.find(x=>x.id===id);
+  if(!s) return;
+
+  const newName = prompt("Edit student name:", s.name);
+  if(newName===null) return;
+
+  const newPeriod = prompt("Edit period:", s.period);
+  if(newPeriod===null) return;
+
+  s.name = newName.trim() || s.name;
+  s.period = newPeriod.trim() || s.period;
+
+  save(); render();
+};
+
+// DELETE STUDENT
+window.deleteStudent=(id)=>{
+  const s = state.students.find(x=>x.id===id);
+  if(!s) return;
+
+  if(confirm(`Delete ${s.name}?`)){
+    state.students = state.students.filter(x=>x.id!==id);
+    state.activePasses = state.activePasses.filter(p=>p.id!==id);
+    save(); render();
+  }
 };
 
 document.getElementById("csv").addEventListener("change", async(e)=>{
