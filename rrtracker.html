@@ -29,7 +29,7 @@
                     <p class="text-slate-500 text-[10px] font-bold uppercase tracking-wider ml-1">Sync Code:</p>
                     <input type="text" id="sync-code-input" placeholder="e.g. ROOM101" class="bg-slate-50 border border-slate-100 rounded px-2 py-1 text-xs font-bold text-indigo-600 w-28 focus:ring-1 focus:ring-indigo-500 outline-none uppercase">
                     <button id="set-sync-code" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-[10px] font-bold uppercase hover:bg-indigo-700 transition-all">Set Code</button>
-                    <button id="reset-connection" class="text-slate-400 hover:text-red-500 transition-colors px-1" title="Reset Connection">
+                    <button id="reset-connection" class="text-slate-400 hover:text-red-500 transition-colors px-1" title="Hard Reset Connection">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                     </button>
                 </div>
@@ -120,7 +120,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -240,6 +240,12 @@
             if (unsub) unsub();
             updateStatus('Connecting...', 'indigo');
             
+            if (!user) {
+                console.warn("Attempted to connect without user. Retrying auth...");
+                signInAnonymously(auth);
+                return;
+            }
+
             const path = code 
                 ? doc(db, 'artifacts', APP_ID, 'public', 'data', `sync_${code}`)
                 : doc(db, 'artifacts', APP_ID, 'users', user.uid, 'settings', 'local_data');
@@ -254,7 +260,8 @@
                 }
                 updateStatus(code ? `Shared: ${code}` : 'Cloud Active', 'green');
             }, (err) => {
-                updateStatus('Sync Blocked', 'red');
+                console.error("Connection error:", err);
+                updateStatus('Sync Error', 'red');
             });
         };
 
@@ -291,11 +298,18 @@
             connect(code);
         };
 
-        document.getElementById('reset-connection').onclick = () => {
+        document.getElementById('reset-connection').onclick = async () => {
+            updateStatus('Resetting...', 'red');
+            if (unsub) unsub();
             localStorage.removeItem('last_sync_code');
             document.getElementById('sync-code-input').value = '';
             state.syncCode = '';
-            connect(null);
+            try {
+                await signOut(auth);
+                await signInAnonymously(auth);
+            } catch(e) {
+                window.location.reload(); // Last resort
+            }
         };
 
         document.getElementById('add-btn').onclick = () => {
@@ -321,28 +335,29 @@
         document.body.onclick = () => document.getElementById('data-menu').classList.remove('show');
 
         // Initial Auth Setup
-        window.onload = async () => {
-            try {
-                updateStatus('Auth...', 'indigo');
-                onAuthStateChanged(auth, (u) => {
-                    if (u) {
-                        user = u;
-                        const lastCode = localStorage.getItem('last_sync_code');
-                        if (lastCode) {
-                            document.getElementById('sync-code-input').value = lastCode;
-                            state.syncCode = lastCode;
-                            connect(lastCode);
-                        } else {
-                            connect(null);
-                        }
+        window.addEventListener('load', () => {
+            updateStatus('Auth...', 'indigo');
+            onAuthStateChanged(auth, (u) => {
+                if (u) {
+                    user = u;
+                    const lastCode = localStorage.getItem('last_sync_code');
+                    if (lastCode) {
+                        document.getElementById('sync-code-input').value = lastCode;
+                        state.syncCode = lastCode;
+                        connect(lastCode);
                     } else {
-                        signInAnonymously(auth).catch(e => updateStatus('Offline', 'red'));
+                        connect(null);
                     }
-                });
-            } catch (e) {
-                updateStatus('Offline Mode', 'slate');
-            }
-        };
+                } else {
+                    signInAnonymously(auth).catch(() => updateStatus('Sync Fail', 'red'));
+                }
+            });
+
+            // Backup sign-in trigger if state change doesn't fire
+            setTimeout(() => {
+                if (!user) signInAnonymously(auth);
+            }, 2000);
+        });
     </script>
 </body>
 </html>
