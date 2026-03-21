@@ -52,12 +52,17 @@
                     </button>
                     <div id="data-menu" class="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl py-2 z-[200]">
                         <button id="btn-import-csv" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-slate-50 text-slate-600">Import CSV</button>
+                        <button id="btn-import-backup" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-slate-50 text-slate-600">Import Backup</button>
                         <button id="btn-export-json" class="w-full text-left px-4 py-3 text-xs font-bold hover:bg-slate-50 text-slate-600 border-b border-slate-100">Export Backup</button>
                         <button id="btn-wipe" class="w-full text-left px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50">Wipe All Data</button>
                     </div>
                 </div>
             </div>
         </header>
+
+        <!-- Invisible File Inputs -->
+        <input type="file" id="input-csv" accept=".csv" class="hidden">
+        <input type="file" id="input-backup" accept=".json" class="hidden">
 
         <!-- Stats Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
@@ -92,7 +97,7 @@
                     </table>
                     <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 text-center px-6">
                         <h3 class="font-bold text-slate-800">No students yet</h3>
-                        <p class="text-slate-500 text-xs mt-1">Add students or set a sync code to load data.</p>
+                        <p class="text-slate-500 text-xs mt-1">Add students, import data, or set a sync code.</p>
                     </div>
                 </div>
             </div>
@@ -125,8 +130,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { initializeFirestore, doc, setDoc, onSnapshot, getDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { initializeFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
@@ -140,7 +145,8 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = initializeFirestore(app, {
-            experimentalForceLongPolling: true
+            experimentalForceLongPolling: true,
+            useFetchStreams: false
         });
         
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro';
@@ -214,7 +220,11 @@
             }
             empty.classList.add('hidden');
 
-            const periods = [...new Set(state.students.map(s => s.period))].sort();
+            const periods = [...new Set(state.students.map(s => s.period))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
+            if (!periods.includes(state.currentPeriod) && periods.length > 0) {
+                state.currentPeriod = periods[0];
+            }
+
             document.getElementById('period-bar').innerHTML = periods.map(p => `
                 <button onclick="window.setPeriod('${p}')" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${state.currentPeriod === p ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}">Period ${p}</button>
             `).join('');
@@ -284,15 +294,14 @@
                 ? doc(db, 'artifacts', APP_ID, 'public', 'data', `sync_${code}`)
                 : doc(db, 'artifacts', APP_ID, 'users', user.uid, 'settings', 'local_data');
 
-            // Force Local Mode if sync doesn't respond in 6 seconds
+            // Timeout to force local mode if stuck
             connTimeout = setTimeout(() => {
-                const currentStatus = document.getElementById('cloud-status').innerText;
-                if (currentStatus === 'CONNECTING...') {
+                if (!isOfflineMode && document.getElementById('cloud-status').innerText === 'CONNECTING...') {
                     isOfflineMode = true;
                     updateStatus('Local Mode (Offline)', 'red');
                     loadLocal();
                 }
-            }, 6000);
+            }, 4000);
 
             unsub = onSnapshot(path, (snap) => {
                 if (connTimeout) clearTimeout(connTimeout);
@@ -367,16 +376,76 @@
         };
 
         document.getElementById('modal-cancel').onclick = () => document.getElementById('modal-backdrop').classList.add('hidden');
+        
         document.getElementById('menu-trigger').onclick = (e) => {
             e.stopPropagation();
             document.getElementById('data-menu').classList.toggle('show');
         };
         document.body.onclick = () => document.getElementById('data-menu').classList.remove('show');
 
+        // Data Management Logic
+        document.getElementById('btn-export-json').onclick = () => {
+            const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `hallpass_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+        };
+
+        document.getElementById('btn-import-csv').onclick = () => document.getElementById('input-csv').click();
+        document.getElementById('btn-import-backup').onclick = () => document.getElementById('input-backup').click();
+
+        document.getElementById('input-csv').onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const lines = ev.target.result.split('\n');
+                lines.forEach(line => {
+                    const [name, per] = line.split(',').map(s => s?.trim());
+                    if (name && name !== 'Name') {
+                        state.students.push({ id: Math.random().toString(36).substr(2, 9), name, period: per || '1', passesUsed: 0 });
+                    }
+                });
+                render(); save();
+                e.target.value = '';
+            };
+            reader.readAsText(file);
+        };
+
+        document.getElementById('input-backup').onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const imported = JSON.parse(ev.target.result);
+                    if (imported.students) {
+                        state.students = imported.students;
+                        state.activePasses = imported.activePasses || [];
+                        state.history = imported.history || [];
+                        render(); save();
+                    }
+                } catch (err) { console.error("Import failed", err); }
+                e.target.value = '';
+            };
+            reader.readAsText(file);
+        };
+
+        document.getElementById('btn-wipe').onclick = () => {
+            if (confirm("Are you sure you want to delete ALL data? This cannot be undone.")) {
+                state.students = [];
+                state.activePasses = [];
+                state.history = [];
+                render(); save();
+            }
+        };
+
         // Initial Auth Setup
         const init = () => {
             updateStatus('Starting...', 'indigo');
-            loadLocal(); // Load local immediately so the user doesn't see a blank screen while connecting
+            loadLocal(); 
             
             onAuthStateChanged(auth, (u) => {
                 if (u) {
