@@ -287,8 +287,8 @@ function startSync(){
 }
 
 window.togglePass=(id)=>{
-  const active = state.activePasses.find(p=>p.id===id);
-  const student = state.students.find(s=>s.id===id);
+  const active = state.activePasses.find(p=>String(p.id)===String(id));
+  const student = state.students.find(s=>String(s.id)===String(id));
 
   if(active){
     const duration = Math.floor((Date.now()-active.start)/1000);
@@ -299,7 +299,7 @@ window.togglePass=(id)=>{
       deducted: duration>state.settings.limitSec,
       timestamp: new Date().toLocaleTimeString()
     });
-    state.activePasses = state.activePasses.filter(p=>p.id!==id);
+    state.activePasses = state.activePasses.filter(p=>String(p.id)!==String(id));
   } else {
     state.activePasses.push({id,start:Date.now()});
   }
@@ -350,7 +350,7 @@ window.toggleLog=()=>{
 
 // EDIT STUDENT
 window.editStudent=(id)=>{
-  const s = state.students.find(x=>x.id===id);
+  const s = state.students.find(x=>String(x.id)===String(id));
   if(!s) return;
 
   const newName = prompt("Edit student name:", s.name);
@@ -367,7 +367,7 @@ window.editStudent=(id)=>{
 
 // MANUAL PASS ADJUST
 window.adjustPass=(id,delta)=>{
-  const s = state.students.find(x=>x.id===id);
+  const s = state.students.find(x=>String(x.id)===String(id));
   if(!s) return;
   s.passesUsed = Math.max(0,(s.passesUsed||0)+delta);
   save(); render();
@@ -375,12 +375,12 @@ window.adjustPass=(id,delta)=>{
 
 // DELETE STUDENT
 window.deleteStudent=(id)=>{
-  const s = state.students.find(x=>x.id===id);
+  const s = state.students.find(x=>String(x.id)===String(id));
   if(!s) return;
 
   if(confirm(`Delete ${s.name}?`)){
     state.students = state.students.filter(x=>x.id!==id);
-    state.activePasses = state.activePasses.filter(p=>p.id!==id);
+    state.activePasses = state.activePasses.filter(p=>String(p.id)!==String(id));
     save(); render();
   }
 };
@@ -390,7 +390,7 @@ document.getElementById("csv").addEventListener("change", async(e)=>{
   text.split("\n").slice(1).forEach(line=>{
     const [period,first,last,id]=line.split(",");
     if(first && !state.students.find(s=>s.id===id)){
-      state.students.push({id:id||Math.random(),name:first+" "+last,period,passesUsed:0});
+      state.students.push({id:String(id||Math.random()),name:first+" "+last,period,passesUsed:0});
     }
   });
   save(); render();
