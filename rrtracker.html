@@ -3,57 +3,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connectivity Diagnostic - Hall Pass Pro</title>
+    <title>Hall Pass Pro - Managed System</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .log-entry { font-family: 'Courier New', monospace; border-bottom: 1px solid #e2e8f0; padding: 4px 0; font-size: 12px; }
-        .log-time { color: #94a3b8; margin-right: 8px; }
-        .log-error { color: #ef4444; font-weight: bold; }
-        .log-success { color: #10b981; font-weight: bold; }
-        .log-info { color: #3b82f6; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .loading { animation: pulse 1.5s infinite; }
+        .timer-warning { animation: pulse-yellow 2s infinite; }
+        .timer-danger { animation: pulse-red 1s infinite; }
+        @keyframes pulse-yellow { 0%, 100% { background-color: #fefce8; } 50% { background-color: #fef08a; } }
+        @keyframes pulse-red { 0%, 100% { background-color: #fef2f2; } 50% { background-color: #fee2e2; } }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-6">
+<body class="bg-slate-50 min-h-screen font-sans text-slate-900 overflow-hidden">
 
-    <div class="max-w-3xl mx-auto">
-        <header class="mb-8 border-b border-slate-700 pb-4">
-            <h1 class="text-2xl font-black text-white">System <span class="text-indigo-400">Diagnostic</span></h1>
-            <p class="text-slate-400 text-sm mt-1">Evaluating Firestore connectivity in the current environment...</p>
-        </header>
+    <div id="app" class="flex h-screen w-full">
+        <!-- Sidebar -->
+        <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shadow-xl z-10">
+            <div class="p-6 border-b border-slate-100">
+                <h1 class="text-xl font-black text-indigo-600 tracking-tight">HALL PASS PRO</h1>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <span id="conn-indicator" class="status-dot bg-yellow-400"></span>
+                    <span id="conn-text">Connecting...</span>
+                </p>
+            </div>
 
-        <!-- Status Panel -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Environment</p>
-                <p id="env-status" class="text-lg font-bold text-yellow-500">Checking...</p>
+            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                <div class="mb-6">
+                    <h2 class="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-eye text-amber-500"></i> Frequent Flyers (3+)
+                    </h2>
+                    <div id="watchlist" class="space-y-2">
+                        <!-- High usage students here -->
+                    </div>
+                </div>
+
+                <div class="mt-auto pt-6 border-t border-slate-100 space-y-2">
+                    <button id="import-csv-btn" class="w-full flex items-center justify-between py-3 px-4 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-600 transition-colors">
+                        <span>Import Roster</span>
+                        <i class="fa-solid fa-file-import opacity-50"></i>
+                    </button>
+                    <button id="backup-btn" class="w-full flex items-center justify-between py-3 px-4 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-600 transition-colors">
+                        <span>Backup JSON</span>
+                        <i class="fa-solid fa-download opacity-50"></i>
+                    </button>
+                    <button id="export-btn" class="w-full flex items-center justify-between py-3 px-4 bg-indigo-50 hover:bg-indigo-100 rounded-xl text-sm font-bold text-indigo-600 transition-colors">
+                        <span>Export CSV Log</span>
+                        <i class="fa-solid fa-file-export opacity-50"></i>
+                    </button>
+                </div>
             </div>
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Auth State</p>
-                <p id="auth-status" class="text-lg font-bold text-yellow-500">Checking...</p>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="flex-1 flex flex-col relative bg-slate-50">
+            <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+                <div class="flex items-center gap-6">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-black text-slate-400 uppercase">Period:</span>
+                        <select id="period-filter" class="bg-transparent font-bold text-indigo-600 outline-none">
+                            <option value="all">All Classes</option>
+                            <option value="1">Period 1</option>
+                            <option value="2">Period 2</option>
+                            <option value="3">Period 3</option>
+                            <option value="4">Period 4</option>
+                            <option value="5">Period 5</option>
+                            <option value="6">Period 6</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="global-timer" class="text-xs font-mono font-bold text-slate-400"></div>
+            </header>
+
+            <div class="flex-1 p-8 overflow-y-auto custom-scrollbar space-y-10">
+                <!-- Active Grid -->
+                <div>
+                    <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Active Passes</h2>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="active-grid">
+                        <p class="text-slate-400 italic">Waiting for connection...</p>
+                    </div>
+                </div>
+
+                <!-- Complete Log History -->
+                <div>
+                    <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Activity Log</h2>
+                    <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-50 border-b border-slate-100">
+                                <tr>
+                                    <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Student</th>
+                                    <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Destination</th>
+                                    <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Time Out</th>
+                                    <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Duration</th>
+                                    <th class="px-6 py-4 font-black text-slate-500 uppercase text-[10px]">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="full-history-log" class="divide-y divide-slate-50"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Firestore Sync</p>
-                <p id="db-status" class="text-lg font-bold text-yellow-500">Checking...</p>
+
+            <!-- Floating Action Button -->
+            <button id="new-pass-btn" class="fixed bottom-8 right-8 bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black shadow-2xl shadow-indigo-200 flex items-center gap-3 hover:scale-105 active:scale-95 transition-all">
+                <i class="fa-solid fa-plus text-lg"></i>
+                ISSUE NEW PASS
+            </button>
+        </main>
+    </div>
+
+    <!-- Issue Pass Modal -->
+    <div id="modal-overlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-black text-slate-800">New Hall Pass</h3>
+                <button onclick="document.getElementById('modal-overlay').classList.add('hidden')" class="text-slate-400"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <input type="text" id="student-search" placeholder="Search students..." class="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-4 mb-4 outline-none focus:border-indigo-500 font-bold">
+            <div id="student-results" class="flex-1 overflow-y-auto space-y-2 custom-scrollbar min-h-[200px]"></div>
+            <div class="mt-6 pt-6 border-t border-slate-100">
+                <div class="grid grid-cols-2 gap-3 mb-6" id="destination-select">
+                    <button class="dest-btn p-3 rounded-xl border-2 border-slate-100 font-bold text-sm bg-slate-50 hover:border-indigo-500" data-val="Restroom">🚽 Restroom</button>
+                    <button class="dest-btn p-3 rounded-xl border-2 border-slate-100 font-bold text-sm bg-slate-50 hover:border-indigo-500" data-val="Nurse">🏥 Nurse</button>
+                    <button class="dest-btn p-3 rounded-xl border-2 border-slate-100 font-bold text-sm bg-slate-50 hover:border-indigo-500" data-val="Office">🏫 Office</button>
+                    <button class="dest-btn p-3 rounded-xl border-2 border-slate-100 font-bold text-sm bg-slate-50 hover:border-indigo-500" data-val="Library">📚 Library</button>
+                </div>
+                <button id="confirm-pass-btn" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black disabled:opacity-50" disabled>ISSUE PASS</button>
             </div>
         </div>
+    </div>
 
-        <!-- Diagnostic Actions -->
-        <div class="flex gap-4 mb-6">
-            <button id="btn-test-write" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">Test Cloud Write</button>
-            <button id="btn-clear-logs" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">Clear Logs</button>
-            <button onclick="window.location.reload()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">Reboot</button>
-        </div>
-
-        <!-- Log Console -->
-        <div class="bg-black rounded-2xl border border-slate-700 overflow-hidden">
-            <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex justify-between items-center">
-                <span class="text-[10px] font-bold text-slate-400 uppercase">Live Diagnostic Stream</span>
-                <div id="activity-light" class="w-2 h-2 rounded-full bg-slate-600"></div>
-            </div>
-            <div id="log-console" class="p-4 h-[400px] overflow-y-auto bg-slate-950">
-                <!-- Logs appear here -->
+    <!-- Import Overlay -->
+    <div id="import-overlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8">
+            <h3 class="text-xl font-black text-slate-800 mb-2">Import Roster</h3>
+            <p class="text-sm text-slate-500 mb-4">CSV Header: <code class="bg-slate-100 px-1">period, first, last, id</code></p>
+            <input type="file" id="csv-file-input" accept=".csv" class="block w-full text-sm">
+            <div class="mt-8 flex justify-end gap-3">
+                <button onclick="document.getElementById('import-overlay').classList.add('hidden')" class="px-6 py-2 font-bold text-slate-400">Cancel</button>
+                <button id="process-csv-btn" class="px-6 py-2 bg-indigo-600 text-white rounded-xl font-black">Process</button>
             </div>
         </div>
     </div>
@@ -61,173 +150,292 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { initializeFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { initializeFirestore, doc, setDoc, onSnapshot, collection, addDoc, updateDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Global Diagnostics
-        const logs = document.getElementById('log-console');
-        const envStatus = document.getElementById('env-status');
-        const authStatus = document.getElementById('auth-status');
-        const dbStatus = document.getElementById('db-status');
-        const activityLight = document.getElementById('activity-light');
-
-        const log = (msg, type = 'info') => {
-            const entry = document.createElement('div');
-            entry.className = 'log-entry';
-            const time = new Date().toLocaleTimeString();
-            
-            let typeClass = 'log-info';
-            if (type === 'error') typeClass = 'log-error';
-            if (type === 'success') typeClass = 'log-success';
-
-            entry.innerHTML = `<span class="log-time">[${time}]</span><span class="${typeClass}">${msg}</span>`;
-            logs.appendChild(entry);
-            logs.scrollTop = logs.scrollHeight;
-            
-            activityLight.className = 'w-2 h-2 rounded-full bg-indigo-400';
-            setTimeout(() => activityLight.className = 'w-2 h-2 rounded-full bg-slate-600', 100);
-        };
-
-        log("System boot initiated.");
-        
+        // CONFIG RECOVERY
         let firebaseConfig;
-        try {
-            firebaseConfig = JSON.parse(__firebase_config);
-            log("Firebase Config loaded from environment.", "success");
-            envStatus.innerText = "Configured";
-            envStatus.className = "text-lg font-bold text-emerald-500";
-        } catch (e) {
-            log("CRITICAL: __firebase_config not found. Using hardcoded fallback.", "error");
-            firebaseConfig = {
-                apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
-                authDomain: "rrtracker-de70e.firebaseapp.com",
-                projectId: "rrtracker-de70e",
-                storageBucket: "rrtracker-de70e.firebasestorage.app",
-                messagingSenderId: "1057987490614",
-                appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997"
-            };
-            envStatus.innerText = "Fallback";
-            envStatus.className = "text-lg font-bold text-yellow-500";
+        try { firebaseConfig = JSON.parse(__firebase_config); } catch(e) {
+            firebaseConfig = { apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k", authDomain: "rrtracker-de70e.firebaseapp.com", projectId: "rrtracker-de70e", storageBucket: "rrtracker-de70e.firebasestorage.app", messagingSenderId: "1057987490614", appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997" };
         }
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
 
-        // App ID logic
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-tracker-v1';
-        log(`App ID set to: ${appId}`);
-
+        // CORE INIT
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        
-        // Force Long Polling for environment stability
-        log("Initializing Firestore with experimentalForceLongPolling: true...");
-        const db = initializeFirestore(app, {
-            experimentalForceLongPolling: true
-        });
+        const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
-        let currentUser = null;
-        let unsubscribeData = null;
+        // STATE
+        let students = [];
+        let allPasses = [];
+        let selectedStudent = null;
+        let selectedDest = null;
+        let currentPeriod = 'all';
 
-        const initAuth = async () => {
-            log("Beginning Auth handshake...");
-            authStatus.innerText = "Authenticating...";
-            authStatus.className = "text-lg font-bold text-indigo-400 loading";
+        // UI HELPERS
+        const connInd = document.getElementById('conn-indicator');
+        const connTxt = document.getElementById('conn-text');
 
-            try {
+        const setStatus = (status) => {
+            if (status === 'online') {
+                connInd.className = 'status-dot bg-emerald-500';
+                connTxt.innerText = 'System Live';
+            } else {
+                connInd.className = 'status-dot bg-red-500';
+                connTxt.innerText = 'Offline';
+            }
+        };
+
+        // FIREBASE FLOW
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                initListeners();
+            } else {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    log("Found custom auth token. Signing in...");
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
-                    log("No custom token found. Using Anonymous sign-in...");
                     await signInAnonymously(auth);
                 }
-            } catch (e) {
-                log(`Auth Error: ${e.code} - ${e.message}`, "error");
-                authStatus.innerText = "Failed";
-                authStatus.className = "text-lg font-bold text-red-500";
-            }
-        };
-
-        const connect = (user) => {
-            if (unsubscribeData) unsubscribeData();
-
-            log(`User authenticated: ${user.uid}`, "success");
-            authStatus.innerText = "Connected";
-            authStatus.className = "text-lg font-bold text-emerald-500";
-            
-            dbStatus.innerText = "Listening...";
-            dbStatus.className = "text-lg font-bold text-indigo-400 loading";
-
-            /**
-             * RULE 1 FIX:
-             * Paths must have even segments. 
-             * segments: artifacts (1), appId (2), public (3), data (4), collectionName (5), docId (6)
-             * Current failing path had 5 segments. We must ensure 6.
-             */
-            const collectionName = 'diagnostics';
-            const docId = 'pulse';
-            
-            const publicPath = doc(db, 'artifacts', appId, 'public', 'data', collectionName, docId);
-            
-            log(`Opening listener at: artifacts/${appId}/public/data/${collectionName}/${docId}`);
-
-            unsubscribeData = onSnapshot(publicPath, 
-                (snap) => {
-                    log("Cloud heartbeat received successfully.", "success");
-                    dbStatus.innerText = "Online";
-                    dbStatus.className = "text-lg font-bold text-emerald-500";
-                    if (snap.exists()) {
-                        log(`Cloud Data: ${JSON.stringify(snap.data())}`);
-                    } else {
-                        log("Cloud doc is currently empty (normal for first run).");
-                    }
-                }, 
-                (err) => {
-                    log(`Firestore Error: ${err.code} - ${err.message}`, "error");
-                    dbStatus.innerText = "Blocked";
-                    dbStatus.className = "text-lg font-bold text-red-500";
-                    
-                    if (err.code === 'permission-denied') {
-                        log("CRITICAL: Path violation or security rule mismatch.", "error");
-                    }
-                }
-            );
-        };
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                connect(user);
-            } else {
-                log("Auth state: No user signed in.");
-                initAuth();
             }
         });
 
-        document.getElementById('btn-test-write').onclick = async () => {
-            if (!currentUser) {
-                log("Write test failed: No authenticated user.", "error");
-                return;
-            }
+        function initListeners() {
+            // Students Path (6 Segments for Rules)
+            const studentsColl = collection(db, 'artifacts', appId, 'public', 'data', 'students_list');
+            onSnapshot(studentsColl, (snap) => {
+                students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderWatchlist();
+            }, (err) => console.error("Student Sync Error", err));
 
-            log("Attempting test write...");
-            const testPath = doc(db, 'artifacts', appId, 'public', 'data', 'diagnostics', 'pulse');
+            // Passes Path (6 Segments for Rules)
+            const passesColl = collection(db, 'artifacts', appId, 'public', 'data', 'passes_log');
+            onSnapshot(passesColl, (snap) => {
+                setStatus('online');
+                allPasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                allPasses.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                renderActiveGrid();
+                renderFullHistory();
+            }, (err) => {
+                setStatus('error');
+                console.error("Passes Sync Error", err);
+            });
+        }
+
+        // TIMER LOOP
+        setInterval(() => {
+            document.getElementById('global-timer').innerText = new Date().toLocaleTimeString();
+            updateLiveTimers();
+        }, 1000);
+
+        function updateLiveTimers() {
+            allPasses.forEach(pass => {
+                if (pass.returnedAt) return;
+                const el = document.getElementById(`timer-${pass.id}`);
+                const card = document.getElementById(`card-${pass.id}`);
+                if (!el || !pass.createdAt) return;
+
+                const start = pass.createdAt.toDate();
+                const diff = (new Date() - start) / 1000;
+                const remaining = 420 - diff; 
+
+                const mins = Math.floor(Math.abs(remaining) / 60);
+                const secs = Math.floor(Math.abs(remaining) % 60);
+                const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+                if (remaining <= 0) {
+                    el.innerText = `OVERDUE: ${timeStr}`;
+                    card.className = "p-6 rounded-3xl border-2 border-red-200 bg-red-50 flex justify-between items-center shadow-sm timer-danger";
+                } else if (remaining <= 60) {
+                    el.innerText = `1 MIN LEFT: ${timeStr}`;
+                    card.className = "p-6 rounded-3xl border-2 border-amber-200 bg-amber-50 flex justify-between items-center shadow-sm timer-warning";
+                } else {
+                    el.innerText = `Time Left: ${timeStr}`;
+                }
+            });
+        }
+
+        // RENDERING
+        function renderWatchlist() {
+            const list = document.getElementById('watchlist');
+            const frequent = students.filter(s => s.passesUsed >= 3);
+            list.innerHTML = frequent.length ? '' : '<p class="text-[10px] text-slate-400 italic">No frequent flyers yet.</p>';
+            frequent.forEach(s => {
+                const item = document.createElement('div');
+                item.className = "p-3 bg-slate-50 rounded-xl flex justify-between items-center border border-slate-100";
+                item.innerHTML = `
+                    <div class="overflow-hidden">
+                        <p class="text-xs font-black text-slate-800 truncate">${s.firstName} ${s.lastName}</p>
+                        <p class="text-[9px] font-bold text-slate-400">ID: ${s.studentId}</p>
+                    </div>
+                    <span class="px-2 py-1 bg-red-100 text-red-600 text-[10px] font-black rounded-lg">${s.passesUsed}</span>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function renderActiveGrid() {
+            const grid = document.getElementById('active-grid');
+            const active = allPasses.filter(p => !p.returnedAt && (currentPeriod === 'all' || p.period == currentPeriod));
+            grid.innerHTML = active.length ? '' : `<div class="col-span-full py-8 text-center text-slate-300 font-bold">No active passes</div>`;
+
+            active.forEach(pass => {
+                const card = document.createElement('div');
+                card.id = `card-${pass.id}`;
+                card.className = "p-6 rounded-3xl bg-white border border-slate-100 shadow-sm flex justify-between items-center";
+                card.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-xl">
+                            ${pass.destination === 'Restroom' ? '🚽' : pass.destination === 'Nurse' ? '🏥' : pass.destination === 'Office' ? '🏫' : '📚'}
+                        </div>
+                        <div>
+                            <p class="font-black text-slate-800">${pass.studentName}</p>
+                            <p id="timer-${pass.id}" class="text-[10px] font-mono font-bold text-slate-500 uppercase">Loading...</p>
+                        </div>
+                    </div>
+                    <button class="return-btn bg-slate-900 text-white px-4 py-2 rounded-lg text-[10px] font-black" data-id="${pass.id}" data-sid="${pass.studentId}">RETURN</button>
+                `;
+                grid.appendChild(card);
+            });
+
+            document.querySelectorAll('.return-btn').forEach(btn => {
+                btn.onclick = async () => {
+                    const passId = btn.dataset.id;
+                    const studentId = btn.dataset.sid;
+                    const passData = allPasses.find(p => p.id === passId);
+                    
+                    const start = passData.createdAt?.toDate() || new Date();
+                    const diffMins = (new Date() - start) / 60000;
+                    
+                    const passRef = doc(db, 'artifacts', appId, 'public', 'data', 'passes_log', passId);
+                    const studentRef = doc(db, 'artifacts', appId, 'public', 'data', 'students_list', studentId);
+                    
+                    if (diffMins >= 7 && passData.destination === 'Restroom') {
+                        await updateDoc(studentRef, { passesUsed: increment(1) });
+                    }
+                    await updateDoc(passRef, { returnedAt: serverTimestamp() });
+                };
+            });
+        }
+
+        function renderFullHistory() {
+            const logBody = document.getElementById('full-history-log');
+            const filtered = allPasses.filter(p => currentPeriod === 'all' || p.period == currentPeriod);
+            logBody.innerHTML = filtered.length ? '' : '<tr><td colspan="5" class="p-6 text-center text-slate-400">Log is empty</td></tr>';
+
+            filtered.forEach(pass => {
+                const tr = document.createElement('tr');
+                const start = pass.createdAt?.toDate();
+                const end = pass.returnedAt?.toDate();
+                const diffMins = (start && end) ? Math.floor((end - start) / 60000) : (start ? Math.floor((new Date() - start) / 60000) : 0);
+                
+                tr.innerHTML = `
+                    <td class="px-6 py-4">
+                        <p class="font-bold text-slate-800 text-xs">${pass.studentName}</p>
+                        <p class="text-[9px] text-slate-400">ID: ${pass.studentId}</p>
+                    </td>
+                    <td class="px-6 py-4 text-xs font-medium text-slate-500">${pass.destination}</td>
+                    <td class="px-6 py-4 text-slate-400 text-[10px] font-mono">${start ? start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</td>
+                    <td class="px-6 py-4 font-mono text-[10px] font-bold ${diffMins >= 7 ? 'text-red-500' : 'text-slate-600'}">${diffMins}m</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-0.5 text-[9px] font-black rounded uppercase ${!pass.returnedAt ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-400'}">
+                            ${!pass.returnedAt ? 'Out' : 'Done'}
+                        </span>
+                    </td>
+                `;
+                logBody.appendChild(tr);
+            });
+        }
+
+        // ACTIONS
+        document.getElementById('new-pass-btn').onclick = () => {
+            document.getElementById('modal-overlay').classList.remove('hidden');
+            renderSearchResults('');
+        };
+
+        document.getElementById('student-search').oninput = (e) => renderSearchResults(e.target.value);
+
+        function renderSearchResults(q) {
+            const container = document.getElementById('student-results');
+            container.innerHTML = '';
+            const filtered = students.filter(s => 
+                (currentPeriod === 'all' || s.period == currentPeriod) &&
+                (`${s.firstName} ${s.lastName} ${s.studentId}`.toLowerCase().includes(q.toLowerCase()))
+            );
+
+            filtered.forEach(s => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left p-3 rounded-xl border-2 mb-2 flex justify-between items-center transition-all ${selectedStudent?.id === s.id ? 'border-indigo-600 bg-indigo-50' : 'border-slate-50 bg-white hover:border-slate-200'}`;
+                btn.innerHTML = `
+                    <div>
+                        <p class="font-bold text-slate-800 text-sm">${s.firstName} ${s.lastName}</p>
+                        <p class="text-[9px] font-bold text-slate-400">ID: ${s.studentId} | P${s.period}</p>
+                    </div>
+                    <div class="flex gap-1">
+                        ${Array(5).fill(0).map((_, i) => `<div class="w-1.5 h-1.5 rounded-full ${i < s.passesUsed ? 'bg-red-400' : 'bg-emerald-400'}"></div>`).join('')}
+                    </div>
+                `;
+                btn.onclick = () => { selectedStudent = s; renderSearchResults(q); checkForm(); };
+                container.appendChild(btn);
+            });
+        }
+
+        document.querySelectorAll('.dest-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.dest-btn').forEach(b => b.classList.remove('border-indigo-600', 'bg-indigo-50'));
+                btn.classList.add('border-indigo-600', 'bg-indigo-50');
+                selectedDest = btn.dataset.val;
+                checkForm();
+            };
+        });
+
+        const checkForm = () => { document.getElementById('confirm-pass-btn').disabled = !(selectedStudent && selectedDest); };
+
+        document.getElementById('confirm-pass-btn').onclick = async () => {
+            if (!selectedStudent || !selectedDest) return;
+            const passesColl = collection(db, 'artifacts', appId, 'public', 'data', 'passes_log');
+            await addDoc(passesColl, {
+                studentId: selectedStudent.id,
+                studentName: `${selectedStudent.firstName} ${selectedStudent.lastName}`,
+                period: selectedStudent.period,
+                destination: selectedDest,
+                createdAt: serverTimestamp(),
+                returnedAt: null
+            });
+            selectedStudent = null; selectedDest = null;
+            document.getElementById('modal-overlay').classList.add('hidden');
+        };
+
+        // CSV IMPORT
+        document.getElementById('import-csv-btn').onclick = () => document.getElementById('import-overlay').classList.remove('hidden');
+        document.getElementById('process-csv-btn').onclick = async () => {
+            const fileInput = document.getElementById('csv-file-input');
+            if (!fileInput.files.length) return;
+            const text = await fileInput.files[0].text();
+            const lines = text.split('\n').filter(l => l.trim());
+            const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
             
-            try {
-                await setDoc(testPath, {
-                    lastPulse: Date.now(),
-                    tester: currentUser.uid,
-                    environment: "Canvas Sandbox"
-                }, { merge: true });
-                log("Test write successful!", "success");
-            } catch (e) {
-                log(`Write Error: ${e.message}`, "error");
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                const data = {};
+                headers.forEach((h, idx) => data[h] = values[idx]);
+                const sId = data.id || `s-${Date.now()}-${i}`;
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students_list', sId), {
+                    period: data.period || '1',
+                    firstName: data.first || 'New',
+                    lastName: data.last || 'Student',
+                    studentId: sId,
+                    passesUsed: 0
+                });
             }
+            document.getElementById('import-overlay').classList.add('hidden');
         };
 
-        document.getElementById('btn-clear-logs').onclick = () => {
-            logs.innerHTML = '';
-            log("Logs cleared.");
+        // FILTERS
+        document.getElementById('period-filter').onchange = (e) => {
+            currentPeriod = e.target.value;
+            renderActiveGrid();
+            renderFullHistory();
         };
 
-        log("Ready. Waiting for Firebase background tasks...");
     </script>
 </body>
 </html>
