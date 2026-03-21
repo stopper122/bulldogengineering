@@ -13,6 +13,11 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         tr { transition: background-color 0.3s ease; }
+        @keyframes pulse-indigo {
+            0%, 100% { background-color: #e0e7ff; color: #4f46e5; }
+            50% { background-color: #c7d2fe; color: #4338ca; }
+        }
+        .status-syncing { animation: pulse-indigo 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-900 font-sans pb-20">
@@ -29,7 +34,7 @@
                     <p class="text-slate-500 text-[10px] font-bold uppercase tracking-wider ml-1">Sync Code:</p>
                     <input type="text" id="sync-code-input" placeholder="e.g. ROOM101" class="bg-slate-50 border border-slate-100 rounded px-2 py-1 text-xs font-bold text-indigo-600 w-28 focus:ring-1 focus:ring-indigo-500 outline-none uppercase">
                     <button id="set-sync-code" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-[10px] font-bold uppercase hover:bg-indigo-700 transition-all">Set Code</button>
-                    <button id="reset-connection" class="text-slate-400 hover:text-red-500 transition-colors px-1" title="Hard Reset Connection">
+                    <button id="reset-connection" class="text-slate-400 hover:text-red-500 transition-colors px-1" title="Force Connection Refresh">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                     </button>
                 </div>
@@ -121,7 +126,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { initializeFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
@@ -132,9 +137,14 @@
             appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997"
         };
 
+        // Initialize Firebase with polling for better compatibility across restricted networks
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        const db = getFirestore(app);
+        const db = initializeFirestore(app, {
+            experimentalForceLongPolling: true,
+            useFetchStreams: false
+        });
+        
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro';
 
         let state = { 
@@ -148,6 +158,7 @@
         let user = null;
         let unsub = null;
         let isWriting = false;
+        let connTimeout = null;
 
         const updateStatus = (text, type = 'slate') => {
             const el = document.getElementById('cloud-status');
@@ -155,11 +166,11 @@
             el.innerText = text;
             const styles = {
                 slate: 'bg-slate-200 text-slate-500',
-                indigo: 'bg-indigo-100 text-indigo-600 animate-pulse',
+                indigo: 'status-syncing',
                 green: 'bg-emerald-100 text-emerald-600',
                 red: 'bg-red-100 text-red-600'
             };
-            el.className = `px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest ${styles[type] || styles.slate}`;
+            el.className = `px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-all ${styles[type] || styles.slate}`;
         };
 
         const render = () => {
@@ -230,7 +241,8 @@
                 await setDoc(path, dataToSave, { merge: true });
                 updateStatus(state.syncCode ? `Shared: ${state.syncCode}` : 'Cloud Saved', 'green');
             } catch (e) {
-                updateStatus('Save Error', 'red');
+                console.error("Save error:", e);
+                updateStatus('Cloud Error', 'red');
             } finally {
                 setTimeout(() => { isWriting = false; }, 500);
             }
@@ -238,10 +250,12 @@
 
         const connect = (code) => {
             if (unsub) unsub();
+            if (connTimeout) clearTimeout(connTimeout);
+            
             updateStatus('Connecting...', 'indigo');
             
             if (!user) {
-                console.warn("Attempted to connect without user. Retrying auth...");
+                console.warn("Retrying auth...");
                 signInAnonymously(auth);
                 return;
             }
@@ -250,7 +264,16 @@
                 ? doc(db, 'artifacts', APP_ID, 'public', 'data', `sync_${code}`)
                 : doc(db, 'artifacts', APP_ID, 'users', user.uid, 'settings', 'local_data');
 
+            // Setup a "hang" detector
+            connTimeout = setTimeout(() => {
+                const currentStatus = document.getElementById('cloud-status').innerText;
+                if (currentStatus === 'CONNECTING...') {
+                    updateStatus('Sync Stalled', 'red');
+                }
+            }, 5000);
+
             unsub = onSnapshot(path, (snap) => {
+                if (connTimeout) clearTimeout(connTimeout);
                 if (snap.exists() && !isWriting) {
                     const data = snap.data();
                     state.students = data.students || [];
@@ -260,8 +283,8 @@
                 }
                 updateStatus(code ? `Shared: ${code}` : 'Cloud Active', 'green');
             }, (err) => {
-                console.error("Connection error:", err);
-                updateStatus('Sync Error', 'red');
+                console.error("Sync error:", err);
+                updateStatus('Sync Blocked', 'red');
             });
         };
 
@@ -299,16 +322,16 @@
         };
 
         document.getElementById('reset-connection').onclick = async () => {
-            updateStatus('Resetting...', 'red');
+            updateStatus('Re-connecting...', 'indigo');
             if (unsub) unsub();
-            localStorage.removeItem('last_sync_code');
-            document.getElementById('sync-code-input').value = '';
-            state.syncCode = '';
             try {
                 await signOut(auth);
-                await signInAnonymously(auth);
+                const u = await signInAnonymously(auth);
+                user = u.user;
+                if (state.syncCode) connect(state.syncCode);
+                else connect(null);
             } catch(e) {
-                window.location.reload(); // Last resort
+                window.location.reload(); 
             }
         };
 
@@ -335,7 +358,7 @@
         document.body.onclick = () => document.getElementById('data-menu').classList.remove('show');
 
         // Initial Auth Setup
-        window.addEventListener('load', () => {
+        const init = () => {
             updateStatus('Auth...', 'indigo');
             onAuthStateChanged(auth, (u) => {
                 if (u) {
@@ -349,15 +372,15 @@
                         connect(null);
                     }
                 } else {
-                    signInAnonymously(auth).catch(() => updateStatus('Sync Fail', 'red'));
+                    signInAnonymously(auth).catch(() => updateStatus('Offline', 'red'));
                 }
             });
+        };
 
-            // Backup sign-in trigger if state change doesn't fire
-            setTimeout(() => {
-                if (!user) signInAnonymously(auth);
-            }, 2000);
-        });
+        // Ensure initialization happens after DOM is fully ready
+        if (document.readyState === 'complete') init();
+        else window.addEventListener('load', init);
+
     </script>
 </body>
 </html>
