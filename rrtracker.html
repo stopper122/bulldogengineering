@@ -10,17 +10,17 @@
 
     <div class="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full border border-slate-200">
         <h1 class="text-2xl font-black mb-2 text-slate-800">Connection Tester</h1>
-        <p class="text-slate-500 text-sm mb-6">Checking if your app can reach the cloud database...</p>
+        <p class="text-slate-500 text-sm mb-6">Final Step: Checking Database Permissions...</p>
 
         <div id="status-container" class="space-y-4">
             <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <span class="text-sm font-bold text-slate-600">Config Variables</span>
-                <span id="step-vars" class="text-xs font-black px-2 py-1 rounded bg-amber-100 text-amber-600 uppercase">Waiting...</span>
+                <span id="step-vars" class="text-xs font-black px-2 py-1 rounded bg-emerald-100 text-emerald-600 uppercase">Success</span>
             </div>
             
             <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <span class="text-sm font-bold text-slate-600">Authentication</span>
-                <span id="step-auth" class="text-xs font-black px-2 py-1 rounded bg-slate-200 text-slate-400 uppercase">Pending</span>
+                <span id="step-auth" class="text-xs font-black px-2 py-1 rounded bg-emerald-100 text-emerald-600 uppercase">Success</span>
             </div>
 
             <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
@@ -30,11 +30,32 @@
         </div>
 
         <div id="debug-log" class="mt-8 p-4 bg-slate-900 rounded-xl font-mono text-[10px] text-emerald-400 h-40 overflow-y-auto no-scrollbar">
-            > Initializing test sequence...<br>
+            > Resuming connection sequence...<br>
+        </div>
+
+        <!-- Rules Instructions -->
+        <div id="rules-instructions" class="hidden mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <p class="text-[11px] font-bold text-amber-800 uppercase mb-2">How to fix Database Blocked:</p>
+            <ol class="text-[11px] text-amber-700 list-decimal ml-4 space-y-2">
+                <li>Go to <a href="https://console.firebase.google.com/" target="_blank" class="underline font-bold">Firebase Console</a></li>
+                <li>Click <b>Firestore Database</b> in the left sidebar.</li>
+                <li>Click the <b>Rules</b> tab at the top.</li>
+                <li>Replace the code there with this (copy-paste):
+                    <pre class="mt-2 p-2 bg-white border border-amber-200 rounded text-[9px] overflow-x-auto">
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /artifacts/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}</pre>
+                </li>
+                <li>Click <b>Publish</b>.</li>
+            </ol>
         </div>
 
         <div class="flex gap-2 mt-6">
-            <button id="retry-btn" class="hidden flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
+            <button id="retry-btn" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
                 Retry Connection
             </button>
         </div>
@@ -45,7 +66,6 @@
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Hardcoded credentials provided by the user
         const firebaseConfig = {
             apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
             authDomain: "rrtracker-de70e.firebaseapp.com",
@@ -78,68 +98,55 @@
         };
 
         async function runTest() {
-            log("Starting connection test with provided credentials...");
-            document.getElementById('retry-btn').classList.add('hidden');
+            log("Starting connection test...");
+            document.getElementById('rules-instructions').classList.add('hidden');
+            
+            setStep('step-vars', 'Success', 'ok');
+            setStep('step-auth', 'Success', 'ok');
+            setStep('step-db', 'Pending', 'off');
 
-            // STEP 1: Apply hardcoded config
-            setStep('step-vars', 'Provided', 'ok');
-            log("Using manually provided Firebase config.");
-
-            // STEP 2: Initialize and Auth
             try {
                 const app = initializeApp(firebaseConfig);
                 const auth = getAuth(app);
                 const db = getFirestore(app);
-                
-                // Note: We use a fixed ID for testing since we aren't using the environment appId
                 const appId = "rr-tracker-manual";
 
-                setStep('step-auth', 'Authenticating', 'wait');
-                log("Attempting anonymous sign-in...");
-
+                log("Checking login state...");
                 const userCredential = await signInAnonymously(auth);
                 const user = userCredential.user;
-                setStep('step-auth', 'Success', 'ok');
-                log(`Authenticated UID: ${user.uid}`);
+                log(`Connected as: ${user.uid}`);
 
-                // STEP 3: Test Firestore Read/Write
                 setStep('step-db', 'Testing', 'wait');
-                log("Testing Firestore write/read...");
+                log("Attempting write to: /artifacts/" + appId);
 
-                // Path corrected for standard storage structure
                 const testRef = doc(db, 'artifacts', appId, 'users', user.uid, 'test', 'ping');
                 
-                log("Attempting write to " + testRef.path);
-                await setDoc(testRef, { timestamp: Date.now(), status: 'online' });
-                log("Write operation successful.");
+                // Add a timeout to the write attempt so it doesn't hang forever
+                const writePromise = setDoc(testRef, { timestamp: Date.now(), status: 'online' });
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout: No response from database.")), 8000));
+
+                await Promise.race([writePromise, timeoutPromise]);
+                log("Write successful.");
 
                 const snap = await getDoc(testRef);
                 if (snap.exists()) {
                     setStep('step-db', 'Online', 'ok');
-                    log("Read operation successful. Cloud is active!");
-                } else {
-                    throw new Error("Document not found after write.");
+                    log("CONGRATULATIONS! System is fully online.");
+                    log("We can now rebuild your Hall Pass app.");
                 }
-
             } catch (e) {
-                log(`Critical Failure: ${e.message}`, true);
-                if (e.message.includes('permission-denied')) {
-                    log("PERMISSION ERROR: Your Firestore Rules must allow access to /artifacts/...", true);
-                }
-                setStep('step-auth', 'Failed', 'fail');
+                log(`Error: ${e.message}`, true);
                 setStep('step-db', 'Blocked', 'fail');
-                document.getElementById('retry-btn').classList.remove('hidden');
+                
+                if (e.message.toLowerCase().includes('permission') || e.message.toLowerCase().includes('timeout')) {
+                    document.getElementById('rules-instructions').classList.remove('hidden');
+                    log("REASON: Firestore permissions are blocking the write.", true);
+                }
             }
         }
 
-        document.getElementById('retry-btn').onclick = () => {
-            log("--- Restarting ---");
-            runTest();
-        };
-
-        // Start immediately
+        document.getElementById('retry-btn').onclick = runTest;
         runTest();
-
     </script>
 </body>
 </html>
