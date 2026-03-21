@@ -40,18 +40,18 @@
     <!-- CONTROLS -->
     <div class="bg-white p-4 rounded-xl shadow mb-6 flex flex-wrap gap-3 items-center">
       <input type="file" id="csv">
-      <button onclick="exportData()" class="px-3 py-1 bg-slate-800 text-white rounded text-xs">Export</button>
+      <button onclick="window.exportData()" class="px-3 py-1 bg-slate-800 text-white rounded text-xs">Export</button>
       <input type="file" id="importJson" class="hidden">
       <button onclick="document.getElementById('importJson').click()" class="px-3 py-1 bg-slate-200 rounded text-xs">Restore</button>
-      <button onclick="resetPasses()" class="px-3 py-1 bg-red-500 text-white rounded text-xs">Reset Passes</button>
-      <button onclick="wipeAllData()" class="px-3 py-1 bg-black text-white rounded text-xs">Wipe All Data</button>
+      <button onclick="window.resetPasses()" class="px-3 py-1 bg-red-500 text-white rounded text-xs">Reset Passes</button>
+      <button onclick="window.wipeAllData()" class="px-3 py-1 bg-black text-white rounded text-xs">Wipe All Data</button>
 
       <div class="flex items-center gap-2 ml-auto">
         <span class="text-xs">Time:</span>
         <input id="limitInput" type="number" class="w-14 px-2 py-1 border rounded text-xs">
         <span class="text-xs">Passes:</span>
         <input id="maxPassInput" type="number" class="w-14 px-2 py-1 border rounded text-xs">
-        <button onclick="updateSettings()" class="px-2 py-1 bg-slate-700 text-white rounded text-xs">Set</button>
+        <button onclick="window.updateSettings()" class="px-2 py-1 bg-slate-700 text-white rounded text-xs">Set</button>
       </div>
     </div>
 
@@ -86,7 +86,7 @@
     <div class="bg-white p-4 rounded-xl shadow">
       <div class="flex justify-between items-center mb-2">
         <h3 class="text-xs font-bold uppercase text-slate-400">Master Log</h3>
-        <button onclick="toggleLog()" class="text-xs text-indigo-600">Toggle</button>
+        <button onclick="window.toggleLog()" class="text-xs text-indigo-600">Toggle</button>
       </div>
       <input id="logSearch" placeholder="Search..." class="w-full mb-2 px-2 py-1 border rounded text-xs" oninput="render()">
       <div id="log" class="hidden max-h-64 overflow-y-auto"></div>
@@ -147,7 +147,7 @@ function render(){
   if(!state.currentPeriod && periods.length) state.currentPeriod = periods[0];
 
   tabsDiv.innerHTML = periods.map(p=>`
-    <button onclick="setPeriod('${p}')"
+    <button onclick="window.setPeriod('${p}')"
       class="px-4 py-2 rounded-full text-xs font-bold transition-all
       ${state.currentPeriod===p
         ? 'bg-indigo-600 text-white shadow'
@@ -199,16 +199,16 @@ function render(){
           <div class="flex flex-col items-center text-xs">
             <span>${s.passesUsed||0}/${state.settings.maxPasses}</span>
             <div class="flex gap-1 mt-1">
-              <button onclick="adjustPass('${s.id}',1)" class="bg-slate-200 px-1 rounded">+</button>
-              <button onclick="adjustPass('${s.id}',-1)" class="bg-slate-200 px-1 rounded">-</button>
+              <button onclick="window.adjustPass('${s.id}',1)" class="bg-slate-200 px-1 rounded">+</button>
+              <button onclick="window.adjustPass('${s.id}',-1)" class="bg-slate-200 px-1 rounded">-</button>
             </div>
           </div>
 
           <!-- EDIT / DELETE BUTTONS -->
-          <button onclick="editStudent('${s.id}')" class="text-xs bg-slate-200 px-2 rounded">Edit</button>
-          <button onclick="deleteStudent('${s.id}')" class="text-xs bg-red-500 text-white px-2 rounded">Delete</button>
+          <button onclick="window.editStudent('${s.id}')" class="text-xs bg-slate-200 px-2 rounded">Edit</button>
+          <button onclick="window.deleteStudent('${s.id}')" class="text-xs bg-red-500 text-white px-2 rounded">Delete</button>
 
-          <button onclick="togglePass('${s.id}')" class="text-xs bg-indigo-600 text-white px-2 rounded">${active?'Return':'Start'}</button>
+          <button onclick="window.togglePass('${s.id}')" class="text-xs bg-indigo-600 text-white px-2 rounded">${active?'Return':'Start'}</button>
         </div>
       </div>
     </div>`;
