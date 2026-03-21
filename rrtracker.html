@@ -114,7 +114,7 @@
 
     <!-- Modal -->
     <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[300] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
+        <div class="bg-white rounded-[2rem] w-full max-sm p-8 shadow-2xl">
             <h2 id="modal-title" class="text-xl font-black mb-6 text-slate-800">Student Details</h2>
             <div class="space-y-4">
                 <input type="hidden" id="field-id">
@@ -131,7 +131,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { initializeFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
@@ -144,7 +144,12 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        const db = getFirestore(app);
+        
+        // CRITICAL FIX: Force Long Polling to prevent Connection Errors in Iframe sandboxes
+        const db = initializeFirestore(app, {
+            experimentalForceLongPolling: true
+        });
+
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v2';
 
         let state = { 
@@ -159,7 +164,6 @@
         let unsub = null;
         let isWriting = false;
         let isOfflineMode = false;
-        let connTimer = null;
 
         const updateStatus = (text, type = 'slate') => {
             const el = document.getElementById('cloud-status');
@@ -278,18 +282,7 @@
 
         const connect = async (code) => {
             if (unsub) unsub();
-            if (connTimer) clearTimeout(connTimer);
-            
             updateStatus('Connecting...', 'indigo');
-            
-            // Auto-fallback to local mode if Firebase hangs
-            connTimer = setTimeout(() => {
-                if (!unsub || isOfflineMode) {
-                    isOfflineMode = true;
-                    updateStatus('Local Mode', 'slate');
-                    loadLocal();
-                }
-            }, 4000);
 
             try {
                 const path = code 
@@ -297,7 +290,6 @@
                     : doc(db, 'artifacts', APP_ID, 'users', currentUser.uid, 'settings', 'local_data');
 
                 unsub = onSnapshot(path, (snap) => {
-                    clearTimeout(connTimer);
                     isOfflineMode = false;
                     if (snap.exists() && !isWriting) {
                         const data = snap.data();
@@ -308,12 +300,13 @@
                     }
                     updateStatus(code ? `Sync: ${code}` : 'Cloud Active', 'green');
                 }, (err) => {
-                    console.warn("Firestore error, fallback to local:", err);
+                    console.error("Firestore snapshot error:", err);
                     isOfflineMode = true;
-                    updateStatus('Local Mode', 'slate');
+                    updateStatus('Offline Mode', 'red');
                     loadLocal();
                 });
             } catch (err) {
+                console.error("Connection attempt failed:", err);
                 isOfflineMode = true;
                 updateStatus('Offline', 'red');
             }
@@ -445,7 +438,8 @@
                     const code = localStorage.getItem('last_sync_code');
                     connect(code);
                 } else {
-                    signInAnonymously(auth).catch(() => {
+                    signInAnonymously(auth).catch((err) => {
+                        console.error("Auth failed:", err);
                         isOfflineMode = true;
                         updateStatus('Local Mode', 'slate');
                     });
