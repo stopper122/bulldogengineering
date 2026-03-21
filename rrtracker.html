@@ -190,8 +190,11 @@ function render() {
       <span>${l.name}</span>
       <span>${formatTime(l.duration)}</span>
       <span class="${l.deducted?'text-red-600':'text-green-600'}">${l.deducted?'Pass Used':'OK'}</span>
-    </div>`).join("") || "<div class='text-xs text-slate-400'>No activity yet</div>";
-  } else logDiv.classList.add("hidden");
+    </div>`).join("");
+    }
+  } else {
+    logDiv.classList.add("hidden");
+  }
 }
 
 async function save(){ await setDoc(docRef,state); }
