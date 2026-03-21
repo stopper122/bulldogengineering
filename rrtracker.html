@@ -183,7 +183,10 @@ function render() {
   if(showLog){
     logDiv.classList.remove("hidden");
     const logContent = document.getElementById("logContent");
-    logContent.innerHTML = state.logs.map(l=>`<div class="text-xs border-b py-1 flex justify-between">
+    if(state.logs.length === 0){
+      logContent.innerHTML = "<div class='text-xs text-slate-400'>No activity yet</div>";
+    } else {
+      logContent.innerHTML = state.logs.map(l=>`<div class="text-xs border-b py-1 flex justify-between">
       <span>${l.name}</span>
       <span>${formatTime(l.duration)}</span>
       <span class="${l.deducted?'text-red-600':'text-green-600'}">${l.deducted?'Pass Used':'OK'}</span>
@@ -253,7 +256,11 @@ window.exportData=()=>{
   a.click();
 };
 
-window.toggleLog=()=>{ showLog=!showLog; render(); };
+window.toggleLog=()=>{
+  showLog = !showLog;
+  console.log("Toggle log:", showLog);
+  render();
+};
 
 document.getElementById("csv").addEventListener("change", async(e)=>{
   const text=await e.target.files[0].text();
