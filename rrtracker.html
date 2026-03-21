@@ -131,9 +131,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { initializeFirestore, doc, setDoc, onSnapshot, getFirestore } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Firebase configuration remains consistent
         const firebaseConfig = {
             apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
             authDomain: "rrtracker-de70e.firebaseapp.com",
@@ -143,11 +142,9 @@
             appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v2';
 
         let state = { 
@@ -161,8 +158,8 @@
         let currentUser = null;
         let unsub = null;
         let isWriting = false;
-        let connTimeout = null;
         let isOfflineMode = false;
+        let connTimer = null;
 
         const updateStatus = (text, type = 'slate') => {
             const el = document.getElementById('cloud-status');
@@ -254,7 +251,6 @@
 
         const save = async () => {
             saveLocal();
-            // If offline, we just skip cloud save
             if (isOfflineMode || !currentUser) return;
             
             isWriting = true;
@@ -271,9 +267,9 @@
                     : doc(db, 'artifacts', APP_ID, 'users', currentUser.uid, 'settings', 'local_data');
                 
                 await setDoc(path, dataToSave, { merge: true });
-                updateStatus(state.syncCode ? `Shared: ${state.syncCode}` : 'Cloud Saved', 'green');
+                updateStatus(state.syncCode ? `Code: ${state.syncCode}` : 'Cloud Saved', 'green');
             } catch (e) {
-                console.warn("Cloud save failed, still saved locally:", e);
+                console.warn("Cloud save failed", e);
                 updateStatus('Offline Save', 'slate');
             } finally {
                 setTimeout(() => { isWriting = false; }, 800);
@@ -282,18 +278,18 @@
 
         const connect = async (code) => {
             if (unsub) unsub();
-            if (connTimeout) clearTimeout(connTimeout);
+            if (connTimer) clearTimeout(connTimer);
             
-            updateStatus('Handshaking...', 'indigo');
+            updateStatus('Connecting...', 'indigo');
             
-            // Set a generous timeout for the initial connection
-            connTimeout = setTimeout(() => {
-                if (!isOfflineMode && (!unsub || isOfflineMode)) {
+            // Auto-fallback to local mode if Firebase hangs
+            connTimer = setTimeout(() => {
+                if (!unsub || isOfflineMode) {
                     isOfflineMode = true;
                     updateStatus('Local Mode', 'slate');
                     loadLocal();
                 }
-            }, 6000);
+            }, 4000);
 
             try {
                 const path = code 
@@ -301,9 +297,8 @@
                     : doc(db, 'artifacts', APP_ID, 'users', currentUser.uid, 'settings', 'local_data');
 
                 unsub = onSnapshot(path, (snap) => {
-                    clearTimeout(connTimeout);
+                    clearTimeout(connTimer);
                     isOfflineMode = false;
-                    
                     if (snap.exists() && !isWriting) {
                         const data = snap.data();
                         state.students = data.students || [];
@@ -311,21 +306,19 @@
                         state.history = data.history || [];
                         render();
                     }
-                    updateStatus(code ? `Shared: ${code}` : 'Cloud Active', 'green');
+                    updateStatus(code ? `Sync: ${code}` : 'Cloud Active', 'green');
                 }, (err) => {
-                    console.error("Connection Error (Firestore):", err);
+                    console.warn("Firestore error, fallback to local:", err);
                     isOfflineMode = true;
-                    updateStatus('Offline Mode', 'slate');
+                    updateStatus('Local Mode', 'slate');
                     loadLocal();
                 });
             } catch (err) {
-                console.error("Connection Error (Setup):", err);
                 isOfflineMode = true;
-                updateStatus('Connect Error', 'red');
+                updateStatus('Offline', 'red');
             }
         };
 
-        // Window exposed functions
         window.setPeriod = (p) => { state.currentPeriod = p; render(); };
         window.adj = (id, d) => {
             const s = state.students.find(x => x.id === id);
@@ -348,7 +341,6 @@
             render(); save();
         };
 
-        // UI Event Handlers
         document.getElementById('set-sync-code').onclick = () => {
             const input = document.getElementById('sync-code-input');
             const code = input.value.trim().toUpperCase();
@@ -386,7 +378,6 @@
         };
         document.body.onclick = () => document.getElementById('data-menu').classList.remove('show');
 
-        // Data Tools
         document.getElementById('btn-export-json').onclick = () => {
             const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -404,8 +395,7 @@
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
-                const lines = ev.target.result.split('\n');
-                lines.forEach(line => {
+                ev.target.result.split('\n').forEach(line => {
                     const [name, per] = line.split(',').map(s => s?.trim());
                     if (name && name.toLowerCase() !== 'name') {
                         state.students.push({ id: Math.random().toString(36).substr(2, 9), name, period: per || '1', passesUsed: 0 });
@@ -425,15 +415,9 @@
                 try {
                     const imported = JSON.parse(ev.target.result);
                     if (imported.students) {
-                        state.students = [...state.students, ...imported.students];
-                        const seen = new Set();
-                        state.students = state.students.filter(el => {
-                            const duplicate = seen.has(el.name + el.period);
-                            seen.add(el.name + el.period);
-                            return !duplicate;
-                        });
-                        state.activePasses = imported.activePasses || state.activePasses;
-                        state.history = [...(state.history || []), ...(imported.history || [])];
+                        state.students = imported.students;
+                        state.activePasses = imported.activePasses || [];
+                        state.history = imported.history || [];
                         render(); save();
                     }
                 } catch (err) { console.error("Import failed", err); }
@@ -443,7 +427,7 @@
         };
 
         document.getElementById('btn-wipe').onclick = () => {
-            if (confirm("Are you sure? This deletes ALL data permanently.")) {
+            if (confirm("Wipe all data?")) {
                 state.students = [];
                 state.activePasses = [];
                 state.history = [];
@@ -451,31 +435,25 @@
             }
         };
 
-        // Resilient Init Flow
-        const startApp = async () => {
-            updateStatus('Authenticating...', 'indigo');
-            loadLocal(); // Show UI immediately
+        const init = async () => {
+            updateStatus('Starting...', 'indigo');
+            loadLocal();
 
-            // Listen for Auth changes
             onAuthStateChanged(auth, (u) => {
                 if (u) {
-                    console.log("Authenticated as:", u.uid);
                     currentUser = u;
-                    const lastCode = localStorage.getItem('last_sync_code');
-                    connect(lastCode || null);
+                    const code = localStorage.getItem('last_sync_code');
+                    connect(code);
                 } else {
-                    console.log("No user, attempting anonymous sign-in...");
-                    signInAnonymously(auth).catch((err) => {
-                        console.error("Auth failed:", err);
+                    signInAnonymously(auth).catch(() => {
                         isOfflineMode = true;
-                        updateStatus('Offline (Auth Error)', 'red');
+                        updateStatus('Local Mode', 'slate');
                     });
                 }
             });
         };
 
-        // Kickoff
-        window.addEventListener('load', startApp);
+        window.addEventListener('load', init);
     </script>
 </body>
 </html>
