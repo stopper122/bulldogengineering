@@ -131,7 +131,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { initializeFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { initializeFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
@@ -145,8 +145,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = initializeFirestore(app, {
-            experimentalForceLongPolling: true,
-            useFetchStreams: false
+            experimentalForceLongPolling: true
         });
         
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro';
@@ -178,7 +177,6 @@
             el.className = `px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-all ${styles[type] || styles.slate}`;
         };
 
-        // Local Storage Fallback
         const loadLocal = () => {
             const saved = localStorage.getItem('hpt_local_backup');
             if (saved) {
@@ -216,6 +214,7 @@
             if (!state.students || !state.students.length) {
                 list.innerHTML = '';
                 empty.classList.remove('hidden');
+                document.getElementById('period-bar').innerHTML = '';
                 return;
             }
             empty.classList.add('hidden');
@@ -260,8 +259,7 @@
                     students: state.students || [],
                     activePasses: state.activePasses || [],
                     history: state.history || [],
-                    lastUpdate: Date.now(),
-                    syncCode: state.syncCode || ''
+                    lastUpdate: Date.now()
                 };
 
                 const path = state.syncCode 
@@ -278,51 +276,68 @@
             }
         };
 
-        const connect = (code) => {
+        const connect = async (code) => {
             if (unsub) unsub();
             if (connTimeout) clearTimeout(connTimeout);
             
             updateStatus('Connecting...', 'indigo');
             isOfflineMode = false;
             
+            // Critical: Ensure auth is ready before attempting connection
             if (!user) {
-                signInAnonymously(auth);
-                return;
+                try {
+                    const credentials = await signInAnonymously(auth);
+                    user = credentials.user;
+                } catch (err) {
+                    console.error("Auth failed:", err);
+                    isOfflineMode = true;
+                    updateStatus('Offline Mode', 'red');
+                    loadLocal();
+                    return;
+                }
             }
 
             const path = code 
                 ? doc(db, 'artifacts', APP_ID, 'public', 'data', `sync_${code}`)
                 : doc(db, 'artifacts', APP_ID, 'users', user.uid, 'settings', 'local_data');
 
-            // Timeout to force local mode if stuck
+            // Set a strict 3-second timeout for the initial connection
             connTimeout = setTimeout(() => {
-                if (!isOfflineMode && document.getElementById('cloud-status').innerText === 'CONNECTING...') {
+                if (!isOfflineMode && document.getElementById('cloud-status').innerText.includes('CONNECTING')) {
+                    console.warn("Cloud connection timed out, switching to local mode.");
                     isOfflineMode = true;
                     updateStatus('Local Mode (Offline)', 'red');
                     loadLocal();
                 }
-            }, 4000);
+            }, 3000);
 
-            unsub = onSnapshot(path, (snap) => {
-                if (connTimeout) clearTimeout(connTimeout);
-                isOfflineMode = false;
-                if (snap.exists() && !isWriting) {
-                    const data = snap.data();
-                    state.students = data.students || [];
-                    state.activePasses = data.activePasses || [];
-                    state.history = data.history || [];
-                    render();
-                }
-                updateStatus(code ? `Shared: ${code}` : 'Cloud Active', 'green');
-            }, (err) => {
-                console.error("Sync error:", err);
+            try {
+                unsub = onSnapshot(path, (snap) => {
+                    if (connTimeout) clearTimeout(connTimeout);
+                    isOfflineMode = false;
+                    if (snap.exists() && !isWriting) {
+                        const data = snap.data();
+                        state.students = data.students || [];
+                        state.activePasses = data.activePasses || [];
+                        state.history = data.history || [];
+                        render();
+                    }
+                    updateStatus(code ? `Shared: ${code}` : 'Cloud Active', 'green');
+                }, (err) => {
+                    console.error("Sync stream error:", err);
+                    if (!isOfflineMode) {
+                        isOfflineMode = true;
+                        updateStatus('Sync Error', 'red');
+                        loadLocal();
+                    }
+                });
+            } catch (err) {
+                console.error("Setup error:", err);
                 isOfflineMode = true;
-                updateStatus('Offline Mode', 'red');
-                loadLocal();
-            });
+                updateStatus('Offline', 'red');
+            }
         };
 
-        // Window Bindings
         window.setPeriod = (p) => { state.currentPeriod = p; render(); };
         window.adj = (id, d) => {
             const s = state.students.find(x => x.id === id);
@@ -345,7 +360,6 @@
             render(); save();
         };
 
-        // UI Listeners
         document.getElementById('set-sync-code').onclick = () => {
             const input = document.getElementById('sync-code-input');
             const code = input.value.trim().toUpperCase();
@@ -355,7 +369,7 @@
             connect(code);
         };
 
-        document.getElementById('reset-connection').onclick = async () => {
+        document.getElementById('reset-connection').onclick = () => {
             localStorage.removeItem('last_sync_code');
             window.location.reload();
         };
@@ -383,7 +397,6 @@
         };
         document.body.onclick = () => document.getElementById('data-menu').classList.remove('show');
 
-        // Data Management Logic
         document.getElementById('btn-export-json').onclick = () => {
             const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -404,7 +417,7 @@
                 const lines = ev.target.result.split('\n');
                 lines.forEach(line => {
                     const [name, per] = line.split(',').map(s => s?.trim());
-                    if (name && name !== 'Name') {
+                    if (name && name.toLowerCase() !== 'name') {
                         state.students.push({ id: Math.random().toString(36).substr(2, 9), name, period: per || '1', passesUsed: 0 });
                     }
                 });
@@ -422,9 +435,16 @@
                 try {
                     const imported = JSON.parse(ev.target.result);
                     if (imported.students) {
-                        state.students = imported.students;
-                        state.activePasses = imported.activePasses || [];
-                        state.history = imported.history || [];
+                        state.students = [...state.students, ...imported.students];
+                        // Basic de-duplication by name/period
+                        const seen = new Set();
+                        state.students = state.students.filter(el => {
+                            const duplicate = seen.has(el.name + el.period);
+                            seen.add(el.name + el.period);
+                            return !duplicate;
+                        });
+                        state.activePasses = imported.activePasses || state.activePasses;
+                        state.history = [...(state.history || []), ...(imported.history || [])];
                         render(); save();
                     }
                 } catch (err) { console.error("Import failed", err); }
@@ -442,7 +462,6 @@
             }
         };
 
-        // Initial Auth Setup
         const init = () => {
             updateStatus('Starting...', 'indigo');
             loadLocal(); 
@@ -467,9 +486,7 @@
             });
         };
 
-        if (document.readyState === 'complete') init();
-        else window.addEventListener('load', init);
-
+        init();
     </script>
 </body>
 </html>
