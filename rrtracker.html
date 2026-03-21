@@ -134,7 +134,6 @@
         let syncUnsubscribe = null;
         let authInitialized = false;
 
-        // Use environment provided variables
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v1';
         const STORAGE_KEY = `hallpass_local_cache_${appId}`;
         const CODE_KEY = `hallpass_sync_code_${appId}`;
@@ -237,7 +236,7 @@
                 updateStatus(state.syncCode ? `Linked: ${state.syncCode}` : 'Cloud Synced', 'emerald');
             } catch (e) {
                 console.error("Save failed:", e);
-                updateStatus('Cloud Saved (Local Cache)', 'amber');
+                updateStatus('Cloud Limited (Saved Locally)', 'amber');
             } finally {
                 isSaving = false;
             }
@@ -279,7 +278,6 @@
                     render();
                 }
                 updateStatus(state.syncCode ? `Linked: ${state.syncCode}` : 'Cloud Synced', 'emerald');
-                document.getElementById('force-local').style.display = 'none';
                 document.getElementById('retry-conn').classList.add('hidden');
             }, (err) => {
                 console.error("Firestore error:", err);
@@ -288,12 +286,16 @@
         };
 
         const startFirebase = async () => {
-            if (typeof __firebase_config === 'undefined') {
-                throw new Error("Config not found yet");
-            }
+            // Wait for configuration with high frequency polling
+            const getConfig = () => {
+                if (typeof __firebase_config !== 'undefined') return JSON.parse(__firebase_config);
+                return null;
+            };
+
+            const config = getConfig();
+            if (!config) throw new Error("Waiting for config");
             
             updateStatus('Connecting...', 'amber');
-            const config = JSON.parse(__firebase_config);
             const app = initializeApp(config);
             auth = getAuth(app);
             db = getFirestore(app);
@@ -306,7 +308,7 @@
                 }
             });
 
-            // Priority: Custom Token -> Anonymous
+            // Priority: Custom Token -> Anonymous fallback
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
@@ -314,13 +316,13 @@
                     await signInAnonymously(auth);
                 }
             } catch (err) {
-                console.error("Auth failed:", err);
-                throw err;
+                console.warn("Auth token failed, trying anonymous...", err);
+                await signInAnonymously(auth);
             }
         };
 
         const init = async () => {
-            // Priority 1: Instant render from cache
+            // 1. Initial Local Render
             const cachedCode = localStorage.getItem(CODE_KEY);
             if (cachedCode) {
                 state.syncCode = cachedCode;
@@ -337,14 +339,14 @@
             }
             render();
 
-            // Priority 2: Establish cloud connection
+            // 2. Cloud Connection with increased retry persistence
             let attempts = 0;
             const tryInit = async () => {
                 try {
                     await startFirebase();
                 } catch (e) {
                     attempts++;
-                    if (attempts < 10) { // More persistent polling
+                    if (attempts < 20) { // Polling up to 10 seconds
                         setTimeout(tryInit, 500);
                     } else {
                         updateStatus('Local Mode', 'amber');
@@ -403,11 +405,6 @@
                 syncToCloud();
             };
 
-            document.getElementById('force-local').onclick = () => {
-                updateStatus('Local Mode', 'amber');
-                document.getElementById('force-local').style.display = 'none';
-            };
-            
             document.getElementById('retry-conn').onclick = () => {
                 updateStatus('Retrying...', 'amber');
                 init();
