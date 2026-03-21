@@ -18,6 +18,7 @@
             50% { background-color: #c7d2fe; color: #4338ca; }
         }
         .status-syncing { animation: pulse-indigo 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        #debug-console { display: none; font-family: monospace; font-size: 10px; line-height: 1.2; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-900 font-sans pb-20">
@@ -29,7 +30,18 @@
                 <div class="flex items-center gap-3">
                     <h1 class="text-3xl font-black tracking-tight text-slate-900">Hall Pass <span class="text-indigo-600">Pro</span></h1>
                     <div id="cloud-status" class="px-2 py-1 bg-slate-200 text-slate-500 rounded text-[10px] font-bold uppercase tracking-widest transition-all text-nowrap">Initializing...</div>
+                    <button id="show-debug" class="text-[9px] text-slate-400 hover:text-indigo-600 font-bold uppercase underline">Debug</button>
                 </div>
+                
+                <!-- Debug Console Overlay -->
+                <div id="debug-console" class="mt-2 p-3 bg-slate-900 text-emerald-400 rounded-lg max-h-32 overflow-y-auto border border-slate-700 shadow-inner">
+                    <div class="flex justify-between border-b border-slate-700 pb-1 mb-1">
+                        <span class="text-slate-500 uppercase font-bold">Network Diagnostics</span>
+                        <button onclick="document.getElementById('debug-console').style.display='none'" class="text-red-400">Close</button>
+                    </div>
+                    <div id="debug-logs"></div>
+                </div>
+
                 <div class="flex items-center gap-2 mt-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm w-fit">
                     <p class="text-slate-500 text-[10px] font-bold uppercase tracking-wider ml-1">Sync Code:</p>
                     <input type="text" id="sync-code-input" placeholder="e.g. ROOM101" class="bg-slate-50 border border-slate-100 rounded px-2 py-1 text-xs font-bold text-indigo-600 w-28 focus:ring-1 focus:ring-indigo-500 outline-none uppercase">
@@ -145,12 +157,14 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         
-        // CRITICAL FIX: Force Long Polling to prevent Connection Errors in Iframe sandboxes
+        // CRITICAL FIX: Ensure Long Polling is forced AND timeout settings are adjusted
         const db = initializeFirestore(app, {
-            experimentalForceLongPolling: true
+            experimentalForceLongPolling: true,
+            useFetchStreams: false // Extra precaution for some iframe browsers
         });
 
-        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'hall-pass-pro-v2';
+        // Use a consistent ID to avoid path conflicts
+        const APP_ID = "rr-tracker-v1";
 
         let state = { 
             students: [], 
@@ -164,6 +178,13 @@
         let unsub = null;
         let isWriting = false;
         let isOfflineMode = false;
+
+        const debugLog = (msg) => {
+            const logs = document.getElementById('debug-logs');
+            const time = new Date().toLocaleTimeString();
+            logs.innerHTML += `<div><span class="text-slate-500">[${time}]</span> ${msg}</div>`;
+            logs.parentElement.scrollTop = logs.parentElement.scrollHeight;
+        };
 
         const updateStatus = (text, type = 'slate') => {
             const el = document.getElementById('cloud-status');
@@ -186,6 +207,7 @@
                     state.students = data.students || [];
                     state.activePasses = data.activePasses || [];
                     state.history = data.history || [];
+                    debugLog("Loaded fallback data from LocalStorage.");
                 } catch(e) { console.error("Local load failed", e); }
             }
             render();
@@ -255,7 +277,10 @@
 
         const save = async () => {
             saveLocal();
-            if (isOfflineMode || !currentUser) return;
+            if (isOfflineMode || !currentUser) {
+                debugLog("Sync skipped: User offline or not authenticated.");
+                return;
+            }
             
             isWriting = true;
             try {
@@ -270,10 +295,12 @@
                     ? doc(db, 'artifacts', APP_ID, 'public', 'data', `sync_${state.syncCode}`)
                     : doc(db, 'artifacts', APP_ID, 'users', currentUser.uid, 'settings', 'local_data');
                 
+                debugLog(`Attempting cloud write to ${state.syncCode ? 'Public' : 'Private'} storage...`);
                 await setDoc(path, dataToSave, { merge: true });
                 updateStatus(state.syncCode ? `Code: ${state.syncCode}` : 'Cloud Saved', 'green');
+                debugLog("Cloud Write Successful.");
             } catch (e) {
-                console.warn("Cloud save failed", e);
+                debugLog(`Cloud Save Error: ${e.message}`);
                 updateStatus('Offline Save', 'slate');
             } finally {
                 setTimeout(() => { isWriting = false; }, 800);
@@ -283,6 +310,7 @@
         const connect = async (code) => {
             if (unsub) unsub();
             updateStatus('Connecting...', 'indigo');
+            debugLog(`Initializing listener: ${code ? 'Sync Code '+code : 'Private Cloud'}`);
 
             try {
                 const path = code 
@@ -291,22 +319,24 @@
 
                 unsub = onSnapshot(path, (snap) => {
                     isOfflineMode = false;
+                    debugLog("Cloud heartbeat received.");
                     if (snap.exists() && !isWriting) {
                         const data = snap.data();
                         state.students = data.students || [];
                         state.activePasses = data.activePasses || [];
                         state.history = data.history || [];
                         render();
+                        debugLog("UI Synced with cloud data.");
                     }
                     updateStatus(code ? `Sync: ${code}` : 'Cloud Active', 'green');
                 }, (err) => {
-                    console.error("Firestore snapshot error:", err);
+                    debugLog(`Connection Failed: ${err.code} - ${err.message}`);
                     isOfflineMode = true;
                     updateStatus('Offline Mode', 'red');
                     loadLocal();
                 });
             } catch (err) {
-                console.error("Connection attempt failed:", err);
+                debugLog(`Listener Setup Error: ${err.message}`);
                 isOfflineMode = true;
                 updateStatus('Offline', 'red');
             }
@@ -334,16 +364,23 @@
             render(); save();
         };
 
+        document.getElementById('show-debug').onclick = () => {
+            const el = document.getElementById('debug-console');
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        };
+
         document.getElementById('set-sync-code').onclick = () => {
             const input = document.getElementById('sync-code-input');
             const code = input.value.trim().toUpperCase();
             if (!code) return;
             state.syncCode = code;
             localStorage.setItem('last_sync_code', code);
+            debugLog(`Sync Code switched to: ${code}`);
             if (currentUser) connect(code);
         };
 
         document.getElementById('reset-connection').onclick = () => {
+            debugLog("Forcing Application Reset...");
             localStorage.removeItem('last_sync_code');
             window.location.reload();
         };
@@ -429,17 +466,20 @@
         };
 
         const init = async () => {
+            debugLog("Booting App...");
             updateStatus('Starting...', 'indigo');
             loadLocal();
 
             onAuthStateChanged(auth, (u) => {
                 if (u) {
+                    debugLog(`Auth Successful. UID: ${u.uid}`);
                     currentUser = u;
                     const code = localStorage.getItem('last_sync_code');
                     connect(code);
                 } else {
+                    debugLog("No Auth found. Attempting Anonymous Sign-in...");
                     signInAnonymously(auth).catch((err) => {
-                        console.error("Auth failed:", err);
+                        debugLog(`Auth Error: ${err.message}`);
                         isOfflineMode = true;
                         updateStatus('Local Mode', 'slate');
                     });
