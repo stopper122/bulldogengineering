@@ -169,7 +169,18 @@ async function save(){ await setDoc(docRef,state); }
 
 function startSync(){
   onSnapshot(docRef,(snap)=>{
-    if(snap.exists()){ state=snap.data(); render(); }
+    if(snap.exists()){
+      state=snap.data();
+      render();
+    }
+    status.textContent="Connected";
+    status.className="text-green-600 text-xs font-bold";
+  },(err)=>{
+    console.error(err);
+    status.textContent="Check Firestore Rules";
+    status.className="text-red-600 text-xs font-bold";
+  });
+}
     status.textContent="Connected";
     status.className="text-green-600 text-xs font-bold";
   });
