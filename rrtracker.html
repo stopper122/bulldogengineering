@@ -174,6 +174,9 @@ function startSync(){
   onSnapshot(docRef,(snap)=>{
     if(snap.exists()){
       state = snap.data();
+      // ensure settings exists (fix older saved data)
+      if(!state.settings){ state.settings = { limitSec: 420 }; }
+      if(!state.settings.limitSec){ state.settings.limitSec = 420; }
       render();
     }
     status.textContent = "Connected";
