@@ -404,11 +404,15 @@ async function init(){
 
 // GLOBAL CLICK HANDLER (fixes broken buttons)
 document.addEventListener('click', (e)=>{
-  const btn = e.target.closest('button');
+  const btn = e.target.closest('[data-action]');
   if(!btn) return;
 
   const id = btn.dataset.id;
   const action = btn.dataset.action;
+
+  if(!action) return;
+
+  e.preventDefault();
 
   if(action === 'toggle') window.togglePass(id);
   if(action === 'add') window.adjustPass(id,1);
