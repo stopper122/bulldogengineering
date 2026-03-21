@@ -130,6 +130,13 @@ function formatTime(sec){
   return `${m}:${s}`;
 }
 
+// Ensure global handlers exist before render
+window.togglePass = window.togglePass || function(){};
+window.adjustPass = window.adjustPass || function(){};
+window.editStudent = window.editStudent || function(){};
+window.deleteStudent = window.deleteStudent || function(){};
+window.setPeriod = window.setPeriod || function(){};
+
 function render(){
 
   const logDiv = document.getElementById("log");
