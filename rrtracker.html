@@ -309,6 +309,11 @@
 
             try {
                 updateStatus('Connecting...', 'amber');
+                
+                if (typeof __firebase_config === 'undefined') {
+                    throw new Error('Config Missing');
+                }
+
                 const config = JSON.parse(__firebase_config);
                 const app = initializeApp(config);
                 auth = getAuth(app);
@@ -333,7 +338,9 @@
 
             } catch (e) {
                 console.error("Firebase startup error:", e);
-                updateStatus('Error: ' + e.code, 'red');
+                // Fix for "undefined" error: Ensure we have a string to display
+                const errorMsg = e.code || e.message || 'Connection Error';
+                updateStatus('Error: ' + errorMsg, 'red');
             }
         };
 
