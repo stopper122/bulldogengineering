@@ -26,7 +26,12 @@
       <button onclick="toggleLog()" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs">Toggle Log</button>
     </div>
 
-    <div id="app" class="grid gap-3"></div>
+    <!-- ACTIVE PASSES -->
+    <div id="activeSection" class="mb-6"></div>
+
+    <!-- STUDENTS BY PERIOD -->
+    <div id="app" class="grid gap-6"></div>
+
     <div id="log" class="hidden bg-white p-4 rounded-xl shadow mt-6"></div>
 
   </div>
@@ -45,7 +50,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// 🔥 Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
   authDomain: "rrtracker-de70e.firebaseapp.com",
@@ -54,8 +58,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
-// 🔑 Shared document (this is what enables multi-device sync)
 const docRef = doc(db, "hallpass", "shared");
 
 let state = { students: [], activePasses: [], logs: [] };
@@ -64,9 +66,9 @@ let showLog = false;
 const appDiv = document.getElementById("app");
 const logDiv = document.getElementById("log");
 const watchDiv = document.getElementById("watch");
+const activeDiv = document.getElementById("activeSection");
 const status = document.getElementById("status");
 
-// ⏱ helper
 function formatTime(sec){
   const m=Math.floor(sec/60);
   const s=(sec%60).toString().padStart(2,'0');
@@ -74,22 +76,55 @@ function formatTime(sec){
 }
 
 function render() {
-  appDiv.innerHTML = state.students.map(s => {
-    const active = state.activePasses.find(p => p.id === s.id);
-    const duration = active ? Math.floor((Date.now()-active.start)/1000) : 0;
 
+  // ACTIVE PASSES TOP
+  if(state.activePasses.length > 0){
+    activeDiv.innerHTML = `
+      <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+        <div class="text-xs font-bold uppercase text-red-500 mb-2">Active Passes</div>
+        ${state.activePasses.map(p=>{
+          const student = state.students.find(s=>s.id===p.id);
+          const duration = Math.floor((Date.now()-p.start)/1000);
+          return `<div class="text-sm font-mono ${duration>420?'text-red-600':''}">${student?.name} - ${formatTime(duration)}</div>`;
+        }).join("")}
+      </div>`;
+  } else activeDiv.innerHTML = "";
+
+  // GROUP BY PERIOD
+  const grouped = {};
+  state.students.forEach(s=>{
+    if(!grouped[s.period]) grouped[s.period]=[];
+    grouped[s.period].push(s);
+  });
+
+  appDiv.innerHTML = Object.keys(grouped).sort().map(period=>{
     return `
-      <div class="bg-white border rounded-xl p-4 flex justify-between items-center ${active?'bg-indigo-50 border-indigo-400':''}">
-        <div>
-          <div class="font-bold">${s.name}</div>
-          <div class="text-xs text-slate-400">P${s.period}</div>
-        </div>
-        <div class="flex items-center gap-4">
-          ${active ? `<div class="font-mono text-sm ${duration>420?'text-red-600':''}">${formatTime(duration)}</div>` : ''}
-          <div class="font-bold ${s.passesUsed>=7?'text-red-600':''}">${s.passesUsed||0}/7</div>
-          <button onclick="togglePass('${s.id}')" class="px-3 py-1 rounded text-xs ${active?'bg-slate-800 text-white':'bg-indigo-600 text-white'}">
-            ${active?'Return':'Start'}
-          </button>
+      <div>
+        <div class="font-bold text-lg mb-2">Period ${period}</div>
+        <div class="grid gap-3">
+          ${grouped[period].map(s=>{
+            const active = state.activePasses.find(p=>p.id===s.id);
+            const duration = active ? Math.floor((Date.now()-active.start)/1000) : 0;
+            const remaining = 7 - (s.passesUsed||0);
+
+            return `
+              <div class="bg-white border rounded-xl p-4 flex justify-between items-center ${active?'bg-indigo-50 border-indigo-400':''}">
+                <div>
+                  <div class="font-bold">${s.name}</div>
+                  <div class="text-xs text-slate-400">ID: ${s.id || 'N/A'}</div>
+                </div>
+                <div class="flex items-center gap-4">
+                  ${active ? `<div class="font-mono text-sm ${duration>420?'text-red-600':''}">${formatTime(duration)}</div>` : ''}
+                  <div class="text-xs">
+                    <div class="font-bold">Used: ${s.passesUsed||0}</div>
+                    <div class="text-slate-400">Left: ${remaining}</div>
+                  </div>
+                  <button onclick="togglePass('${s.id}')" class="px-3 py-1 rounded text-xs ${active?'bg-slate-800 text-white':'bg-indigo-600 text-white'}">
+                    ${active?'Return':'Start'}
+                  </button>
+                </div>
+              </div>`;
+          }).join("")}
         </div>
       </div>`;
   }).join("");
@@ -107,15 +142,11 @@ function render() {
 
 async function save(){ await setDoc(docRef,state); }
 
-// 🔄 Real-time sync across devices
 function startSync(){
   onSnapshot(docRef,(snap)=>{
     if(snap.exists()){ state=snap.data(); render(); }
     status.textContent="Connected (Live Sync)";
     status.className="text-green-600 text-xs font-bold";
-  },()=>{
-    status.textContent="Connection Error";
-    status.className="text-red-600 text-xs font-bold";
   });
 }
 
@@ -149,7 +180,7 @@ window.exportData=()=>{
 
 window.toggleLog=()=>{ showLog=!showLog; render(); };
 
-// CSV upload (period, first, last, id)
+// CSV
 
 document.getElementById("csv").addEventListener("change", async(e)=>{
   const text=await e.target.files[0].text();
@@ -157,12 +188,7 @@ document.getElementById("csv").addEventListener("change", async(e)=>{
   for(let i=1;i<lines.length;i++){
     const [period,first,last,id]=lines[i].split(",").map(v=>v?.trim());
     if(!first) continue;
-    state.students.push({
-      id:id||Math.random().toString(36).slice(2),
-      name:first+" "+last,
-      period,
-      passesUsed:0
-    });
+    state.students.push({id:id||Math.random().toString(36).slice(2),name:first+" "+last,period,passesUsed:0});
   }
   save(); render();
 });
@@ -174,8 +200,6 @@ document.getElementById("importJson").addEventListener("change", async(e)=>{
   state=data; save(); render();
 });
 
-// Init
-
 async function init(){
   const snap=await getDoc(docRef);
   if(!snap.exists()) await setDoc(docRef,state);
@@ -184,7 +208,6 @@ async function init(){
 
 init();
 
-// live timer refresh
 setInterval(()=>{
   if(state.activePasses.length>0) render();
 },1000);
