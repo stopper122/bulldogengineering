@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hall Pass Tracker</title>
+<title>Hall Pass Tracker - Classroom Ready</title>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-50 min-h-screen p-6 font-sans">
 
-<div class="max-w-6xl mx-auto grid grid-cols-4 gap-6">
+<div class="max-w-7xl mx-auto grid grid-cols-4 gap-6">
 
   <!-- MAIN -->
   <div class="col-span-3">
@@ -18,25 +18,44 @@
       <span id="status" class="text-xs font-bold uppercase text-amber-600">Connecting...</span>
     </div>
 
+    <!-- ALERT BANNER -->
+    <div id="alertBanner" class="hidden mb-4 p-3 rounded-xl font-bold"></div>
+
+    <!-- STATS -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div class="bg-white p-4 rounded-xl shadow">
+        <div class="text-xs text-slate-400">Active</div>
+        <div id="statActive" class="text-xl font-bold">0</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow">
+        <div class="text-xs text-slate-400">Total Trips</div>
+        <div id="statTrips" class="text-xl font-bold">0</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow">
+        <div class="text-xs text-slate-400">Avg Time</div>
+        <div id="statAvg" class="text-xl font-bold">0:00</div>
+      </div>
+    </div>
+
     <!-- CONTROLS -->
     <div class="bg-white p-4 rounded-xl shadow mb-6 flex flex-wrap gap-3 items-center">
       <input type="file" id="csv">
       <button onclick="exportData()" class="px-3 py-1 bg-slate-800 text-white rounded text-xs">Export</button>
       <input type="file" id="importJson" class="hidden">
       <button onclick="document.getElementById('importJson').click()" class="px-3 py-1 bg-slate-200 rounded text-xs">Restore</button>
-      <button onclick="toggleLog()" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs">View Master Log</button>
+      <button onclick="resetPasses()" class="px-3 py-1 bg-red-500 text-white rounded text-xs">Reset Passes</button>
 
-      <!-- SETTINGS -->
       <div class="flex items-center gap-2 ml-auto">
-        <span class="text-xs">Time (min):</span>
-        <input id="limitInput" type="number" min="1" class="w-16 px-2 py-1 border rounded text-xs">
-
+        <span class="text-xs">Time:</span>
+        <input id="limitInput" type="number" class="w-14 px-2 py-1 border rounded text-xs">
         <span class="text-xs">Passes:</span>
-        <input id="maxPassInput" type="number" min="1" class="w-16 px-2 py-1 border rounded text-xs">
-
+        <input id="maxPassInput" type="number" class="w-14 px-2 py-1 border rounded text-xs">
         <button onclick="updateSettings()" class="px-2 py-1 bg-slate-700 text-white rounded text-xs">Set</button>
       </div>
     </div>
+
+    <!-- SEARCH -->
+    <input id="search" placeholder="Search student..." class="w-full mb-4 px-3 py-2 border rounded" oninput="render()">
 
     <!-- PERIOD TABS -->
     <div id="periodTabs" class="flex gap-2 mb-4"></div>
@@ -47,22 +66,21 @@
     <!-- STUDENTS -->
     <div id="app" class="grid gap-3"></div>
 
-    <div id="log" class="hidden bg-white p-4 rounded-xl shadow mt-6">
-  <div class="flex justify-between items-center mb-2">
-    <div class="font-bold">Master Log</div>
-    <button onclick="toggleLog()" class="text-xs text-red-500">Close</button>
-  </div>
-  <div id="logContent"></div>
-</div>
-
   </div>
 
   <!-- SIDEBAR -->
-  <div>
+  <div class="space-y-6">
+
+    <div class="bg-white p-4 rounded-xl shadow">
+      <h3 class="text-xs font-bold uppercase text-slate-400 mb-3">Top Users</h3>
+      <div id="topUsers"></div>
+    </div>
+
     <div class="bg-white p-4 rounded-xl shadow">
       <h3 class="text-xs font-bold uppercase text-slate-400 mb-3">Watchlist (3+)</h3>
       <div id="watch"></div>
     </div>
+
   </div>
 
 </div>
@@ -74,10 +92,7 @@ import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstat
 const firebaseConfig = {
   apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
   authDomain: "rrtracker-de70e.firebaseapp.com",
-  projectId: "rrtracker-de70e",
-  storageBucket: "rrtracker-de70e.firebasestorage.app",
-  messagingSenderId: "1057987490614",
-  appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997"
+  projectId: "rrtracker-de70e"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -92,14 +107,10 @@ let state = {
   currentPeriod: null
 };
 
-let showLog = false;
-
 const appDiv = document.getElementById("app");
-const logDiv = document.getElementById("log");
-const watchDiv = document.getElementById("watch");
-const activeDiv = document.getElementById("activeSection");
 const status = document.getElementById("status");
 const tabsDiv = document.getElementById("periodTabs");
+const alertBanner = document.getElementById("alertBanner");
 
 function formatTime(sec){
   const m=Math.floor(sec/60);
@@ -107,93 +118,69 @@ function formatTime(sec){
   return `${m}:${s}`;
 }
 
-function render() {
+function render(){
+
+  document.getElementById("statActive").innerText = state.activePasses.length;
+  document.getElementById("statTrips").innerText = state.logs.length;
+
+  const avg = state.logs.length ? Math.floor(state.logs.reduce((a,b)=>a+b.duration,0)/state.logs.length) : 0;
+  document.getElementById("statAvg").innerText = formatTime(avg);
 
   const periods = [...new Set(state.students.map(s=>s.period))].sort();
   if(!state.currentPeriod && periods.length) state.currentPeriod = periods[0];
 
-  tabsDiv.innerHTML = periods.map(p=>`
-    <button onclick="setPeriod('${p}')" class="px-3 py-1 rounded text-xs ${state.currentPeriod===p?'bg-indigo-600 text-white':'bg-slate-200'}">
-      P${p}
-    </button>`).join("");
+  tabsDiv.innerHTML = periods.map(p=>`<button onclick="setPeriod('${p}')" class="px-2 py-1 text-xs ${state.currentPeriod===p?'bg-indigo-600 text-white':'bg-slate-200'}">P${p}</button>`).join("");
 
-  // ACTIVE
-  if(state.activePasses.length > 0){
-    activeDiv.innerHTML = `
-      <div class="bg-red-50 border border-red-200 rounded-xl p-4">
-        <div class="text-xs font-bold uppercase text-red-500 mb-2">Active Passes</div>
-        ${state.activePasses.map(p=>{
-          const student = state.students.find(s=>s.id===p.id);
-          const duration = Math.floor((Date.now()-p.start)/1000);
+  const search = document.getElementById("search")?.value?.toLowerCase() || "";
 
-          const warn = state.settings.limitSec - 60;
+  const filtered = state.students
+    .filter(s=>s.period===state.currentPeriod)
+    .filter(s=>s.name.toLowerCase().includes(search));
 
-          let color = "";
-          if(duration >= state.settings.limitSec) color = "text-red-600 font-bold";
-          else if(duration >= warn) color = "text-yellow-600 font-bold";
+  // sort active first
+  filtered.sort((a,b)=>{
+    const aActive = state.activePasses.find(p=>p.id===a.id);
+    const bActive = state.activePasses.find(p=>p.id===b.id);
+    return (bActive?1:0)-(aActive?1:0);
+  });
 
-          return `<div class="text-sm font-mono ${color}">${student?.name} - ${formatTime(duration)}</div>`;
-        }).join("")}
-      </div>`;
-  } else activeDiv.innerHTML = "";
-
-  const filtered = state.students.filter(s=>s.period===state.currentPeriod);
+  let alertText = "";
 
   appDiv.innerHTML = filtered.map(s=>{
     const active = state.activePasses.find(p=>p.id===s.id);
     const duration = active ? Math.floor((Date.now()-active.start)/1000) : 0;
-    const remaining = state.settings.maxPasses - (s.passesUsed||0);
 
     const warn = state.settings.limitSec - 60;
 
-    let timerColor = "";
-    if(duration >= state.settings.limitSec) timerColor = "text-red-600";
-    else if(duration >= warn) timerColor = "text-yellow-600";
+    let alertClass = "";
 
-    return `
-      <div class="bg-white border rounded-xl p-4 flex justify-between items-center ${active?'bg-indigo-50 border-indigo-400':''}">
-        <div>
-          <div class="font-bold">${s.name}</div>
-          <div class="text-xs text-slate-400">ID: ${s.id}</div>
+    if(duration >= state.settings.limitSec){
+      alertClass = "bg-red-100 border-red-400";
+      alertText = "⚠️ A student has exceeded time limit";
+    }
+    else if(duration >= warn){
+      alertClass = "bg-yellow-100 border-yellow-400";
+      alertText = "⚠️ 1 minute remaining";
+    }
+
+    return `<div class="border p-3 rounded-xl ${alertClass}">
+      <div class="flex justify-between">
+        <div>${s.name}</div>
+        <div class="flex gap-3 items-center">
+          ${active ? `<span>${formatTime(duration)}</span>` : ''}
+          <span>${s.passesUsed||0}/${state.settings.maxPasses}</span>
+          <button onclick="togglePass('${s.id}')" class="text-xs bg-indigo-600 text-white px-2 rounded">${active?'Return':'Start'}</button>
         </div>
-
-        <div class="flex items-center gap-4">
-          ${active ? `<div class="font-mono text-sm ${timerColor}">${formatTime(duration)}</div>` : ''}
-
-          <div class="text-xs">
-            <div class="font-bold">Used: ${s.passesUsed||0}</div>
-            <div class="text-slate-400">Left: ${remaining}</div>
-          </div>
-
-          <div class="flex flex-col gap-1">
-            <button onclick="adjustPass('${s.id}',1)" class="text-xs bg-slate-200 px-2 rounded">+</button>
-            <button onclick="adjustPass('${s.id}',-1)" class="text-xs bg-slate-200 px-2 rounded">-</button>
-          </div>
-
-          <button onclick="togglePass('${s.id}')" class="px-3 py-1 rounded text-xs ${active?'bg-slate-800 text-white':'bg-indigo-600 text-white'}">
-            ${active?'Return':'Start'}
-          </button>
-        </div>
-      </div>`;
+      </div>
+    </div>`;
   }).join("");
 
-  const flagged = state.students.filter(s => (s.passesUsed||0)>=3);
-  watchDiv.innerHTML = flagged.map(s=>`<div class="text-xs mb-1">${s.name} (${s.passesUsed})</div>`).join("") || "<div class='text-xs text-slate-400'>None</div>";
-
-  if(showLog){
-    logDiv.classList.remove("hidden");
-    const logContent = document.getElementById("logContent");
-    if(state.logs.length === 0){
-      logContent.innerHTML = "<div class='text-xs text-slate-400'>No activity yet</div>";
-    } else {
-      logContent.innerHTML = state.logs.map(l=>`<div class="text-xs border-b py-1 flex justify-between">
-      <span>${l.name}</span>
-      <span>${formatTime(l.duration)}</span>
-      <span class="${l.deducted?'text-red-600':'text-green-600'}">${l.deducted?'Pass Used':'OK'}</span>
-    </div>`).join("");
-    }
+  if(alertText){
+    alertBanner.classList.remove("hidden");
+    alertBanner.className = "mb-4 p-3 rounded-xl bg-yellow-200 text-yellow-800 font-bold";
+    alertBanner.innerText = alertText;
   } else {
-    logDiv.classList.add("hidden");
+    alertBanner.classList.add("hidden");
   }
 }
 
@@ -203,33 +190,12 @@ function startSync(){
   onSnapshot(docRef,(snap)=>{
     if(snap.exists()){
       state = snap.data();
-      if(!state.settings){ state.settings = { limitSec: 420, maxPasses: 5 }; }
-      if(!state.settings.maxPasses){ state.settings.maxPasses = 5; }
+      if(!state.settings) state.settings = { limitSec:420,maxPasses:5 };
       render();
     }
-    status.textContent="Connected";
-    status.className="text-green-600 text-xs font-bold";
+    status.innerText="Connected";
   });
 }
-
-window.setPeriod=(p)=>{ state.currentPeriod=p; render(); };
-
-window.adjustPass=(id,delta)=>{
-  const s = state.students.find(x=>x.id===id);
-  if(!s) return;
-  s.passesUsed = Math.max(0,(s.passesUsed||0)+delta);
-  save(); render();
-};
-
-window.updateSettings=()=>{
-  const time = parseInt(document.getElementById("limitInput").value);
-  const passes = parseInt(document.getElementById("maxPassInput").value);
-
-  if(time>0) state.settings.limitSec = time*60;
-  if(passes>0) state.settings.maxPasses = passes;
-
-  save(); render();
-};
 
 window.togglePass=(id)=>{
   const active = state.activePasses.find(p=>p.id===id);
@@ -237,13 +203,9 @@ window.togglePass=(id)=>{
 
   if(active){
     const duration = Math.floor((Date.now()-active.start)/1000);
-    const deduct = duration>state.settings.limitSec;
-
-    if(deduct) student.passesUsed=(student.passesUsed||0)+1;
-
-    state.logs.unshift({name:student.name,duration,deducted:deduct});
+    if(duration>state.settings.limitSec) student.passesUsed=(student.passesUsed||0)+1;
+    state.logs.unshift({name:student.name,duration});
     state.activePasses = state.activePasses.filter(p=>p.id!==id);
-
   } else {
     state.activePasses.push({id,start:Date.now()});
   }
@@ -251,34 +213,38 @@ window.togglePass=(id)=>{
   save(); render();
 };
 
+window.setPeriod=(p)=>{ state.currentPeriod=p; render(); };
+
+window.resetPasses=()=>{
+  state.students.forEach(s=>s.passesUsed=0);
+  save(); render();
+};
+
 window.exportData=()=>{
-  const blob=new Blob([JSON.stringify(state)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify(state)]);
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='backup.json';
   a.click();
 };
 
-window.toggleLog=()=>{
-  showLog = !showLog;
-  console.log("Toggle log:", showLog);
-  render();
+window.updateSettings=()=>{
+  const t=parseInt(document.getElementById("limitInput").value);
+  const p=parseInt(document.getElementById("maxPassInput").value);
+  if(t) state.settings.limitSec=t*60;
+  if(p) state.settings.maxPasses=p;
+  save(); render();
 };
 
 document.getElementById("csv").addEventListener("change", async(e)=>{
   const text=await e.target.files[0].text();
-  const lines=text.split("\n");
-  for(let i=1;i<lines.length;i++){
-    const [period,first,last,id]=lines[i].split(",").map(v=>v?.trim());
-    if(!first) continue;
-    state.students.push({id:id||Math.random().toString(36).slice(2),name:first+" "+last,period,passesUsed:0});
-  }
+  text.split("\n").slice(1).forEach(line=>{
+    const [period,first,last,id]=line.split(",");
+    if(first && !state.students.find(s=>s.id===id)){
+      state.students.push({id:id||Math.random(),name:first+" "+last,period,passesUsed:0});
+    }
+  });
   save(); render();
-});
-
-document.getElementById("importJson").addEventListener("change", async(e)=>{
-  const data=JSON.parse(await e.target.files[0].text());
-  state=data; save(); render();
 });
 
 async function init(){
@@ -288,10 +254,7 @@ async function init(){
 }
 
 init();
-
-setInterval(()=>{
-  if(state.activePasses.length>0) render();
-},1000);
+setInterval(()=>{ if(state.activePasses.length) render(); },1000);
 
 </script>
 
