@@ -41,10 +41,15 @@
 
                 <div class="mt-auto pt-6 border-t border-slate-100 space-y-2">
                     <button id="import-csv-btn" class="w-full flex items-center justify-between py-3 px-4 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-600 transition-colors">
-                        <span>Import Roster</span>
-                        <i class="fa-solid fa-file-import opacity-50"></i>
+                        <span>Import CSV Roster</span>
+                        <i class="fa-solid fa-file-csv opacity-50"></i>
                     </button>
-                    <button id="backup-btn" class="w-full flex items-center justify-between py-3 px-4 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-600 transition-colors">
+                    <button id="restore-json-btn" class="w-full flex items-center justify-between py-3 px-4 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-600 transition-colors">
+                        <span>Restore from JSON</span>
+                        <i class="fa-solid fa-clock-rotate-left opacity-50"></i>
+                    </button>
+                    <div class="h-2"></div>
+                    <button id="backup-btn" class="w-full flex items-center justify-between py-3 px-4 bg-indigo-50 hover:bg-indigo-100 rounded-xl text-sm font-bold text-indigo-600 transition-colors">
                         <span>Backup JSON</span>
                         <i class="fa-solid fa-download opacity-50"></i>
                     </button>
@@ -113,6 +118,10 @@
         </main>
     </div>
 
+    <!-- Hidden File Inputs -->
+    <input type="file" id="csv-file-input" accept=".csv" class="hidden">
+    <input type="file" id="json-file-input" accept=".json" class="hidden">
+
     <!-- Issue Pass Modal -->
     <div id="modal-overlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 max-h-[90vh] flex flex-col">
@@ -134,23 +143,13 @@
         </div>
     </div>
 
-    <!-- Import Overlay -->
-    <div id="import-overlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8">
-            <h3 class="text-xl font-black text-slate-800 mb-2">Import Roster</h3>
-            <p class="text-sm text-slate-500 mb-4">CSV Header: <code class="bg-slate-100 px-1">period, first, last, id</code></p>
-            <input type="file" id="csv-file-input" accept=".csv" class="block w-full text-sm">
-            <div class="mt-8 flex justify-end gap-3">
-                <button onclick="document.getElementById('import-overlay').classList.add('hidden')" class="px-6 py-2 font-bold text-slate-400">Cancel</button>
-                <button id="process-csv-btn" class="px-6 py-2 bg-indigo-600 text-white rounded-xl font-black">Process</button>
-            </div>
-        </div>
-    </div>
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full font-bold shadow-2xl z-[100] opacity-0 pointer-events-none transition-opacity"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { initializeFirestore, doc, setDoc, onSnapshot, collection, addDoc, updateDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { initializeFirestore, doc, setDoc, onSnapshot, collection, addDoc, updateDoc, serverTimestamp, increment, Timestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         // CONFIG RECOVERY
         let firebaseConfig;
@@ -175,13 +174,23 @@
         const connInd = document.getElementById('conn-indicator');
         const connTxt = document.getElementById('conn-text');
 
+        const showToast = (msg) => {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.replace('opacity-0', 'opacity-100');
+            setTimeout(() => t.classList.replace('opacity-100', 'opacity-0'), 3000);
+        };
+
         const setStatus = (status) => {
             if (status === 'online') {
                 connInd.className = 'status-dot bg-emerald-500';
                 connTxt.innerText = 'System Live';
-            } else {
+            } else if (status === 'error') {
                 connInd.className = 'status-dot bg-red-500';
-                connTxt.innerText = 'Offline';
+                connTxt.innerText = 'Sync Error';
+            } else {
+                connInd.className = 'status-dot bg-yellow-400';
+                connTxt.innerText = 'Connecting...';
             }
         };
 
@@ -199,19 +208,26 @@
         });
 
         function initListeners() {
-            // Students Path (6 Segments for Rules)
+            // Students Sync
             const studentsColl = collection(db, 'artifacts', appId, 'public', 'data', 'students_list');
             onSnapshot(studentsColl, (snap) => {
                 students = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderWatchlist();
+                if(document.getElementById('modal-overlay').classList.contains('hidden') === false) {
+                    renderSearchResults(document.getElementById('student-search').value);
+                }
             }, (err) => console.error("Student Sync Error", err));
 
-            // Passes Path (6 Segments for Rules)
+            // Passes Sync
             const passesColl = collection(db, 'artifacts', appId, 'public', 'data', 'passes_log');
             onSnapshot(passesColl, (snap) => {
                 setStatus('online');
                 allPasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                allPasses.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                allPasses.sort((a, b) => {
+                    const timeA = a.createdAt?.seconds || 0;
+                    const timeB = b.createdAt?.seconds || 0;
+                    return timeB - timeA;
+                });
                 renderActiveGrid();
                 renderFullHistory();
             }, (err) => {
@@ -233,7 +249,7 @@
                 const card = document.getElementById(`card-${pass.id}`);
                 if (!el || !pass.createdAt) return;
 
-                const start = pass.createdAt.toDate();
+                const start = pass.createdAt.toDate ? pass.createdAt.toDate() : new Date(pass.createdAt.seconds * 1000);
                 const diff = (new Date() - start) / 1000;
                 const remaining = 420 - diff; 
 
@@ -249,6 +265,7 @@
                     card.className = "p-6 rounded-3xl border-2 border-amber-200 bg-amber-50 flex justify-between items-center shadow-sm timer-warning";
                 } else {
                     el.innerText = `Time Left: ${timeStr}`;
+                    card.className = "p-6 rounded-3xl bg-white border border-slate-100 shadow-sm flex justify-between items-center";
                 }
             });
         }
@@ -258,7 +275,7 @@
             const list = document.getElementById('watchlist');
             const frequent = students.filter(s => s.passesUsed >= 3);
             list.innerHTML = frequent.length ? '' : '<p class="text-[10px] text-slate-400 italic">No frequent flyers yet.</p>';
-            frequent.forEach(s => {
+            frequent.sort((a,b) => b.passesUsed - a.passesUsed).forEach(s => {
                 const item = document.createElement('div');
                 item.className = "p-3 bg-slate-50 rounded-xl flex justify-between items-center border border-slate-100";
                 item.innerHTML = `
@@ -302,7 +319,7 @@
                     const studentId = btn.dataset.sid;
                     const passData = allPasses.find(p => p.id === passId);
                     
-                    const start = passData.createdAt?.toDate() || new Date();
+                    const start = passData.createdAt?.toDate ? passData.createdAt.toDate() : new Date(passData.createdAt.seconds * 1000);
                     const diffMins = (new Date() - start) / 60000;
                     
                     const passRef = doc(db, 'artifacts', appId, 'public', 'data', 'passes_log', passId);
@@ -312,6 +329,7 @@
                         await updateDoc(studentRef, { passesUsed: increment(1) });
                     }
                     await updateDoc(passRef, { returnedAt: serverTimestamp() });
+                    showToast("Pass returned.");
                 };
             });
         }
@@ -323,8 +341,8 @@
 
             filtered.forEach(pass => {
                 const tr = document.createElement('tr');
-                const start = pass.createdAt?.toDate();
-                const end = pass.returnedAt?.toDate();
+                const start = pass.createdAt?.toDate ? pass.createdAt.toDate() : (pass.createdAt ? new Date(pass.createdAt.seconds * 1000) : null);
+                const end = pass.returnedAt?.toDate ? pass.returnedAt.toDate() : (pass.returnedAt ? new Date(pass.returnedAt.seconds * 1000) : null);
                 const diffMins = (start && end) ? Math.floor((end - start) / 60000) : (start ? Math.floor((new Date() - start) / 60000) : 0);
                 
                 tr.innerHTML = `
@@ -402,17 +420,18 @@
             });
             selectedStudent = null; selectedDest = null;
             document.getElementById('modal-overlay').classList.add('hidden');
+            showToast("Pass issued.");
         };
 
         // CSV IMPORT
-        document.getElementById('import-csv-btn').onclick = () => document.getElementById('import-overlay').classList.remove('hidden');
-        document.getElementById('process-csv-btn').onclick = async () => {
-            const fileInput = document.getElementById('csv-file-input');
-            if (!fileInput.files.length) return;
-            const text = await fileInput.files[0].text();
+        document.getElementById('import-csv-btn').onclick = () => document.getElementById('csv-file-input').click();
+        document.getElementById('csv-file-input').onchange = async (e) => {
+            if (!e.target.files.length) return;
+            const text = await e.target.files[0].text();
             const lines = text.split('\n').filter(l => l.trim());
             const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
             
+            showToast("Importing CSV...");
             for (let i = 1; i < lines.length; i++) {
                 const values = lines[i].split(',').map(v => v.trim());
                 const data = {};
@@ -423,10 +442,89 @@
                     firstName: data.first || 'New',
                     lastName: data.last || 'Student',
                     studentId: sId,
-                    passesUsed: 0
+                    passesUsed: parseInt(data.passes) || 0
                 });
             }
-            document.getElementById('import-overlay').classList.add('hidden');
+            showToast("CSV Import Complete");
+            e.target.value = '';
+        };
+
+        // JSON BACKUP & RESTORE
+        document.getElementById('backup-btn').onclick = () => {
+            const data = { students, passes: allPasses, exportDate: new Date().toISOString() };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `hall-pass-backup-${new Date().toLocaleDateString()}.json`;
+            a.click();
+        };
+
+        document.getElementById('restore-json-btn').onclick = () => document.getElementById('json-file-input').click();
+        document.getElementById('json-file-input').onchange = async (e) => {
+            if (!e.target.files.length) return;
+            try {
+                const text = await e.target.files[0].text();
+                const data = JSON.parse(text);
+                
+                showToast("Restoring Database...");
+
+                // Restore Students
+                if (data.students) {
+                    for (const s of data.students) {
+                        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students_list', s.id), {
+                            period: s.period,
+                            firstName: s.firstName,
+                            lastName: s.lastName,
+                            studentId: s.studentId,
+                            passesUsed: s.passesUsed || 0
+                        });
+                    }
+                }
+
+                // Restore Passes
+                if (data.passes) {
+                    for (const p of data.passes) {
+                        const pId = p.id || `restored-${Math.random().toString(36).substr(2, 9)}`;
+                        // Convert dates back to timestamps
+                        const createdAt = p.createdAt?.seconds ? new Timestamp(p.createdAt.seconds, p.createdAt.nanoseconds || 0) : serverTimestamp();
+                        const returnedAt = p.returnedAt?.seconds ? new Timestamp(p.returnedAt.seconds, p.returnedAt.nanoseconds || 0) : null;
+                        
+                        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'passes_log', pId), {
+                            studentId: p.studentId,
+                            studentName: p.studentName,
+                            period: p.period,
+                            destination: p.destination,
+                            createdAt: createdAt,
+                            returnedAt: returnedAt
+                        });
+                    }
+                }
+
+                showToast("Restore Successful");
+            } catch (err) {
+                console.error(err);
+                showToast("Error: Invalid JSON File");
+            }
+            e.target.value = '';
+        };
+
+        // EXPORT CSV LOG
+        document.getElementById('export-btn').onclick = () => {
+            const headers = "Student,ID,Period,Destination,TimeOut,Duration,Status\n";
+            const rows = allPasses.map(p => {
+                const start = p.createdAt?.toDate ? p.createdAt.toDate() : (p.createdAt ? new Date(p.createdAt.seconds * 1000) : null);
+                const end = p.returnedAt?.toDate ? p.returnedAt.toDate() : (p.returnedAt ? new Date(p.returnedAt.seconds * 1000) : null);
+                const diff = (start && end) ? Math.floor((end - start) / 60000) : '--';
+                return `"${p.studentName}","${p.studentId}","${p.period}","${p.destination}","${start ? start.toLocaleString() : ''}","${diff}","${p.returnedAt ? 'Returned' : 'Out'}"`;
+            }).join('\n');
+
+            const blob = new Blob([headers + rows], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pass-log-${new Date().toLocaleDateString()}.csv`;
+            a.click();
         };
 
         // FILTERS
