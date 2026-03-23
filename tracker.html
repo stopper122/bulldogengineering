@@ -327,7 +327,7 @@
         <div class="live-pass-status ${overdue ? "timer-overdue" : "timer-live"}">Out: ${formatDuration(elapsedMs)}</div>
         <div class="live-pass-meta">${overdue ? "Over limit - counts as used" : `Limit: ${restroomLimitMinutes} min`}</div>
         <div class="live-pass-actions">
-          <button class="restroom" onclick="endRestroomPass('${student._id}')">End Pass</button>
+          <button class="restroom" onclick="endRestroomPass('${student._id}')">⏹️</button>
         </div>
       </div>`;
     });
@@ -514,22 +514,22 @@
         <td class="name-cell"><strong>${s.lastName}, ${s.firstName}</strong><span class="tiny">${lastEventText}</span></td>
         <td><span class="count-badge">${getDisplayedRestroomUsedCount(s)}</span></td>
         <td class="tracking">
-          <button class="neutral" onclick="adjustRestroomCount('${s._id}', -1)">-1</button>
-          <button class="neutral" onclick="adjustRestroomCount('${s._id}', 1)">+1</button>
+          <button class="neutral" onclick="adjustRestroomCount('${s._id}', ➖)">➖</button>
+          <button class="neutral" onclick="adjustRestroomCount('${s._id}', 1)">➕</button>
         </td>
         <td>${getRestroomStatusText(s)}${s.restroomActive ? `<br><span class="${overdueLive ? "timer-overdue" : "timer-live"}">Live: ${elapsedText}</span>` : ""}</td>
         <td>${s.phoneCount || 0}</td>
         <td>${s.eatingCount || 0}</td>
         <td>${s.gamesCount || 0}</td>
         <td class="tracking">
-          ${s.restroomActive ? `<button class="restroom" onclick="endRestroomPass('${s._id}')">End Restroom</button>` : `<button class="restroom" onclick="startRestroomPass('${s._id}')">Start Restroom</button>`}
-          <button class="phone" onclick="recordEvent('${s._id}', 'phone')">Phone +1</button>
-          <button class="eating" onclick="recordEvent('${s._id}', 'eating')">Eating +1</button>
-          <button class="games" onclick="recordEvent('${s._id}', 'games')">Games +1</button>
+          ${s.restroomActive ? `<button class="restroom" onclick="endRestroomPass('${s._id}')">⏹️</button>` : `<button class="restroom" onclick="startRestroomPass('${s._id}')">🚻</button>`}
+          <button class="phone" onclick="recordEvent('${s._id}', 'phone')">📱+</button>
+          <button class="eating" onclick="recordEvent('${s._id}', 'eating')">🍔+</button>
+          <button class="games" onclick="recordEvent('${s._id}', 'games')">🎮+</button>
         </td>
         <td class="actions">
-          <button class="neutral" onclick="editStudent('${s._id}')">Edit</button>
-          <button class="danger" onclick="deleteStudent('${s._id}')">Delete</button>
+          <button class="neutral" onclick="editStudent('${s._id}')">✏️</button>
+          <button class="danger" onclick="deleteStudent('${s._id}')">🗑️</button>
         </td>
       </tr>`;
     });
