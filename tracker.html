@@ -52,7 +52,7 @@
                     Sync to Cloud
                 </button>
             </div>
-            <p class="mt-3 text-[11px] text-slate-400">Supported columns: Period, First Name, Last Name, Student ID (or similar names)</p>
+            <p class="mt-3 text-[11px] text-slate-400">Supported columns: Period, First Name, Last Name, Student ID</p>
             
             <!-- Progress Feedback -->
             <div id="progress-box" class="hidden mt-4 p-4 bg-slate-900 rounded-xl font-mono text-xs text-blue-400 space-y-1">
@@ -157,39 +157,56 @@
             const box = document.getElementById('progress-box');
             if (!fileInput.files.length) return alert("Please select a file.");
 
-            // Reset UI steps
             resetSteps();
             box.classList.remove('hidden');
             setStep('read', 'parsing');
 
+            // Trying with header: false first to see the raw shape of data
             Papa.parse(fileInput.files[0], {
-                header: true,
-                skipEmptyLines: true,
+                header: false,
+                skipEmptyLines: 'greedy',
                 complete: async (results) => {
-                    if (results.errors.length > 0) {
-                        console.warn("CSV Parse warnings:", results.errors);
-                    }
-                    
                     setStep('read', 'done');
                     setStep('validate', 'processing');
 
                     try {
+                        if (!results.data || results.data.length < 1) throw new Error("File is empty.");
+
+                        // Determine if first row is a header
+                        let data = results.data;
+                        let headers = data[0].map(h => String(h).toLowerCase().trim());
+                        
+                        // Heuristic: If first row contains 'name' or 'period', it's a header
+                        const looksLikeHeader = headers.some(h => ['name','period','id','last','first'].includes(h));
+                        if (looksLikeHeader) {
+                            data = data.slice(1);
+                        } else {
+                            // If no header, we use indices
+                            headers = ['period', 'first', 'last', 'id']; 
+                        }
+
                         const batch = db.batch();
                         const path = `artifacts/${APP_ID}/users/${currentUser.uid}/students`;
                         let count = 0;
 
-                        results.data.forEach(row => {
-                            const get = (keys) => {
-                                const found = Object.keys(row).find(k => keys.some(kw => k.toLowerCase().includes(kw)));
-                                return found ? row[found] : null;
+                        data.forEach((row, rowIndex) => {
+                            if (!row || row.length === 0) return;
+
+                            const getVal = (keywords, index) => {
+                                // Try by keyword first
+                                const colIndex = headers.findIndex(h => keywords.some(k => h.includes(k)));
+                                if (colIndex !== -1 && row[colIndex]) return row[colIndex];
+                                // Fallback to fixed index if the row has enough columns
+                                if (row[index]) return row[index];
+                                return null;
                             };
 
-                            const fName = get(['first', 'fname', 'given', 'name']);
-                            const lName = get(['last', 'lname', 'surname']);
-                            const period = get(['per', 'class', 'group', 'section', 'period']) || "1";
-                            const sId = get(['id', 'sid', 'student id', 'num', 'id#']) || Math.random().toString(36).substr(2, 6).toUpperCase();
+                            // Standard mapping: Per(0), First(1), Last(2), ID(3)
+                            const period = getVal(['per', 'class', 'group'], 0) || "1";
+                            const fName = getVal(['first', 'fname', 'given', 'name'], 1);
+                            const lName = getVal(['last', 'lname', 'surname'], 2);
+                            const sId = getVal(['id', 'sid', 'num'], 3) || `ID-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
-                            // Basic validation: must have some form of name
                             if (fName || lName) {
                                 const ref = db.collection(path).doc();
                                 batch.set(ref, {
@@ -203,7 +220,7 @@
                             }
                         });
 
-                        if (count === 0) throw new Error("Could not find any students. Please check your CSV headers.");
+                        if (count === 0) throw new Error("Could not find any student names in the file.");
 
                         setStep('validate', `found ${count} students`);
                         setStep('upload', 'syncing...');
@@ -223,8 +240,8 @@
                     }
                 },
                 error: (err) => {
-                    setStep('read', 'failed to read file', true);
-                    console.error("PapaParse Error:", err);
+                    setStep('read', 'failed', true);
+                    console.error(err);
                 }
             });
         }
@@ -239,21 +256,10 @@
 
         function setStep(id, text, isError = false) {
             const el = document.getElementById(`step-${id}`);
-            const icons = { 
-                parsing: '⏳', 
-                processing: '🔍', 
-                done: '✅', 
-                success: '✨', 
-                error: '❌', 
-                syncing: '☁️' 
-            };
-            
+            const icons = { parsing: '⏳', processing: '🔍', done: '✅', success: '✨', error: '❌', syncing: '☁️' };
             let icon = '○';
-            for (const key in icons) {
-                if (text.toLowerCase().includes(key)) icon = icons[key];
-            }
+            for (const key in icons) { if (text.toLowerCase().includes(key)) icon = icons[key]; }
             if (isError) icon = '❌';
-
             el.textContent = `${icon} ${id.toUpperCase()}: ${text}`;
             el.className = isError ? 'text-red-400 font-bold' : (text.includes('success') || text.includes('done') ? 'text-green-400' : 'text-blue-400');
         }
@@ -261,7 +267,6 @@
         function renderRoster() {
             const container = document.getElementById('roster-container');
             const filter = document.getElementById('period-filter').value;
-            
             let displayList = filter === 'all' ? students : students.filter(s => s.period === filter);
 
             displayList.sort((a, b) => {
@@ -272,11 +277,7 @@
             });
 
             if (displayList.length === 0) {
-                container.innerHTML = `
-                    <div class="col-span-full py-20 text-center">
-                        <p class="text-slate-400 italic">No students found. Upload a CSV to start.</p>
-                    </div>
-                `;
+                container.innerHTML = `<div class="col-span-full py-20 text-center"><p class="text-slate-400 italic">No students found.</p></div>`;
                 return;
             }
 
@@ -297,19 +298,18 @@
         }
 
         async function deleteStudent(id) {
-            if (confirm("Delete this student from the cloud?")) {
+            if (confirm("Delete this student?")) {
                 await db.collection(`artifacts/${APP_ID}/users/${currentUser.uid}/students`).doc(id).delete();
             }
         }
 
         async function clearAllData() {
-            if (confirm("DANGER: This will delete ALL student data. Proceed?")) {
+            if (confirm("Clear ALL data?")) {
                 const path = `artifacts/${APP_ID}/users/${currentUser.uid}/students`;
                 const snap = await db.collection(path).get();
                 const batch = db.batch();
                 snap.docs.forEach(doc => batch.delete(doc.ref));
                 await batch.commit();
-                alert("Database cleared.");
             }
         }
 
