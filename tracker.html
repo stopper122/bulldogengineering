@@ -73,7 +73,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   // Firebase setup
   const firebaseConfig = {
@@ -96,6 +96,30 @@
   const resultsDiv = document.getElementById("results");
 
   let grouped = {};
+
+// Load data from Firebase and sync in real-time
+async function loadFromFirebase() {
+  const snapshot = await getDocs(collection(db, "students"));
+  grouped = {};
+
+  snapshot.forEach(doc => {
+    const s = doc.data();
+    if (!grouped[s.period]) grouped[s.period] = [];
+    grouped[s.period].push(s);
+  });
+
+  renderTabs();
+  const firstPeriod = Object.keys(grouped)[0];
+  if (firstPeriod) {
+    resultsDiv.style.display = "block";
+    renderTable(firstPeriod);
+  }
+}
+
+// Real-time listener
+onSnapshot(collection(db, "students"), () => {
+  loadFromFirebase();
+});
 
   function renderTabs() {
     tabsEl.innerHTML = "";
@@ -124,7 +148,10 @@
     tableContainer.innerHTML = html;
   }
 
-  fileInput.addEventListener("change", (e) => {
+  // Initial load
+loadFromFirebase();
+
+fileInput.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
