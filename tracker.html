@@ -69,6 +69,33 @@
       gap:12px;
     }
     .toggle-btn { background:#111827; color:white; }
+    .live-passes-card {
+      position:sticky;
+      top:12px;
+      z-index:20;
+      border:2px solid #0ea5e9;
+      background:#ecfeff;
+    }
+    .live-pass-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+    .live-pass-item {
+      background:white;
+      border:1px solid #bae6fd;
+      border-radius:10px;
+      padding:12px;
+    }
+    .live-pass-item.overdue {
+      border-color:#fca5a5;
+      background:#fef2f2;
+    }
+    .live-pass-name { font-weight:bold; margin-bottom:4px; }
+    .live-pass-meta { font-size:12px; color:#475569; }
+    .live-pass-timer { margin-top:6px; font-weight:bold; }
+    .no-live-passes { color:#475569; font-size:14px; }
   </style>
 </head>
 <body>
@@ -96,6 +123,12 @@
         <button id="addBtn">Add</button>
       </div>
 
+      <div class="card live-passes-card" id="livePassesCard" style="display:none;">
+        <h3 style="margin-top:0;">Students Currently Out</h3>
+        <div class="tiny">This stays visible near the top so you can always see active restroom passes.</div>
+        <div id="livePassesContainer"></div>
+      </div>
+
       <div class="card controls">
         <h3>Controls</h3>
         <button onclick="setSort('first')">Sort by First Name</button>
@@ -106,6 +139,7 @@
         <button onclick="setRestroomLimit()">Set Pass Limit (min)</button>
         <br><br>
         <button onclick="exportData()">Export Backup</button>
+        <button onclick="exportMasterLogCsv()">Export Master Log CSV</button>
         <input type="file" id="restoreFile" accept=".json" />
         <button onclick="restoreData()">Restore Backup</button>
         <button onclick="wipeAllData()" class="danger">Wipe All Data</button>
@@ -243,6 +277,39 @@
     return rows;
   }
 
+  function renderLivePasses() {
+    const container = document.getElementById("livePassesContainer");
+    const card = document.getElementById("livePassesCard");
+
+    const liveStudents = allDocs
+      .filter(s => s.restroomActive && s.restroomStartTime)
+      .sort((a, b) => new Date(a.restroomStartTime).getTime() - new Date(b.restroomStartTime).getTime());
+
+    if (!liveStudents.length) {
+      card.style.display = "none";
+      container.innerHTML = "";
+      return;
+    }
+
+    card.style.display = "block";
+    let html = '<div class="live-pass-grid">';
+
+    liveStudents.forEach(student => {
+      const elapsedMs = getElapsedMs(student.restroomStartTime);
+      const overdue = isRestroomPassOverdue(student);
+      const timerClass = overdue ? "timer-overdue" : "timer-live";
+      html += `<div class="live-pass-item ${overdue ? "overdue" : ""}">
+        <div class="live-pass-name">${student.lastName}, ${student.firstName}</div>
+        <div class="live-pass-meta">Period ${student.period} · ID ${student.studentId}</div>
+        <div class="live-pass-timer ${timerClass}">Out: ${formatDuration(elapsedMs)}</div>
+        <div class="live-pass-meta">${overdue ? "Over limit - counts as used" : `Limit: ${restroomLimitMinutes} min`}</div>
+      </div>`;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
   function renderMasterLog() {
     const rows = flattenMasterLog();
     const container = document.getElementById("masterLogContainer");
@@ -277,6 +344,39 @@
     const a = document.createElement("a");
     a.href = url;
     a.download = "students-backup.json";
+    a.click();
+  };
+
+  window.exportMasterLogCsv = () => {
+    const rows = flattenMasterLog();
+    const headers = ["time", "period", "student", "studentId", "event", "minutes", "value"];
+
+    const escapeCsv = (value) => {
+      const str = String(value ?? "");
+      return '"' + str.replace(/"/g, '""') + '"';
+    };
+
+    const csvLines = [headers.join(",")];
+
+    rows.forEach(row => {
+      csvLines.push([
+        escapeCsv(row.time),
+        escapeCsv(row.period),
+        escapeCsv(row.name),
+        escapeCsv(row.studentId),
+        escapeCsv(row.type),
+        escapeCsv(row.minutes),
+        escapeCsv(row.value)
+      ].join(","));
+    });
+
+    const csvContent = csvLines.join("
+");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "master-log.csv";
     a.click();
   };
 
@@ -329,6 +429,7 @@
       grouped[s.period].push(s);
     });
     renderTabs();
+    renderLivePasses();
     renderMasterLog();
     const periods = Object.keys(grouped).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
     const firstPeriod = activePeriod && grouped[activePeriod] ? activePeriod : periods[0];
@@ -534,6 +635,7 @@
   loadFromFirebase();
 
   setInterval(() => {
+    renderLivePasses();
     if (activePeriod) renderTable(activePeriod);
   }, 1000);
 
