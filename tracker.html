@@ -157,6 +157,8 @@
             const box = document.getElementById('progress-box');
             if (!fileInput.files.length) return alert("Please select a file.");
 
+            // Reset UI steps
+            resetSteps();
             box.classList.remove('hidden');
             setStep('read', 'parsing');
 
@@ -164,6 +166,10 @@
                 header: true,
                 skipEmptyLines: true,
                 complete: async (results) => {
+                    if (results.errors.length > 0) {
+                        console.warn("CSV Parse warnings:", results.errors);
+                    }
+                    
                     setStep('read', 'done');
                     setStep('validate', 'processing');
 
@@ -173,17 +179,17 @@
                         let count = 0;
 
                         results.data.forEach(row => {
-                            // Helper to find data regardless of header capitalization/naming
                             const get = (keys) => {
                                 const found = Object.keys(row).find(k => keys.some(kw => k.toLowerCase().includes(kw)));
                                 return found ? row[found] : null;
                             };
 
-                            const fName = get(['first', 'fname', 'given']);
+                            const fName = get(['first', 'fname', 'given', 'name']);
                             const lName = get(['last', 'lname', 'surname']);
-                            const period = get(['per', 'class', 'group', 'section']) || "1";
-                            const sId = get(['id', 'sid', 'student id', 'num']) || Math.random().toString(36).substr(2, 6).toUpperCase();
+                            const period = get(['per', 'class', 'group', 'section', 'period']) || "1";
+                            const sId = get(['id', 'sid', 'student id', 'num', 'id#']) || Math.random().toString(36).substr(2, 6).toUpperCase();
 
+                            // Basic validation: must have some form of name
                             if (fName || lName) {
                                 const ref = db.collection(path).doc();
                                 batch.set(ref, {
@@ -197,7 +203,7 @@
                             }
                         });
 
-                        if (count === 0) throw new Error("No student data found in CSV.");
+                        if (count === 0) throw new Error("Could not find any students. Please check your CSV headers.");
 
                         setStep('validate', `found ${count} students`);
                         setStep('upload', 'syncing...');
@@ -208,21 +214,48 @@
                         setTimeout(() => {
                             box.classList.add('hidden');
                             fileInput.value = "";
-                        }, 2000);
+                        }, 2500);
 
                     } catch (err) {
-                        alert(err.message);
-                        box.classList.add('hidden');
+                        setStep('validate', 'error', true);
+                        setStep('upload', err.message, true);
+                        console.error(err);
                     }
+                },
+                error: (err) => {
+                    setStep('read', 'failed to read file', true);
+                    console.error("PapaParse Error:", err);
                 }
             });
         }
 
-        function setStep(id, text) {
+        function resetSteps() {
+            ['read', 'validate', 'upload'].forEach(id => {
+                const el = document.getElementById(`step-${id}`);
+                el.textContent = `○ ${id.toUpperCase()}...`;
+                el.className = 'text-blue-400';
+            });
+        }
+
+        function setStep(id, text, isError = false) {
             const el = document.getElementById(`step-${id}`);
-            const icons = { parsing: '⏳', processing: '🔍', done: '✅', success: '✨' };
-            el.textContent = `${icons[text] || '○'} ${id.toUpperCase()}: ${text}`;
-            el.className = text.includes('success') || text.includes('done') ? 'text-green-400' : 'text-blue-400';
+            const icons = { 
+                parsing: '⏳', 
+                processing: '🔍', 
+                done: '✅', 
+                success: '✨', 
+                error: '❌', 
+                syncing: '☁️' 
+            };
+            
+            let icon = '○';
+            for (const key in icons) {
+                if (text.toLowerCase().includes(key)) icon = icons[key];
+            }
+            if (isError) icon = '❌';
+
+            el.textContent = `${icon} ${id.toUpperCase()}: ${text}`;
+            el.className = isError ? 'text-red-400 font-bold' : (text.includes('success') || text.includes('done') ? 'text-green-400' : 'text-blue-400');
         }
 
         function renderRoster() {
@@ -231,7 +264,6 @@
             
             let displayList = filter === 'all' ? students : students.filter(s => s.period === filter);
 
-            // Sorting: Period first, then Last Name
             displayList.sort((a, b) => {
                 const perA = String(a.period).padStart(3, '0');
                 const perB = String(b.period).padStart(3, '0');
