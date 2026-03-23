@@ -45,6 +45,10 @@
     <button onclick="setSort('last')">Sort by Last Name</button>
     <input id="currentPeriodInput" placeholder="Current Period" />
     <button onclick="setCurrentPeriod()">Set Current Period</button>
+    <br/><br/>
+    <button onclick="exportData()">Export Backup</button>
+    <input type="file" id="restoreFile" accept=".json" />
+    <button onclick="restoreData()">Restore Backup</button>
   </div>
 
   <div class="card" id="results" style="display:none;">
@@ -82,6 +86,41 @@
   let allDocs = [];
   let sortMode = null;
   let currentPeriod = null;
+
+// EXPORT BACKUP
+window.exportData = () => {
+  const dataStr = JSON.stringify(allDocs, null, 2);
+  const blob = new Blob([dataStr], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "students-backup.json";
+  a.click();
+};
+
+// RESTORE BACKUP
+window.restoreData = async () => {
+  const fileInput = document.getElementById("restoreFile");
+  const file = fileInput.files[0];
+  if (!file) return alert("Select a backup file");
+
+  const text = await file.text();
+  const data = JSON.parse(text);
+
+  if (!confirm("This will ADD students from backup. Continue?")) return;
+
+  for (const s of data) {
+    await addDoc(collection(db, "students"), {
+      studentId: s.studentId,
+      firstName: s.firstName,
+      lastName: s.lastName,
+      period: s.period
+    });
+  }
+
+  alert("Restore complete");
+};
 
   async function loadFromFirebase() {
     const snapshot = await getDocs(collection(db, "students"));
