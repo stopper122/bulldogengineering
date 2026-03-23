@@ -56,6 +56,8 @@
     <button onclick="setSort('last')">Sort by Last Name</button>
     <input id="currentPeriodInput" placeholder="Current Period" />
     <button onclick="setCurrentPeriod()">Set Current Period</button>
+    <input id="restroomLimitInput" type="number" min="1" value="6" style="width:90px;" />
+    <button onclick="setRestroomLimit()">Set Pass Limit (min)</button>
     <br/><br/>
     <button onclick="exportData()">Export Backup</button>
     <input type="file" id="restoreFile" accept=".json" />
@@ -72,7 +74,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, onSnapshot, deleteDoc, doc, updateDoc, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, onSnapshot, deleteDoc, doc, updateDoc, increment, arrayUnion, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
@@ -100,6 +102,21 @@
   let sortMode = 'last';
   let currentPeriod = null;
   let activePeriod = null;
+  let restroomLimitMinutes = 6;
+
+  async function loadSettings() {
+    const settingsRef = doc(db, "appSettings", "shared");
+    const snap = await getDoc(settingsRef);
+    if (snap.exists()) {
+      const data = snap.data() || {};
+      restroomLimitMinutes = Number(data.restroomLimitMinutes || 6);
+      document.getElementById("restroomLimitInput").value = restroomLimitMinutes;
+    } else {
+      await setDoc(settingsRef, { restroomLimitMinutes: 6 });
+      restroomLimitMinutes = 6;
+      document.getElementById("restroomLimitInput").value = 6;
+    }
+  }
 
   function studentDefaults(student) {
     return {
@@ -111,7 +128,10 @@
       phoneCount: Number(student.phoneCount || 0),
       eatingCount: Number(student.eatingCount || 0),
       gamesCount: Number(student.gamesCount || 0),
-      behaviorLog: Array.isArray(student.behaviorLog) ? student.behaviorLog : []
+      behaviorLog: Array.isArray(student.behaviorLog) ? student.behaviorLog : [],
+      restroomActive: Boolean(student.restroomActive),
+      restroomStartTime: student.restroomStartTime || null,
+      restroomHistory: Array.isArray(student.restroomHistory) ? student.restroomHistory : []
     };
   }
 
@@ -146,7 +166,10 @@
         phoneCount: s.phoneCount,
         eatingCount: s.eatingCount,
         gamesCount: s.gamesCount,
-        behaviorLog: s.behaviorLog
+        behaviorLog: s.behaviorLog,
+        restroomActive: s.restroomActive,
+        restroomStartTime: s.restroomStartTime,
+        restroomHistory: s.restroomHistory
       });
     }
 
@@ -192,6 +215,14 @@
 
   onSnapshot(collection(db, "students"), loadFromFirebase);
 
+  onSnapshot(doc(db, "appSettings", "shared"), (snap) => {
+    if (!snap.exists()) return;
+    const data = snap.data() || {};
+    restroomLimitMinutes = Number(data.restroomLimitMinutes || 6);
+    document.getElementById("restroomLimitInput").value = restroomLimitMinutes;
+    if (activePeriod) renderTable(activePeriod);
+  });
+
   function renderTabs() {
     tabsEl.innerHTML = "";
     Object.keys(grouped).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).forEach(period => {
@@ -206,6 +237,7 @@
 
   function renderSummary(period, students) {
     const restroom = students.reduce((sum, s) => sum + (s.restroomCount || 0), 0);
+    const restroomOut = students.filter(s => s.restroomActive).length;
     const phone = students.reduce((sum, s) => sum + (s.phoneCount || 0), 0);
     const eating = students.reduce((sum, s) => sum + (s.eatingCount || 0), 0);
     const games = students.reduce((sum, s) => sum + (s.gamesCount || 0), 0);
@@ -213,7 +245,9 @@
     periodSummaryEl.innerHTML = `
       <span class="pill"><strong>Period ${period}</strong></span>
       <span class="pill">Students: ${students.length}</span>
-      <span class="pill">Restroom: ${restroom}</span>
+      <span class="pill">Used Passes: ${restroom}</span>
+      <span class="pill">Out Now: ${restroomOut}</span>
+      <span class="pill">Limit: ${restroomLimitMinutes} min</span>
       <span class="pill">Phone: ${phone}</span>
       <span class="pill">Eating: ${eating}</span>
       <span class="pill">Games: ${games}</span>
@@ -239,7 +273,8 @@
         <tr>
           <th>ID</th>
           <th>Name</th>
-          <th>Restroom</th>
+          <th>Restroom Used</th>
+          <th>Restroom Status</th>
           <th>Phone</th>
           <th>Eating</th>
           <th>Games</th>
@@ -258,11 +293,14 @@
           <span class="tiny">Last event: ${lastEventText}</span>
         </td>
         <td>${s.restroomCount || 0}</td>
+        <td>${getRestroomStatusText(s)}</td>
         <td>${s.phoneCount || 0}</td>
         <td>${s.eatingCount || 0}</td>
         <td>${s.gamesCount || 0}</td>
         <td class="tracking">
-          <button class="restroom" onclick="recordEvent('${s._id}', 'restroom')">Restroom +1</button>
+          ${s.restroomActive
+            ? `<button class="restroom" onclick="endRestroomPass('${s._id}')">End Restroom</button>`
+            : `<button class="restroom" onclick="startRestroomPass('${s._id}')">Start Restroom</button>`}
           <button class="phone" onclick="recordEvent('${s._id}', 'phone')">Phone +1</button>
           <button class="eating" onclick="recordEvent('${s._id}', 'eating')">Eating +1</button>
           <button class="games" onclick="recordEvent('${s._id}', 'games')">Games +1</button>
@@ -308,9 +346,70 @@
     });
   };
 
+  function getElapsedMinutes(startTime) {
+    if (!startTime) return 0;
+    return Math.floor((Date.now() - new Date(startTime).getTime()) / 60000);
+  }
+
+  function getRestroomStatusText(student) {
+    if (!student.restroomActive || !student.restroomStartTime) return "In class";
+    const elapsed = getElapsedMinutes(student.restroomStartTime);
+    const overdue = elapsed > restroomLimitMinutes;
+    return overdue ? `Out ${elapsed} min - counts as used` : `Out ${elapsed} min`;
+  }
+
+  window.setRestroomLimit = async () => {
+    const value = Number(document.getElementById("restroomLimitInput").value);
+    if (!value || value < 1) return alert("Enter a valid minute limit");
+    await setDoc(doc(db, "appSettings", "shared"), {
+      restroomLimitMinutes: value
+    }, { merge: true });
+  };
+
+  window.startRestroomPass = async (id) => {
+    await updateDoc(doc(db, "students", id), {
+      restroomActive: true,
+      restroomStartTime: new Date().toISOString(),
+      behaviorLog: arrayUnion({
+        type: "restroom_start",
+        time: new Date().toISOString()
+      })
+    });
+  };
+
+  window.endRestroomPass = async (id) => {
+    const student = allDocs.find(s => s._id === id);
+    if (!student || !student.restroomActive || !student.restroomStartTime) return;
+
+    const endTime = new Date().toISOString();
+    const elapsed = getElapsedMinutes(student.restroomStartTime);
+    const passUsed = elapsed > restroomLimitMinutes;
+
+    const updateData = {
+      restroomActive: false,
+      restroomStartTime: null,
+      restroomHistory: arrayUnion({
+        startTime: student.restroomStartTime,
+        endTime,
+        minutes: elapsed,
+        countedAsUsed: passUsed
+      }),
+      behaviorLog: arrayUnion({
+        type: passUsed ? "restroom_used" : "restroom_returned",
+        time: endTime,
+        minutes: elapsed
+      })
+    };
+
+    if (passUsed) {
+      updateData.restroomCount = increment(1);
+    }
+
+    await updateDoc(doc(db, "students", id), updateData);
+  };
+
   window.recordEvent = async (id, type) => {
     const fieldMap = {
-      restroom: "restroomCount",
       phone: "phoneCount",
       eating: "eatingCount",
       games: "gamesCount"
@@ -345,7 +444,10 @@
       phoneCount: 0,
       eatingCount: 0,
       gamesCount: 0,
-      behaviorLog: []
+      behaviorLog: [],
+      restroomActive: false,
+      restroomStartTime: null,
+      restroomHistory: []
     });
 
     document.getElementById("newId").value = "";
@@ -354,7 +456,12 @@
     document.getElementById("newPeriod").value = "";
   };
 
+  await loadSettings();
   loadFromFirebase();
+
+  setInterval(() => {
+    if (activePeriod) renderTable(activePeriod);
+  }, 30000);
 
   fileInput.addEventListener("change", (e) => {
     const file = e.target.files[0];
@@ -391,7 +498,10 @@
               phoneCount: 0,
               eatingCount: 0,
               gamesCount: 0,
-              behaviorLog: []
+              behaviorLog: [],
+      restroomActive: false,
+      restroomStartTime: null,
+      restroomHistory: []
             });
           }
 
