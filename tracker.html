@@ -182,6 +182,7 @@
           <input id="restroomLimitInput" type="number" min="1" value="6" style="width:80px;" />
           <button onclick="setRestroomLimit()">Set Limit</button>
           <button onclick="exportData()">Backup</button>
+          <button onclick="exportMasterLogCsv()">Log CSV</button>
           <input type="file" id="restoreFile" accept=".json" style="max-width:180px;" />
           <button onclick="restoreData()">Restore</button>
           <button onclick="wipeAllData()" class="danger">Wipe All</button>
@@ -391,6 +392,40 @@
     a.href = url;
     a.download = "students-backup.json";
     a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  window.exportMasterLogCsv = () => {
+    const rows = flattenMasterLog();
+    const headers = ["time", "period", "student", "studentId", "event", "minutes", "value"];
+
+    const escapeCsv = (value) => {
+      const str = String(value ?? "");
+      return '"' + str.replace(/"/g, '""') + '"';
+    };
+
+    const csvLines = [headers.join(",")];
+
+    rows.forEach(row => {
+      csvLines.push([
+        escapeCsv(row.time),
+        escapeCsv(row.period),
+        escapeCsv(row.name),
+        escapeCsv(row.studentId),
+        escapeCsv(row.type),
+        escapeCsv(row.minutes),
+        escapeCsv(row.value)
+      ].join(","));
+    });
+
+    const blob = new Blob([csvLines.join("
+")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "master-log.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   window.restoreData = async () => {
