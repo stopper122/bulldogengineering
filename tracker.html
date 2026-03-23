@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, getDocs } from "firebase/firestore";
-import { getAuth, signInAnonymously } from "firebase/auth";
+import { getFirestore, collection, addDoc } from "firebase/firestore";
+import Papa from "papaparse";
 
 // Firebase config
 const firebaseConfig = {
@@ -14,64 +14,80 @@ const firebaseConfig = {
   measurementId: "G-X31008YT0P"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app);
 
-export default function ClassroomTracker() {
-  const [students, setStudents] = useState([]);
+export default function App() {
+  const [fileName, setFileName] = useState("");
+  const [status, setStatus] = useState("");
 
-  useEffect(() => {
-    const init = async () => {
-      await signInAnonymously(auth);
-      loadStudents();
-    };
-    init();
-  }, []);
-
-  const loadStudents = async () => {
-    const snap = await getDocs(collection(db, "students"));
-    const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    setStudents(data);
-  };
-
-  const handleCSVUpload = async (e) => {
+  const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const text = await file.text();
-    const rows = text.split("\n").slice(1);
+    setFileName(file.name);
+    setStatus("Parsing CSV...");
 
-    for (let row of rows) {
-      const [period, first, last, studentId] = row.split(",");
-      if (!first) continue;
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          setStatus("Uploading to Firebase...");
 
-      await addDoc(collection(db, "students"), {
-        period,
-        first,
-        last,
-        studentId
-      });
-    }
+          const students = results.data;
 
-    loadStudents();
+          for (const student of students) {
+            // Expect CSV columns: studentId, period
+            await addDoc(collection(db, "students"), {
+              studentId: student.studentId,
+              period: student.period,
+              timestamp: new Date()
+            });
+          }
+
+          setStatus("Upload complete!");
+        } catch (error) {
+          console.error(error);
+          setStatus("Error uploading data");
+        }
+      }
+    });
   };
 
   return (
-    <div style={{ fontFamily: "Arial", padding: 20, maxWidth: 900, margin: "0 auto" }}>
-      <h1>Student Roster</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="bg-white p-6 rounded-2xl shadow-lg w-full max-w-md">
+        <h1 className="text-2xl font-bold mb-4 text-center">
+          Student CSV Uploader
+        </h1>
 
-      <input type="file" accept=".csv" onChange={handleCSVUpload} />
+        <input
+          type="file"
+          accept=".csv"
+          onChange={handleFileUpload}
+          className="mb-4"
+        />
 
-      <h2>Students</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 10 }}>
-        {students.map((student) => (
-          <div key={student.id} style={{ border: "1px solid #ccc", padding: 10 }}>
-            <strong>{student.first} {student.last}</strong><br />
-            Period: {student.period}<br />
-            ID: {student.studentId}
-          </div>
-        ))}
+        {fileName && (
+          <p className="text-sm text-gray-600">File: {fileName}</p>
+        )}
+
+        {status && (
+          <p className="mt-2 text-sm font-medium text-blue-600">
+            {status}
+          </p>
+        )}
+
+        <div className="mt-4 text-xs text-gray-500">
+          <p>CSV format:</p>
+          <pre className="bg-gray-100 p-2 rounded mt-1">
+studentId,period
+12345,1
+67890,2
+          </pre>
+        </div>
       </div>
     </div>
   );
