@@ -8,9 +8,9 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <style>
-    body { margin:0; font-family:Arial, sans-serif; background:#f3f4f6; }
+    body { margin:0; font-family:Inter, Arial, sans-serif; background:#eef2f7; color:#0f172a; }
     .layout { display:flex; min-height:100vh; }
-    .main { flex:1; padding:20px; overflow:auto; }
+    .main { flex:1; padding:14px; overflow:auto; }
     .sidebar {
       width:420px;
       background:#111827;
@@ -24,31 +24,33 @@
       overflow:auto;
     }
     .sidebar.open { transform:translateX(0); }
-    .container { max-width:1200px; margin:0 auto; }
+    .container { max-width:1180px; margin:0 auto; }
     .card {
       background:white;
-      padding:20px;
-      border-radius:12px;
-      box-shadow:0 5px 15px rgba(0,0,0,0.1);
-      margin-bottom:20px;
+      padding:14px;
+      border-radius:10px;
+      box-shadow:0 2px 10px rgba(15,23,42,0.08);
+      margin-bottom:12px;
     }
     .controls button, .tabs button, .actions button, .tracking button {
-      margin-right:5px;
-      margin-bottom:5px;
-      padding:8px 12px;
+      margin-right:4px;
+      margin-bottom:4px;
+      padding:6px 9px;
       border:none;
-      border-radius:6px;
+      border-radius:7px;
       cursor:pointer;
+      font-size:12px;
+      line-height:1.2;
     }
     .tabs button { background:#ddd; }
     .tabs button.active { background:#2563eb; color:white; }
     .tabs button.current { background:#16a34a; color:white; }
-    input { margin:4px 6px 4px 0; padding:7px; border:1px solid #ccc; border-radius:6px; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; background:white; }
-    th, td { border:1px solid #ccc; padding:8px; text-align:left; vertical-align:top; font-size:14px; }
-    th { background:#f8fafc; }
-    .pill { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; margin-right:6px; margin-bottom:6px; background:#eef2ff; }
-    .tiny { font-size:12px; color:#666; }
+    input { margin:3px 5px 3px 0; padding:6px 8px; border:1px solid #cbd5e1; border-radius:7px; font-size:13px; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; background:white; }
+    th, td { border:1px solid #e2e8f0; padding:6px; text-align:left; vertical-align:top; font-size:12px; }
+    th { background:#f8fafc; position:sticky; top:0; z-index:1; }
+    .pill { display:inline-block; padding:3px 7px; border-radius:999px; font-size:11px; margin-right:5px; margin-bottom:5px; background:#eef2ff; }
+    .tiny { font-size:11px; color:#64748b; }
     .danger { background:#dc2626; color:white; }
     .neutral { background:#6b7280; color:white; }
     .restroom { background:#0ea5e9; color:white; }
@@ -65,35 +67,69 @@
       display:flex;
       justify-content:space-between;
       align-items:center;
-      margin-bottom:10px;
-      gap:12px;
+      margin-bottom:8px;
+      gap:10px;
+      position:sticky;
+      top:0;
+      background:#eef2f7;
+      padding-bottom:8px;
+      z-index:10;
     }
-    .toggle-btn { background:#111827; color:white; }
+    .toggle-btn { background:#111827; color:white; padding:7px 10px; border:none; border-radius:8px; font-size:12px; }
+    .compact-grid {
+      display:grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap:12px;
+      align-items:start;
+    }
+    .inline-row {
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      align-items:center;
+    }
+    .table-wrap {
+      overflow:auto;
+      max-height:68vh;
+      border:1px solid #e2e8f0;
+      border-radius:10px;
+    }
+    .name-cell strong { display:block; margin-bottom:2px; }
+    .count-badge {
+      display:inline-flex;
+      min-width:20px;
+      justify-content:center;
+      padding:2px 6px;
+      border-radius:999px;
+      background:#f1f5f9;
+      font-weight:600;
+    }
     .live-passes-card {
       position: sticky;
-      top: 12px;
+      top: 54px;
       z-index: 5;
-      border: 2px solid #bae6fd;
-      background: #ecfeff;
+      border: 1px solid #7dd3fc;
+      background: #f0f9ff;
+      padding: 12px;
     }
     .live-passes-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 10px;
-      margin-top: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
     }
     .live-pass-item {
       background: white;
       border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      padding: 12px;
+      border-radius: 9px;
+      padding: 10px;
     }
     .live-pass-item.overdue {
       border-color: #fca5a5;
       background: #fef2f2;
     }
-    .live-pass-name { font-weight: bold; margin-bottom: 4px; }
-    .live-pass-meta { font-size: 12px; color: #475569; }
+    .live-pass-name { font-weight: bold; margin-bottom: 3px; font-size:13px; }
+    .live-pass-meta { font-size: 11px; color: #475569; }
     .live-pass-status { margin-top: 6px; }
     .live-pass-actions { margin-top: 10px; }
     .live-pass-actions button { margin-right: 0; }
@@ -104,24 +140,30 @@
   <div class="main">
     <div class="container">
       <div class="topbar">
-        <h1 style="margin:0; font-size:28px;">Student Tracker</h1>
+        <h1 style="margin:0; font-size:24px;">Student Tracker</h1>
         <button class="toggle-btn" onclick="toggleMasterLog()">Show/Hide Master Log</button>
       </div>
 
-      <div class="card">
-        <h2>Upload CSV</h2>
-        <input type="file" id="fileInput" accept=".csv" />
-        <p id="status"></p>
-        <div class="tiny">CSV headers supported: period, first name, last name, student id</div>
-      </div>
+      <div class="compact-grid">
+        <div class="card">
+          <h2 style="margin:0 0 8px 0; font-size:18px;">Upload CSV</h2>
+          <div class="inline-row">
+            <input type="file" id="fileInput" accept=".csv" />
+            <span id="status" class="tiny"></span>
+          </div>
+          <div class="tiny">Headers: period, first name, last name, student id</div>
+        </div>
 
-      <div class="card">
-        <h3>Add Student</h3>
-        <input id="newId" placeholder="Student ID" />
-        <input id="newFirst" placeholder="First Name" />
-        <input id="newLast" placeholder="Last Name" />
-        <input id="newPeriod" placeholder="Period" />
-        <button id="addBtn">Add</button>
+        <div class="card">
+          <h3 style="margin:0 0 8px 0; font-size:16px;">Add Student</h3>
+          <div class="inline-row">
+            <input id="newId" placeholder="ID" />
+            <input id="newFirst" placeholder="First" />
+            <input id="newLast" placeholder="Last" />
+            <input id="newPeriod" placeholder="Period" style="width:80px;" />
+            <button id="addBtn">Add</button>
+          </div>
+        </div>
       </div>
 
       <div class="card live-passes-card" id="livePassesCard" style="display:none;">
@@ -131,24 +173,27 @@
       </div>
 
       <div class="card controls">
-        <h3>Controls</h3>
-        <button onclick="setSort('first')">Sort by First Name</button>
-        <button onclick="setSort('last')">Sort by Last Name</button>
-        <input id="currentPeriodInput" placeholder="Current Period" />
-        <button onclick="setCurrentPeriod()">Set Current Period</button>
-        <input id="restroomLimitInput" type="number" min="1" value="6" style="width:90px;" />
-        <button onclick="setRestroomLimit()">Set Pass Limit (min)</button>
-        <br><br>
-        <button onclick="exportData()">Export Backup</button>
-        <input type="file" id="restoreFile" accept=".json" />
-        <button onclick="restoreData()">Restore Backup</button>
-        <button onclick="wipeAllData()" class="danger">Wipe All Data</button>
+        <h3 style="margin:0 0 8px 0; font-size:16px;">Quick Controls</h3>
+        <div class="inline-row">
+          <button onclick="setSort('first')">First</button>
+          <button onclick="setSort('last')">Last</button>
+          <input id="currentPeriodInput" placeholder="Current period" style="width:110px;" />
+          <button onclick="setCurrentPeriod()">Set Period</button>
+          <input id="restroomLimitInput" type="number" min="1" value="6" style="width:80px;" />
+          <button onclick="setRestroomLimit()">Set Limit</button>
+          <button onclick="exportData()">Backup</button>
+          <input type="file" id="restoreFile" accept=".json" style="max-width:180px;" />
+          <button onclick="restoreData()">Restore</button>
+          <button onclick="wipeAllData()" class="danger">Wipe All</button>
+        </div>
       </div>
 
       <div class="card" id="results" style="display:none;">
         <div class="tabs" id="tabs"></div>
         <div class="summary" id="periodSummary"></div>
-        <div id="tableContainer"></div>
+        <div class="table-wrap">
+          <div id="tableContainer"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -466,8 +511,8 @@
       const overdueLive = isRestroomPassOverdue(s);
       html += `<tr>
         <td>${s.studentId}</td>
-        <td><strong>${s.lastName}, ${s.firstName}</strong><br><span class="tiny">Last event: ${lastEventText}</span></td>
-        <td>${getDisplayedRestroomUsedCount(s)}</td>
+        <td class="name-cell"><strong>${s.lastName}, ${s.firstName}</strong><span class="tiny">${lastEventText}</span></td>
+        <td><span class="count-badge">${getDisplayedRestroomUsedCount(s)}</span></td>
         <td class="tracking">
           <button class="neutral" onclick="adjustRestroomCount('${s._id}', -1)">-1</button>
           <button class="neutral" onclick="adjustRestroomCount('${s._id}', 1)">+1</button>
