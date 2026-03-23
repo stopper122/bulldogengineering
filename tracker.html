@@ -1,43 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, getDocs } from "firebase/firestore";
-import { getAuth, signInAnonymously } from "firebase/auth";
-
-// 🔥 Replace with your Firebase config
-// 🔥 IMPORTANT: You MUST paste your real Firebase config here or the app will break
-const firebaseConfig = {
-  apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
-  authDomain: "rrtracker-de70e.firebaseapp.com",
-  projectId: "rrtracker-de70e",
-  storageBucket: "rrtracker-de70e.firebasestorage.app",
-  messagingSenderId: "1057987490614",
-  appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
-  measurementId: "G-X31008YT0P"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
+import React, { useState } from "react";
 
 export default function ClassroomTracker() {
-  const [students, setStudents] = useState([]);
+  const [students, setStudents] = useState([
+    { id: 1, first: "John", last: "Doe", period: "1" },
+    { id: 2, first: "Jane", last: "Smith", period: "2" }
+  ]);
+
   const [logs, setLogs] = useState([]);
-
-  useEffect(() => {
-    const init = async () => {
-      await signInAnonymously(auth);
-      await loadData();
-    };
-    init();
-  }, []);
-
-  const loadData = async () => {
-    const studentSnap = await getDocs(collection(db, "students"));
-    const logSnap = await getDocs(collection(db, "logs"));
-
-    setStudents(studentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    setLogs(logSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-  };
 
   const handleCSVUpload = async (e) => {
     const file = e.target.files[0];
@@ -46,103 +15,61 @@ export default function ClassroomTracker() {
     const text = await file.text();
     const rows = text.split("\n").slice(1);
 
+    const newStudents = [];
+
     for (let row of rows) {
       const [period, first, last, studentId] = row.split(",");
       if (!first) continue;
 
-      await addDoc(collection(db, "students"), {
+      newStudents.push({
+        id: studentId,
         period,
         first,
-        last,
-        studentId
+        last
       });
     }
 
-    loadData();
+    setStudents(newStudents);
   };
 
-  const logEvent = async (student, type) => {
-    await addDoc(collection(db, "logs"), {
-      studentId: student.studentId,
+  const logEvent = (student, type) => {
+    const newLog = {
+      id: Date.now(),
       name: `${student.first} ${student.last}`,
       type,
       timestamp: new Date().toISOString()
-    });
+    };
 
-    loadData();
-  };
-
-  const exportData = () => {
-    const blob = new Blob([JSON.stringify({ students, logs }, null, 2)], {
-      type: "application/json"
-    });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "backup.json";
-    a.click();
+    setLogs([newLog, ...logs]);
   };
 
   return (
-    <div style={{ fontFamily: "Arial, sans-serif", padding: 20, maxWidth: 900, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 28, marginBottom: 10 }}>Classroom Tracker</h1>
+    <div style={{ fontFamily: "Arial", padding: 20, maxWidth: 900, margin: "0 auto" }}>
+      <h1>Classroom Tracker</h1>
 
-      <div style={{ marginBottom: 15 }}>
-        <input type="file" accept=".csv" onChange={handleCSVUpload} />
-      </div>
-
-      <button
-        onClick={exportData}
-        style={{ padding: "8px 12px", marginBottom: 20, cursor: "pointer" }}
-      >
-        Export Backup
-      </button>
+      <input type="file" accept=".csv" onChange={handleCSVUpload} />
 
       <h2>Students</h2>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 10 }}>
         {students.map((student) => (
-          <div
-            key={student.id}
-            style={{ border: "1px solid #ccc", borderRadius: 6, padding: 10 }}
-          >
-            <div style={{ fontWeight: "bold" }}>
-              {student.first} {student.last}
-            </div>
-            <div style={{ fontSize: 12, marginBottom: 8 }}>
-              Period: {student.period}
-            </div>
+          <div key={student.id} style={{ border: "1px solid #ccc", padding: 10 }}>
+            <strong>{student.first} {student.last}</strong><br />
+            Period: {student.period}
 
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                onClick={() => logEvent(student, "Out of Class")}
-                style={{ flex: 1, padding: 6, cursor: "pointer" }}
-              >
-                Pass
-              </button>
-
-              <button
-                onClick={() => logEvent(student, "Behavior")}
-                style={{ flex: 1, padding: 6, cursor: "pointer" }}
-              >
-                Behavior
-              </button>
+            <div style={{ marginTop: 8 }}>
+              <button onClick={() => logEvent(student, "Pass")}>Pass</button>
+              <button onClick={() => logEvent(student, "Behavior")}>Behavior</button>
             </div>
           </div>
         ))}
       </div>
 
-      <h2 style={{ marginTop: 30 }}>Logs</h2>
-      <div>
-        {logs.map((log) => (
-          <div
-            key={log.id}
-            style={{ borderBottom: "1px solid #eee", padding: "6px 0", fontSize: 14 }}
-          >
-            {log.name} - {log.type} - {new Date(log.timestamp).toLocaleString()}
-          </div>
-        ))}
-      </div>
+      <h2>Logs</h2>
+      {logs.map((log) => (
+        <div key={log.id}>
+          {log.name} - {log.type} - {new Date(log.timestamp).toLocaleString()}
+        </div>
+      ))}
     </div>
   );
 }
