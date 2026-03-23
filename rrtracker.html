@@ -3,33 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hall Pass Tracker (Stable)</title>
+<title>Hall Pass Tracker</title>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-50 min-h-screen p-6 font-sans">
 
-<div class="max-w-7xl mx-auto grid grid-cols-4 gap-6">
+<div class="max-w-6xl mx-auto">
 
-  <div class="col-span-3">
-
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-black text-slate-800">Hall Pass Tracker</h1>
-      <span id="status" class="text-xs font-bold uppercase text-amber-600">Connecting...</span>
-    </div>
-
-    <input id="search" placeholder="Search student..." class="w-full mb-4 px-3 py-2 border rounded" oninput="render()">
-
-    <div id="periodTabs" class="flex flex-wrap gap-2 mb-4"></div>
-
-    <div id="app" class="grid gap-3"></div>
-
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-black">Hall Pass Tracker</h1>
+    <span id="status" class="text-xs font-bold">Connecting...</span>
   </div>
 
-  <div>
-    <div class="bg-white p-4 rounded-xl shadow">
-      <h3 class="text-xs font-bold uppercase text-slate-400 mb-3">Watchlist (3+)</h3>
-      <div id="watch"></div>
-    </div>
+  <input id="search" placeholder="Search student..." class="w-full mb-4 px-3 py-2 border rounded">
+
+  <div id="periodTabs" class="flex gap-2 mb-4"></div>
+
+  <div id="active" class="mb-4"></div>
+
+  <div id="students" class="grid gap-2"></div>
+
+  <div class="mt-6">
+    <h3 class="font-bold mb-2">Watchlist (3+)</h3>
+    <div id="watch"></div>
   </div>
 
 </div>
@@ -46,155 +42,143 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const docRef = doc(db, "hallpass", "shared");
+const ref = doc(db, "hallpass", "shared");
 
 let state = {
   students: [],
-  activePasses: [],
+  active: [],
   logs: [],
-  settings: { limitSec: 420, maxPasses: 5 },
-  currentPeriod: null
+  settings: { limit: 420, max: 5 },
+  period: null
 };
 
-const appDiv = document.getElementById("app");
-const tabsDiv = document.getElementById("periodTabs");
+const elStudents = document.getElementById("students");
+const elTabs = document.getElementById("periodTabs");
+const elActive = document.getElementById("active");
+const elWatch = document.getElementById("watch");
 const status = document.getElementById("status");
 
-function formatTime(sec){
-  const m=Math.floor(sec/60);
-  const s=(sec%60).toString().padStart(2,'0');
+function time(sec){
+  const m = Math.floor(sec/60);
+  const s = (sec%60).toString().padStart(2,'0');
   return `${m}:${s}`;
 }
 
 function render(){
-  window.render = render; // ensure global access
 
-  const periods = [...new Set(state.students.map(s=>s.period))].sort();
-  if(!state.currentPeriod && periods.length) state.currentPeriod = periods[0];
+  // periods
+  const periods = [...new Set(state.students.map(s=>s.period))];
+  if(!state.period && periods.length) state.period = periods[0];
 
-  tabsDiv.innerHTML = periods.map(p=>`
-    <button onclick="window.setPeriod('${p}')" class="px-3 py-1 rounded ${state.currentPeriod===p?'bg-indigo-600 text-white':'bg-slate-200'}">P${p}</button>
-  `).join("");
-
-  const search = document.getElementById("search")?.value?.toLowerCase() || "";
-
-  const filtered = state.students
-    .filter(s=>s.period===state.currentPeriod)
-    .filter(s=>s.name.toLowerCase().includes(search));
-
-  appDiv.innerHTML = filtered.map(s=>{
-    const active = state.activePasses.find(p=>String(p.id)===String(s.id));
-    const duration = active ? Math.floor((Date.now()-active.start)/1000) : 0;
-
-    return `<div class="bg-white p-3 rounded-xl flex justify-between items-center">
-      <div>${s.name}</div>
-      <div class="flex gap-3 items-center">
-        ${active ? `<span>${formatTime(duration)}</span>` : ''}
-        <div class="text-xs">
-          ${s.passesUsed||0}/${state.settings.maxPasses}
-          <div class="flex gap-1">
-            <button data-action="add" data-id="${s.id}" class="bg-slate-200 px-1">+</button>
-            <button data-action="sub" data-id="${s.id}" class="bg-slate-200 px-1">-</button>
-          </div>
-        </div>
-        <button data-action="edit" data-id="${s.id}" class="text-xs bg-slate-200 px-2">Edit</button>
-        <button data-action="delete" data-id="${s.id}" class="text-xs bg-red-500 text-white px-2">Delete</button>
-        <button data-action="toggle" data-id="${s.id}" class="text-xs bg-indigo-600 text-white px-2">${active?'Return':'Start'}</button>
-      </div>
-    </div>`;
+  elTabs.innerHTML = periods.map(p=>{
+    const btn = document.createElement("button");
+    btn.textContent = "P"+p;
+    btn.className = "px-3 py-1 rounded " + (p===state.period?"bg-indigo-600 text-white":"bg-gray-200");
+    btn.onclick = ()=>{ state.period=p; render(); };
+    return btn.outerHTML;
   }).join("");
 
-  // Attach direct click handlers (reliable fix)
-  appDiv.querySelectorAll('[data-action]').forEach(btn=>{
-    btn.onclick = async (e)=>{
-      e.stopPropagation();
-      const id = btn.dataset.id;
-      const action = btn.dataset.action;
+  // active
+  elActive.innerHTML = state.active.map(a=>{
+    const s = state.students.find(x=>x.id===a.id);
+    const d = Math.floor((Date.now()-a.start)/1000);
+    return `<div class="text-sm ${d>state.settings.limit?'text-red-600':''}">${s?.name} ${time(d)}</div>`;
+  }).join("");
 
-      if(action === 'toggle') await window.togglePass(id);
-      if(action === 'add') await window.adjustPass(id,1);
-      if(action === 'sub') await window.adjustPass(id,-1);
-      if(action === 'edit') await window.editStudent(id);
-      if(action === 'delete') await window.deleteStudent(id);
-    };
+  // students
+  const list = state.students.filter(s=>s.period===state.period);
+
+  elStudents.innerHTML = "";
+
+  list.forEach(s=>{
+    const row = document.createElement("div");
+    row.className = "bg-white p-2 rounded flex justify-between";
+
+    const active = state.active.find(a=>a.id===s.id);
+    const d = active ? Math.floor((Date.now()-active.start)/1000) : 0;
+
+    row.innerHTML = `
+      <div>${s.name}</div>
+      <div class="flex gap-2 items-center">
+        ${active?`<span>${time(d)}</span>`:""}
+        <span>${s.passesUsed||0}/${state.settings.max}</span>
+        <button class="add">+</button>
+        <button class="sub">-</button>
+        <button class="edit">Edit</button>
+        <button class="del bg-red-500 text-white px-2">X</button>
+        <button class="toggle bg-indigo-600 text-white px-2">${active?'Return':'Start'}</button>
+      </div>`;
+
+    // attach handlers (simple + reliable)
+    row.querySelector(".add").onclick = ()=>adjust(s.id,1);
+    row.querySelector(".sub").onclick = ()=>adjust(s.id,-1);
+    row.querySelector(".edit").onclick = ()=>edit(s.id);
+    row.querySelector(".del").onclick = ()=>del(s.id);
+    row.querySelector(".toggle").onclick = ()=>toggle(s.id);
+
+    elStudents.appendChild(row);
   });
 
-  const watch = document.getElementById("watch");
+  // watchlist
   const flagged = state.students.filter(s=>s.passesUsed>=3);
-  watch.innerHTML = flagged.map(s=>`<div class="text-xs">${s.name} (${s.passesUsed})</div>`).join("") || "None";
+  elWatch.innerHTML = flagged.map(s=>`${s.name} (${s.passesUsed})`).join("<br>") || "None";
 }
 
-async function save(){ await setDoc(docRef,state); }
+async function save(){ await setDoc(ref,state); }
 
-function startSync(){
-  onSnapshot(docRef,(snap)=>{
-    if(snap.exists()){
-      state = snap.data();
-      if(!state.settings) state.settings={limitSec:420,maxPasses:5};
-      render();
-    }
-    status.innerText="Connected";
+function sync(){
+  onSnapshot(ref,s=>{
+    if(s.exists()) state = s.data();
+    render();
+    status.textContent = "Connected";
   });
 }
 
-window.togglePass=async (id)=>{
-  console.log('toggle', id);
-  const active = state.activePasses.find(p=>String(p.id)===String(id));
-  const student = state.students.find(s=>String(s.id)===String(id));
+function toggle(id){
+  const a = state.active.find(x=>x.id===id);
+  const s = state.students.find(x=>x.id===id);
 
-  if(active){
-    const duration = Math.floor((Date.now()-active.start)/1000);
-    if(duration>state.settings.limitSec) student.passesUsed++;
-    state.logs.unshift({name:student.name,duration});
-    state.activePasses = state.activePasses.filter(p=>String(p.id)!==String(id));
+  if(a){
+    const d = Math.floor((Date.now()-a.start)/1000);
+    if(d>state.settings.limit) s.passesUsed++;
+    state.active = state.active.filter(x=>x.id!==id);
   } else {
-    state.activePasses.push({id,start:Date.now()});
+    state.active.push({id,start:Date.now()});
   }
 
-  await save(); render();
-};
+  save();
+}
 
-window.adjustPass=async (id,d)=>{
-  console.log('adjust', id, d);
-  const s = state.students.find(x=>String(x.id)===String(id));
-  if(!s) return;
-  s.passesUsed=Math.max(0,(s.passesUsed||0)+d);
-  await save(); render();
-};
+function adjust(id,n){
+  const s = state.students.find(x=>x.id===id);
+  s.passesUsed = Math.max(0,(s.passesUsed||0)+n);
+  save();
+}
 
-window.editStudent=async (id)=>{
-  console.log('edit', id);
-  const s = state.students.find(x=>String(x.id)===String(id));
-  if(!s) return;
-  const name=prompt("Name",s.name);
-  const period=prompt("Period",s.period);
+function edit(id){
+  const s = state.students.find(x=>x.id===id);
+  const name = prompt("Name",s.name);
+  const p = prompt("Period",s.period);
   if(name) s.name=name;
-  if(period) s.period=period;
-  await save(); render();
-};
+  if(p) s.period=p;
+  save();
+}
 
-window.deleteStudent=async (id)=>{
-  console.log('delete', id);
-  if(confirm("Delete student?")){
-    state.students = state.students.filter(s=>String(s.id)!==String(id));
-    state.activePasses = state.activePasses.filter(p=>String(p.id)!==String(id));
-    await save();
-    render();
+function del(id){
+  if(confirm("Delete?")){
+    state.students = state.students.filter(x=>x.id!==id);
+    save();
   }
-};
-
-window.setPeriod=(p)=>{ state.currentPeriod=p; render(); };
+}
 
 async function init(){
-  const snap=await getDoc(docRef);
-  if(!snap.exists()) await setDoc(docRef,state);
-  startSync();
+  const s = await getDoc(ref);
+  if(!s.exists()) await setDoc(ref,state);
+  sync();
 }
 
-// (Removed global delegation to avoid double-trigger issues)
-
 init();
-setInterval(()=>{ if(state.activePasses.length) render(); },1000);
+setInterval(()=>render(),1000);
 
 </script>
 
