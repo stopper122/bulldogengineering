@@ -164,11 +164,10 @@
             await addDoc(collection(db, "students"), obj);
           }
 
-          console.log("Grouped data:", grouped);;
-            grouped[period].push(obj);
+          console.log("Grouped data:", grouped);
 
-            await addDoc(collection(db, "students"), obj);
-          }
+          // Render results AFTER loop
+          console.log("Grouped data:", grouped);
 
           statusEl.textContent = "Upload complete";
           resultsDiv.style.display = "block";
