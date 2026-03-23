@@ -2,145 +2,116 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Student Roster Manager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Student Roster</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.2/papaparse.min.js"></script>
-    <!-- Firebase Legacy SDKs for broadest compatibility -->
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-auth-compat.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
-        .loading-shimmer {
-            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-        }
-        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="p-4 md:p-8">
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-8">
+            <h1 class="text-3xl font-black text-slate-900">Roster Parser</h1>
+            <p class="text-slate-500">Upload a CSV to view students sorted by period.</p>
+        </header>
 
-    <!-- Header -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 py-4 sm:px-6">
-        <div class="max-w-5xl mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">Classroom Roster</h1>
-                <p id="connection-status" class="text-[10px] font-bold uppercase text-amber-500 tracking-widest flex items-center gap-1">
-                    <span class="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span> Connecting...
-                </p>
-            </div>
-            <div id="user-display" class="hidden text-right">
-                <p class="text-[10px] font-mono text-slate-400" id="user-id-label"></p>
-            </div>
-        </div>
-    </header>
-
-    <main class="flex-1 max-w-5xl mx-auto w-full p-4 sm:p-6 space-y-6">
-        
-        <!-- Upload Section -->
-        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <h2 class="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">Import Data</h2>
-            <div class="flex flex-col sm:flex-row gap-4">
-                <div class="flex-1 relative">
-                    <input type="file" id="csv-input" accept=".csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer bg-slate-50 rounded-xl border border-dashed border-slate-300 p-1.5">
-                </div>
-                <button id="upload-btn" onclick="handleUpload()" disabled class="bg-blue-600 disabled:bg-slate-300 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">
-                    Sync to Cloud
-                </button>
-            </div>
-            <p class="mt-3 text-[11px] text-slate-400">Supported columns: Period, First Name, Last Name, Student ID</p>
-            
-            <!-- Progress Feedback -->
-            <div id="progress-box" class="hidden mt-4 p-4 bg-slate-900 rounded-xl font-mono text-xs text-blue-400 space-y-1">
-                <div id="step-read">○ Reading file...</div>
-                <div id="step-validate">○ Validating students...</div>
-                <div id="step-upload">○ Saving to cloud...</div>
-            </div>
-        </section>
-
-        <!-- Filters -->
-        <div class="flex items-center justify-between">
-            <h2 class="text-lg font-extrabold text-slate-800">Student List</h2>
-            <select id="period-filter" onchange="renderRoster()" class="bg-white border border-slate-200 text-sm font-bold text-slate-700 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
-                <option value="all">All Periods</option>
-            </select>
+        <!-- Upload Box -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border-2 border-dashed border-slate-300 mb-8 transition-all hover:border-blue-400">
+            <input type="file" id="csvFile" accept=".csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
         </div>
 
-        <!-- Roster Display -->
-        <div id="roster-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Loading States -->
-            <div class="loading-shimmer h-24 rounded-2xl"></div>
-            <div class="loading-shimmer h-24 rounded-2xl"></div>
-            <div class="loading-shimmer h-24 rounded-2xl"></div>
-            <div class="loading-shimmer h-24 rounded-2xl"></div>
+        <!-- Filter Bar -->
+        <div id="controls" class="hidden mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+                <label class="font-bold text-slate-700">Filter Period:</label>
+                <select id="periodFilter" onchange="displayStudents()" class="bg-white border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="all">All Periods</option>
+                </select>
+            </div>
+            <div id="stats" class="text-sm font-medium text-slate-500"></div>
         </div>
 
-    </main>
-
-    <!-- Clear Data Footer -->
-    <footer class="p-6 text-center safe-area-bottom">
-        <button onclick="clearAllData()" class="text-xs font-bold text-red-400 hover:text-red-600 uppercase tracking-widest p-2 transition">
-            Reset Database
-        </button>
-    </footer>
+        <!-- Roster Table -->
+        <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-200">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="px-6 py-4 text-xs font-black uppercase text-slate-400 tracking-wider">Period</th>
+                        <th class="px-6 py-4 text-xs font-black uppercase text-slate-400 tracking-wider">Last Name</th>
+                        <th class="px-6 py-4 text-xs font-black uppercase text-slate-400 tracking-wider">First Name</th>
+                        <th class="px-6 py-4 text-xs font-black uppercase text-slate-400 tracking-wider">Student ID</th>
+                    </tr>
+                </thead>
+                <tbody id="rosterBody" class="divide-y divide-slate-100">
+                    <tr>
+                        <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic">No data uploaded yet.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 
     <script>
-        // Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
-            authDomain: "rrtracker-de70e.firebaseapp.com",
-            projectId: "rrtracker-de70e",
-            storageBucket: "rrtracker-de70e.firebasestorage.app",
-            messagingSenderId: "1057987490614",
-            appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997"
-        };
-        const APP_ID = 'student-roster-manager';
+        let allStudents = [];
 
-        // Initialize
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
+        document.getElementById('csvFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
 
-        let students = [];
-        let currentUser = null;
-
-        async function init() {
-            try {
-                const cred = await auth.signInAnonymously();
-                currentUser = cred.user;
-                
-                document.getElementById('connection-status').innerHTML = `<span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Cloud Connected`;
-                document.getElementById('connection-status').className = "text-[10px] font-bold uppercase text-green-600 tracking-widest flex items-center gap-1";
-                document.getElementById('user-display').classList.remove('hidden');
-                document.getElementById('user-id-label').textContent = `ID: ${currentUser.uid.substr(0,8)}...`;
-                document.getElementById('upload-btn').disabled = false;
-
-                setupListener();
-            } catch (err) {
-                console.error(err);
-                document.getElementById('connection-status').textContent = "Connection Error";
-            }
-        }
-
-        function setupListener() {
-            const path = `artifacts/${APP_ID}/users/${currentUser.uid}/students`;
-            db.collection(path).onSnapshot(snap => {
-                students = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                updateFilters();
-                renderRoster();
-            }, err => {
-                console.error("Firestore Error:", err);
+            // Use PapaParse with the most basic settings to avoid over-engineering the header detection
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    console.log("Raw Results:", results);
+                    processData(results.data);
+                },
+                error: function(err) {
+                    alert("Error reading file: " + err.message);
+                }
             });
+        });
+
+        function processData(rawData) {
+            allStudents = rawData.map(row => {
+                // Try to find the values regardless of capitalization in headers
+                const findVal = (keys) => {
+                    const match = Object.keys(row).find(k => 
+                        keys.some(key => k.toLowerCase().trim() === key.toLowerCase())
+                    );
+                    return match ? row[match] : "";
+                };
+
+                return {
+                    period: findVal(['period', 'per', 'class', 'pd']),
+                    firstName: findVal(['first name', 'first', 'fname', 'given name']),
+                    lastName: findVal(['last name', 'last', 'lname', 'surname']),
+                    id: findVal(['student id', 'id', 'id number', 'student number', 'sid'])
+                };
+            }).filter(s => s.firstName || s.lastName); // Only keep rows that have a name
+
+            // Sort by period (numeric) then last name
+            allStudents.sort((a, b) => {
+                const perA = parseInt(a.period) || 0;
+                const perB = parseInt(b.period) || 0;
+                if (perA !== perB) return perA - perB;
+                return a.lastName.localeCompare(b.lastName);
+            });
+
+            // Setup filters
+            setupFilters();
+            
+            // Show controls and display
+            document.getElementById('controls').classList.remove('hidden');
+            displayStudents();
         }
 
-        function updateFilters() {
-            const select = document.getElementById('period-filter');
-            const currentVal = select.value;
-            const periods = [...new Set(students.map(s => s.period))].sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric: true}));
+        function setupFilters() {
+            const select = document.getElementById('periodFilter');
+            const periods = [...new Set(allStudents.map(s => s.period))].filter(p => p).sort((a, b) => a - b);
             
             select.innerHTML = '<option value="all">All Periods</option>';
             periods.forEach(p => {
@@ -149,171 +120,33 @@
                 opt.textContent = `Period ${p}`;
                 select.appendChild(opt);
             });
-            select.value = currentVal;
         }
 
-        function handleUpload() {
-            const fileInput = document.getElementById('csv-input');
-            const box = document.getElementById('progress-box');
-            if (!fileInput.files.length) return alert("Please select a file.");
+        function displayStudents() {
+            const filter = document.getElementById('periodFilter').value;
+            const tbody = document.getElementById('rosterBody');
+            const stats = document.getElementById('stats');
+            
+            const filtered = filter === 'all' 
+                ? allStudents 
+                : allStudents.filter(s => s.period === filter);
 
-            resetSteps();
-            box.classList.remove('hidden');
-            setStep('read', 'parsing');
+            stats.textContent = `Showing ${filtered.length} students`;
 
-            // Trying with header: false first to see the raw shape of data
-            Papa.parse(fileInput.files[0], {
-                header: false,
-                skipEmptyLines: 'greedy',
-                complete: async (results) => {
-                    setStep('read', 'done');
-                    setStep('validate', 'processing');
-
-                    try {
-                        if (!results.data || results.data.length < 1) throw new Error("File is empty.");
-
-                        // Determine if first row is a header
-                        let data = results.data;
-                        let headers = data[0].map(h => String(h).toLowerCase().trim());
-                        
-                        // Heuristic: If first row contains 'name' or 'period', it's a header
-                        const looksLikeHeader = headers.some(h => ['name','period','id','last','first'].includes(h));
-                        if (looksLikeHeader) {
-                            data = data.slice(1);
-                        } else {
-                            // If no header, we use indices
-                            headers = ['period', 'first', 'last', 'id']; 
-                        }
-
-                        const batch = db.batch();
-                        const path = `artifacts/${APP_ID}/users/${currentUser.uid}/students`;
-                        let count = 0;
-
-                        data.forEach((row, rowIndex) => {
-                            if (!row || row.length === 0) return;
-
-                            const getVal = (keywords, index) => {
-                                // Try by keyword first
-                                const colIndex = headers.findIndex(h => keywords.some(k => h.includes(k)));
-                                if (colIndex !== -1 && row[colIndex]) return row[colIndex];
-                                // Fallback to fixed index if the row has enough columns
-                                if (row[index]) return row[index];
-                                return null;
-                            };
-
-                            // Standard mapping: Per(0), First(1), Last(2), ID(3)
-                            const period = getVal(['per', 'class', 'group'], 0) || "1";
-                            const fName = getVal(['first', 'fname', 'given', 'name'], 1);
-                            const lName = getVal(['last', 'lname', 'surname'], 2);
-                            const sId = getVal(['id', 'sid', 'num'], 3) || `ID-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
-
-                            if (fName || lName) {
-                                const ref = db.collection(path).doc();
-                                batch.set(ref, {
-                                    firstName: String(fName || "").trim(),
-                                    lastName: String(lName || "").trim(),
-                                    period: String(period).trim(),
-                                    studentId: String(sId).trim(),
-                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                });
-                                count++;
-                            }
-                        });
-
-                        if (count === 0) throw new Error("Could not find any student names in the file.");
-
-                        setStep('validate', `found ${count} students`);
-                        setStep('upload', 'syncing...');
-
-                        await batch.commit();
-
-                        setStep('upload', 'success!');
-                        setTimeout(() => {
-                            box.classList.add('hidden');
-                            fileInput.value = "";
-                        }, 2500);
-
-                    } catch (err) {
-                        setStep('validate', 'error', true);
-                        setStep('upload', err.message, true);
-                        console.error(err);
-                    }
-                },
-                error: (err) => {
-                    setStep('read', 'failed', true);
-                    console.error(err);
-                }
-            });
-        }
-
-        function resetSteps() {
-            ['read', 'validate', 'upload'].forEach(id => {
-                const el = document.getElementById(`step-${id}`);
-                el.textContent = `○ ${id.toUpperCase()}...`;
-                el.className = 'text-blue-400';
-            });
-        }
-
-        function setStep(id, text, isError = false) {
-            const el = document.getElementById(`step-${id}`);
-            const icons = { parsing: '⏳', processing: '🔍', done: '✅', success: '✨', error: '❌', syncing: '☁️' };
-            let icon = '○';
-            for (const key in icons) { if (text.toLowerCase().includes(key)) icon = icons[key]; }
-            if (isError) icon = '❌';
-            el.textContent = `${icon} ${id.toUpperCase()}: ${text}`;
-            el.className = isError ? 'text-red-400 font-bold' : (text.includes('success') || text.includes('done') ? 'text-green-400' : 'text-blue-400');
-        }
-
-        function renderRoster() {
-            const container = document.getElementById('roster-container');
-            const filter = document.getElementById('period-filter').value;
-            let displayList = filter === 'all' ? students : students.filter(s => s.period === filter);
-
-            displayList.sort((a, b) => {
-                const perA = String(a.period).padStart(3, '0');
-                const perB = String(b.period).padStart(3, '0');
-                if (perA !== perB) return perA.localeCompare(perB);
-                return a.lastName.localeCompare(b.lastName);
-            });
-
-            if (displayList.length === 0) {
-                container.innerHTML = `<div class="col-span-full py-20 text-center"><p class="text-slate-400 italic">No students found.</p></div>`;
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-12 text-center text-slate-400 italic">No matching students found.</td></tr>';
                 return;
             }
 
-            container.innerHTML = displayList.map(s => `
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group hover:border-blue-300 transition-colors">
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span class="bg-blue-100 text-blue-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">Per ${s.period}</span>
-                            <span class="text-xs font-mono text-slate-400">#${s.studentId}</span>
-                        </div>
-                        <h3 class="text-lg font-bold text-slate-900 mt-1">${s.lastName}, ${s.firstName}</h3>
-                    </div>
-                    <button onclick="deleteStudent('${s.id}')" class="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-red-500 transition-all">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    </button>
-                </div>
+            tbody.innerHTML = filtered.map(s => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap"><span class="bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded text-sm">${s.period || '?'}</span></td>
+                    <td class="px-6 py-4 whitespace-nowrap font-bold text-slate-900">${s.lastName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-slate-600">${s.firstName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-slate-400 font-mono text-sm">${s.id}</td>
+                </tr>
             `).join('');
         }
-
-        async function deleteStudent(id) {
-            if (confirm("Delete this student?")) {
-                await db.collection(`artifacts/${APP_ID}/users/${currentUser.uid}/students`).doc(id).delete();
-            }
-        }
-
-        async function clearAllData() {
-            if (confirm("Clear ALL data?")) {
-                const path = `artifacts/${APP_ID}/users/${currentUser.uid}/students`;
-                const snap = await db.collection(path).get();
-                const batch = db.batch();
-                snap.docs.forEach(doc => batch.delete(doc.ref));
-                await batch.commit();
-            }
-        }
-
-        window.onload = init;
     </script>
 </body>
 </html>
