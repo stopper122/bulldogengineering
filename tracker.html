@@ -140,16 +140,31 @@
           statusEl.textContent = "Uploading...";
 
           for (const student of results.data) {
-            const studentId = student.studentId || student["student id"];
-            const period = student.period;
-            const firstName = student["first name"] || "";
-            const lastName = student["last name"] || "";
+            // Normalize keys (case-insensitive + trim)
+            const normalized = {};
+            Object.keys(student).forEach(k => {
+              normalized[k.toLowerCase().trim()] = student[k];
+            });
 
-            if (!studentId || !period) continue;
+            const studentId = normalized["student id"] || normalized["studentid"] || normalized["id"];
+            const period = normalized["period"];
+            const firstName = normalized["first name"] || "";
+            const lastName = normalized["last name"] || "";
+
+            if (!studentId || !period) {
+              console.warn("Skipping row:", student);
+              continue;
+            }
 
             if (!grouped[period]) grouped[period] = [];
 
             const obj = { studentId, period, firstName, lastName };
+            grouped[period].push(obj);
+
+            await addDoc(collection(db, "students"), obj);
+          }
+
+          console.log("Grouped data:", grouped);;
             grouped[period].push(obj);
 
             await addDoc(collection(db, "students"), obj);
