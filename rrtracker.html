@@ -67,6 +67,7 @@ function formatTime(sec){
 }
 
 function render(){
+  window.render = render; // ensure global access
 
   const periods = [...new Set(state.students.map(s=>s.period))].sort();
   if(!state.currentPeriod && periods.length) state.currentPeriod = periods[0];
@@ -92,16 +93,30 @@ function render(){
         <div class="text-xs">
           ${s.passesUsed||0}/${state.settings.maxPasses}
           <div class="flex gap-1">
-            <button onclick="window.adjustPass('${s.id}',1)" class="bg-slate-200 px-1">+</button>
-            <button onclick="window.adjustPass('${s.id}',-1)" class="bg-slate-200 px-1">-</button>
+            <button data-action="add" data-id="${s.id}" class="bg-slate-200 px-1">+</button>
+            <button data-action="sub" data-id="${s.id}" class="bg-slate-200 px-1">-</button>
           </div>
         </div>
-        <button onclick="window.editStudent('${s.id}')" class="text-xs bg-slate-200 px-2">Edit</button>
-        <button onclick="window.deleteStudent('${s.id}')" class="text-xs bg-red-500 text-white px-2">Delete</button>
-        <button onclick="window.togglePass('${s.id}')" class="text-xs bg-indigo-600 text-white px-2">${active?'Return':'Start'}</button>
+        <button data-action="edit" data-id="${s.id}" class="text-xs bg-slate-200 px-2">Edit</button>
+        <button data-action="delete" data-id="${s.id}" class="text-xs bg-red-500 text-white px-2">Delete</button>
+        <button data-action="toggle" data-id="${s.id}" class="text-xs bg-indigo-600 text-white px-2">${active?'Return':'Start'}</button>
       </div>
     </div>`;
   }).join("");
+
+  // Attach direct click handlers (reliable fix)
+  appDiv.querySelectorAll('[data-action]').forEach(btn=>{
+    btn.onclick = (e)=>{
+      const id = btn.dataset.id;
+      const action = btn.dataset.action;
+
+      if(action === 'toggle') window.togglePass(id);
+      if(action === 'add') window.adjustPass(id,1);
+      if(action === 'sub') window.adjustPass(id,-1);
+      if(action === 'edit') window.editStudent(id);
+      if(action === 'delete') window.deleteStudent(id);
+    };
+  });
 
   const watch = document.getElementById("watch");
   const flagged = state.students.filter(s=>s.passesUsed>=3);
@@ -122,6 +137,7 @@ function startSync(){
 }
 
 window.togglePass=(id)=>{
+  console.log('toggle', id);
   const active = state.activePasses.find(p=>String(p.id)===String(id));
   const student = state.students.find(s=>String(s.id)===String(id));
 
@@ -138,6 +154,7 @@ window.togglePass=(id)=>{
 };
 
 window.adjustPass=(id,d)=>{
+  console.log('adjust', id, d);
   const s = state.students.find(x=>String(x.id)===String(id));
   if(!s) return;
   s.passesUsed=Math.max(0,(s.passesUsed||0)+d);
@@ -145,6 +162,7 @@ window.adjustPass=(id,d)=>{
 };
 
 window.editStudent=(id)=>{
+  console.log('edit', id);
   const s = state.students.find(x=>String(x.id)===String(id));
   if(!s) return;
   const name=prompt("Name",s.name);
@@ -155,6 +173,7 @@ window.editStudent=(id)=>{
 };
 
 window.deleteStudent=(id)=>{
+  console.log('delete', id);
   if(confirm("Delete student?")){
     state.students = state.students.filter(s=>String(s.id)!==String(id));
     save(); render();
@@ -168,6 +187,21 @@ async function init(){
   if(!snap.exists()) await setDoc(docRef,state);
   startSync();
 }
+
+// Central event delegation for all buttons (reliable with module scripts)
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+
+  if(action === 'toggle') window.togglePass(id);
+  if(action === 'add') window.adjustPass(id,1);
+  if(action === 'sub') window.adjustPass(id,-1);
+  if(action === 'edit') window.editStudent(id);
+  if(action === 'delete') window.deleteStudent(id);
+});
 
 init();
 setInterval(()=>{ if(state.activePasses.length) render(); },1000);
