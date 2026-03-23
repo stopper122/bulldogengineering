@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Classroom Management Tracker v1.1</title>
+    <title>Classroom Management Tracker v1.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.2/papaparse.min.js"></script>
     <!-- Firebase App (the core Firebase SDK) -->
@@ -34,7 +34,7 @@
     <nav class="sticky top-0 z-50 bg-white shadow-sm px-4 py-3 flex justify-between items-center">
         <div class="flex items-baseline gap-2">
             <h1 class="font-bold text-xl text-slate-800">Classroom Manager</h1>
-            <span class="text-[10px] font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">v1.1</span>
+            <span class="text-[10px] font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">v1.2</span>
         </div>
         <div class="flex gap-1 sm:gap-2">
             <button onclick="switchTab('roster')" class="nav-btn px-2 sm:px-3 py-1 text-sm font-medium rounded-md transition hover:bg-slate-100">Roster</button>
@@ -51,7 +51,8 @@
                 <h2 class="text-lg font-semibold mb-2">Upload Roster</h2>
                 <p class="text-xs text-slate-500 mb-4 font-mono uppercase tracking-wider">Required Columns: period, firstName, lastName, studentId</p>
                 <input type="file" id="csv-file" accept=".csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mb-4">
-                <button onclick="handleFileUpload()" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 active:scale-[0.98] transition">Import Students</button>
+                <button id="import-btn" onclick="handleFileUpload()" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed">Import Students</button>
+                <p id="import-status" class="text-center text-xs mt-2 hidden text-blue-600 font-medium"></p>
             </div>
 
             <div class="glass-card rounded-xl p-6 shadow-sm">
@@ -135,7 +136,7 @@
         // CONFIGURATION
         const firebaseConfig = JSON.parse(__firebase_config);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'classroom-tracker';
-        const APP_VERSION = "v1.1";
+        const APP_VERSION = "v1.2";
         
         // INITIALIZE FIREBASE
         firebase.initializeApp(firebaseConfig);
@@ -174,6 +175,7 @@
 
         // LISTENERS
         function setupListeners() {
+            if (!currentUser) return;
             const studentPath = `/artifacts/${appId}/users/${currentUser.uid}/students`;
             const logPath = `/artifacts/${appId}/users/${currentUser.uid}/logs`;
 
@@ -195,6 +197,8 @@
                 activePasses = logs.filter(l => l.type === 'Pass' && !l.returnTimestamp);
                 renderActivePasses();
                 renderLogs();
+            }, (error) => {
+                console.error("Firestore Error:", error);
             });
         }
 
@@ -205,7 +209,6 @@
             
             document.getElementById(`tab-${tabId}`).classList.remove('hidden');
             
-            // Highlight button
             const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(b => b.textContent.toLowerCase() === tabId);
             if (activeBtn) activeBtn.classList.add('tab-active', 'bg-blue-50', 'text-blue-700');
         }
@@ -213,35 +216,78 @@
         // ROSTER MANAGEMENT
         async function handleFileUpload() {
             const fileInput = document.getElementById('csv-file');
-            if (!fileInput.files.length) return;
+            const importBtn = document.getElementById('import-btn');
+            const statusMsg = document.getElementById('import-status');
+
+            if (!fileInput.files.length) {
+                alert("Please select a CSV file first.");
+                return;
+            }
+
+            if (!currentUser) {
+                alert("Auth error. Please wait for the app to initialize.");
+                return;
+            }
+
+            importBtn.disabled = true;
+            statusMsg.textContent = "Processing...";
+            statusMsg.classList.remove('hidden');
 
             Papa.parse(fileInput.files[0], {
                 header: true,
                 skipEmptyLines: true,
                 complete: async (results) => {
-                    const batch = db.batch();
-                    const path = `/artifacts/${appId}/users/${currentUser.uid}/students`;
-                    
-                    results.data.forEach(row => {
-                        const docRef = db.collection(path).doc();
-                        batch.set(docRef, {
-                            period: row.period || '1',
-                            firstName: (row.firstName || row.first || '').trim(),
-                            lastName: (row.lastName || row.last || '').trim(),
-                            studentId: (row.studentId || row.id || docRef.id).trim(),
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    });
+                    try {
+                        const batch = db.batch();
+                        const path = `/artifacts/${appId}/users/${currentUser.uid}/students`;
+                        
+                        let count = 0;
+                        results.data.forEach(row => {
+                            // Check for header mapping variations
+                            const period = row.period || row.Period || '1';
+                            const fName = (row.firstName || row.first || row['First Name'] || '').trim();
+                            const lName = (row.lastName || row.last || row['Last Name'] || '').trim();
+                            const sId = (row.studentId || row.id || row['Student ID'] || '').trim();
 
-                    await batch.commit();
-                    fileInput.value = "";
-                    alert("Roster Imported Successfully!");
+                            if (fName || lName) {
+                                const docRef = db.collection(path).doc();
+                                batch.set(docRef, {
+                                    period: period,
+                                    firstName: fName,
+                                    lastName: lName,
+                                    studentId: sId || docRef.id,
+                                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                                count++;
+                            }
+                        });
+
+                        if (count > 0) {
+                            await batch.commit();
+                            alert(`Success! Imported ${count} students.`);
+                        } else {
+                            alert("No valid student data found in CSV. Please check headers: period, firstName, lastName, studentId.");
+                        }
+                    } catch (err) {
+                        console.error("Import Error:", err);
+                        alert("Error saving students to database. Please try again.");
+                    } finally {
+                        importBtn.disabled = false;
+                        statusMsg.classList.add('hidden');
+                        fileInput.value = "";
+                    }
+                },
+                error: (err) => {
+                    console.error("CSV Parse Error:", err);
+                    alert("Error reading CSV file.");
+                    importBtn.disabled = false;
+                    statusMsg.classList.add('hidden');
                 }
             });
         }
 
         function updatePeriodFilters() {
-            const periods = [...new Set(students.map(s => s.period))].sort((a,b) => a-b);
+            const periods = [...new Set(students.map(s => s.period))].sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric: true}));
             ['period-filter-roster', 'period-filter-tracker'].forEach(id => {
                 const select = document.getElementById(id);
                 const currentVal = select.value;
@@ -316,6 +362,7 @@
         }
 
         async function logIncident(category) {
+            if (!currentUser) return;
             const path = `/artifacts/${appId}/users/${currentUser.uid}/logs`;
             await db.collection(path).add({
                 type: 'Behavior',
@@ -329,6 +376,7 @@
         }
 
         async function startPass() {
+            if (!currentUser) return;
             const path = `/artifacts/${appId}/users/${currentUser.uid}/logs`;
             await db.collection(path).add({
                 type: 'Pass',
@@ -343,6 +391,7 @@
         }
 
         async function endPass(logId) {
+            if (!currentUser) return;
             const path = `/artifacts/${appId}/users/${currentUser.uid}/logs`;
             await db.collection(path).doc(logId).update({
                 returnTimestamp: firebase.firestore.FieldValue.serverTimestamp()
