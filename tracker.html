@@ -49,6 +49,7 @@
     <button onclick="exportData()">Export Backup</button>
     <input type="file" id="restoreFile" accept=".json" />
     <button onclick="restoreData()">Restore Backup</button>
+    <button onclick="wipeAllData()" style="background:#dc2626;color:white;">Wipe All Data</button>
   </div>
 
   <div class="card" id="results" style="display:none;">
@@ -120,6 +121,20 @@ window.restoreData = async () => {
   }
 
   alert("Restore complete");
+};
+
+// WIPE ALL DATA
+window.wipeAllData = async () => {
+  if (!confirm("Are you sure you want to DELETE ALL STUDENTS? This cannot be undone.")) return;
+  if (!confirm("Final warning: This will permanently erase all data.")) return;
+
+  const snapshot = await getDocs(collection(db, "students"));
+
+  for (const d of snapshot.docs) {
+    await deleteDoc(doc(db, "students", d.id));
+  }
+
+  alert("All data wiped");
 };
 
   async function loadFromFirebase() {
