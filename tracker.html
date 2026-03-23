@@ -5,55 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Student CSV Uploader</title>
 
-  <!-- PapaParse -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f3f4f6;
-    }
-
-    .container {
-      max-width: 800px;
-      margin: 40px auto;
-      padding: 20px;
-    }
-
-    .card {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-
-    .tabs button {
-      margin-right: 5px;
-      padding: 8px 12px;
-      border: none;
-      border-radius: 6px;
-      background: #ddd;
-      cursor: pointer;
-    }
-
-    .tabs button.active {
-      background: #2563eb;
-      color: white;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-
-    th, td {
-      border: 1px solid #ccc;
-      padding: 6px;
-      text-align: left;
-    }
+    body { margin:0; font-family:Arial; background:#f3f4f6; }
+    .container { max-width:900px; margin:40px auto; padding:20px; }
+    .card { background:white; padding:20px; border-radius:12px; box-shadow:0 5px 15px rgba(0,0,0,0.1); margin-bottom:20px; }
+    .tabs button { margin-right:5px; padding:8px 12px; border:none; border-radius:6px; background:#ddd; cursor:pointer; }
+    .tabs button.active { background:#2563eb; color:white; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { border:1px solid #ccc; padding:6px; }
+    .actions button { margin-right:5px; }
+    input { margin:4px 0; padding:5px; }
   </style>
 </head>
 <body>
@@ -65,6 +28,15 @@
     <p id="status"></p>
   </div>
 
+  <div class="card">
+    <h3>Add Student</h3>
+    <input id="newId" placeholder="Student ID" />
+    <input id="newFirst" placeholder="First Name" />
+    <input id="newLast" placeholder="Last Name" />
+    <input id="newPeriod" placeholder="Period" />
+    <button id="addBtn">Add</button>
+  </div>
+
   <div class="card" id="results" style="display:none;">
     <div class="tabs" id="tabs"></div>
     <div id="tableContainer"></div>
@@ -73,9 +45,8 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  // Firebase setup
   const firebaseConfig = {
     apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
     authDomain: "rrtracker-de70e.firebaseapp.com",
@@ -95,31 +66,33 @@
   const tableContainer = document.getElementById("tableContainer");
   const resultsDiv = document.getElementById("results");
 
+  const addBtn = document.getElementById("addBtn");
+
   let grouped = {};
+  let allDocs = [];
 
-// Load data from Firebase and sync in real-time
-async function loadFromFirebase() {
-  const snapshot = await getDocs(collection(db, "students"));
-  grouped = {};
+  async function loadFromFirebase() {
+    const snapshot = await getDocs(collection(db, "students"));
+    grouped = {};
+    allDocs = [];
 
-  snapshot.forEach(doc => {
-    const s = doc.data();
-    if (!grouped[s.period]) grouped[s.period] = [];
-    grouped[s.period].push(s);
-  });
+    snapshot.forEach(d => {
+      const s = d.data();
+      s._id = d.id;
+      allDocs.push(s);
+      if (!grouped[s.period]) grouped[s.period] = [];
+      grouped[s.period].push(s);
+    });
 
-  renderTabs();
-  const firstPeriod = Object.keys(grouped)[0];
-  if (firstPeriod) {
-    resultsDiv.style.display = "block";
-    renderTable(firstPeriod);
+    renderTabs();
+    const firstPeriod = Object.keys(grouped)[0];
+    if (firstPeriod) {
+      resultsDiv.style.display = "block";
+      renderTable(firstPeriod);
+    }
   }
-}
 
-// Real-time listener
-onSnapshot(collection(db, "students"), () => {
-  loadFromFirebase();
-});
+  onSnapshot(collection(db, "students"), loadFromFirebase);
 
   function renderTabs() {
     tabsEl.innerHTML = "";
@@ -134,24 +107,58 @@ onSnapshot(collection(db, "students"), () => {
   function renderTable(period) {
     const students = grouped[period];
 
-    document.querySelectorAll(".tabs button").forEach(btn => btn.classList.remove("active"));
-
-    const activeBtn = [...tabsEl.children].find(b => b.textContent.includes(period));
-    if (activeBtn) activeBtn.classList.add("active");
-
-    let html = "<table><tr><th>ID</th><th>Name</th></tr>";
+    let html = "<table><tr><th>ID</th><th>Name</th><th>Actions</th></tr>";
     students.forEach(s => {
-      html += `<tr><td>${s.studentId}</td><td>${s.firstName} ${s.lastName}</td></tr>`;
+      html += `<tr>
+        <td>${s.studentId}</td>
+        <td>${s.firstName} ${s.lastName}</td>
+        <td class="actions">
+          <button onclick="editStudent('${s._id}')">Edit</button>
+          <button onclick="deleteStudent('${s._id}')">Delete</button>
+        </td>
+      </tr>`;
     });
     html += "</table>";
 
     tableContainer.innerHTML = html;
   }
 
-  // Initial load
-loadFromFirebase();
+  window.deleteStudent = async (id) => {
+    await deleteDoc(doc(db, "students", id));
+  };
 
-fileInput.addEventListener("change", (e) => {
+  window.editStudent = async (id) => {
+    const student = allDocs.find(s => s._id === id);
+    const firstName = prompt("First Name:", student.firstName);
+    const lastName = prompt("Last Name:", student.lastName);
+    const period = prompt("Period:", student.period);
+
+    await updateDoc(doc(db, "students", id), {
+      firstName,
+      lastName,
+      period
+    });
+  };
+
+  addBtn.onclick = async () => {
+    const studentId = document.getElementById("newId").value;
+    const firstName = document.getElementById("newFirst").value;
+    const lastName = document.getElementById("newLast").value;
+    const period = document.getElementById("newPeriod").value;
+
+    if (!studentId || !period) return alert("Missing required fields");
+
+    await addDoc(collection(db, "students"), {
+      studentId,
+      firstName,
+      lastName,
+      period
+    });
+  };
+
+  loadFromFirebase();
+
+  fileInput.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -161,47 +168,31 @@ fileInput.addEventListener("change", (e) => {
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {
-        grouped = {};
-
         try {
           statusEl.textContent = "Uploading...";
 
           for (const student of results.data) {
-            // Normalize keys (case-insensitive + trim)
             const normalized = {};
             Object.keys(student).forEach(k => {
               normalized[k.toLowerCase().trim()] = student[k];
             });
 
-            const studentId = normalized["student id"] || normalized["studentid"] || normalized["id"];
+            const studentId = normalized["student id"];
             const period = normalized["period"];
             const firstName = normalized["first name"] || "";
             const lastName = normalized["last name"] || "";
 
-            if (!studentId || !period) {
-              console.warn("Skipping row:", student);
-              continue;
-            }
+            if (!studentId || !period) continue;
 
-            if (!grouped[period]) grouped[period] = [];
-
-            const obj = { studentId, period, firstName, lastName };
-            grouped[period].push(obj);
-
-            await addDoc(collection(db, "students"), obj);
+            await addDoc(collection(db, "students"), {
+              studentId,
+              firstName,
+              lastName,
+              period
+            });
           }
 
-          console.log("Grouped data:", grouped);
-
-          // Render results AFTER loop
-          console.log("Grouped data:", grouped);
-
           statusEl.textContent = "Upload complete";
-          resultsDiv.style.display = "block";
-
-          renderTabs();
-          const firstPeriod = Object.keys(grouped)[0];
-          if (firstPeriod) renderTable(firstPeriod);
 
         } catch (err) {
           console.error(err);
