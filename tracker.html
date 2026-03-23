@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Classroom Management Tracker v1.4.1</title>
+    <title>Classroom Management Tracker v1.4.5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.2/papaparse.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js"></script>
@@ -20,7 +20,7 @@
     <nav class="sticky top-0 z-50 bg-white shadow-sm px-4 py-3 flex justify-between items-center">
         <div class="flex items-baseline gap-2">
             <h1 class="font-bold text-xl text-slate-800">Classroom Manager</h1>
-            <span class="text-[10px] font-mono bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">v1.4.1</span>
+            <span class="text-[10px] font-mono bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">v1.4.5</span>
         </div>
         <div class="flex gap-1 sm:gap-2">
             <button onclick="switchTab('roster')" class="nav-btn px-2 sm:px-3 py-1 text-sm font-medium rounded-md transition hover:bg-slate-100">Roster</button>
@@ -30,17 +30,30 @@
     </nav>
 
     <div class="max-w-4xl mx-auto p-4">
+        <!-- CRITICAL ALERTS -->
+        <div id="connection-error" class="hidden mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 text-sm">
+            <p class="font-bold">Firestore Configuration Required</p>
+            <p id="error-details">Initializing...</p>
+            <div id="rule-helper" class="mt-3 p-3 bg-white border border-red-100 rounded text-xs font-mono hidden">
+                // Paste this in Firestore > Rules:<br>
+                match /artifacts/classroom-tracker/users/{userId}/{allPaths=**} {<br>
+                &nbsp;&nbsp;allow read, write: if request.auth != null && request.auth.uid == userId;<br>
+                }
+            </div>
+            <button onclick="location.reload()" class="mt-4 bg-red-600 text-white px-3 py-1 rounded text-xs font-bold">Retry Connection</button>
+        </div>
+
         <!-- ROSTER TAB -->
         <section id="tab-roster" class="tab-content">
             <div class="glass-card rounded-xl p-6 shadow-sm mb-6 border-l-4 border-l-blue-500">
                 <h2 class="text-lg font-semibold mb-2">Upload Roster</h2>
                 <p class="text-[11px] text-slate-500 mb-4 bg-slate-50 p-2 rounded">
-                    <strong>Expected Columns:</strong> Period, First Name, Last Name, Student ID
+                    <strong>CSV Columns:</strong> Period, First Name, Last Name, Student ID
                 </p>
                 <input type="file" id="csv-file" accept=".csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mb-4">
                 
-                <button id="import-btn" disabled onclick="handleFileUpload()" class="w-full bg-slate-400 text-white py-2.5 rounded-lg font-medium transition disabled:cursor-not-allowed flex items-center justify-center">
-                    <span id="btn-text">Initializing Connection...</span>
+                <button id="import-btn" disabled onclick="handleFileUpload()" class="w-full bg-slate-400 text-white py-2.5 rounded-lg font-medium transition disabled:opacity-50 flex items-center justify-center">
+                    <span id="btn-text">Initializing Auth...</span>
                 </button>
                 
                 <div id="import-status-box" class="mt-3 p-3 bg-slate-50 rounded-lg text-xs font-mono text-slate-600 hidden">
@@ -58,7 +71,7 @@
                     </select>
                 </div>
                 <div id="roster-list" class="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                    <p id="roster-loading-msg" class="text-slate-400 text-center italic py-10">Connecting to database...</p>
+                    <p id="roster-loading-msg" class="text-slate-400 text-center italic py-10">Waiting for Authentication...</p>
                 </div>
             </div>
         </section>
@@ -83,7 +96,7 @@
         <section id="tab-logs" class="tab-content hidden">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-lg font-semibold">Incident History</h2>
-                <button onclick="exportToCSV()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:bg-green-700 active:scale-[0.98] transition">Export CSV</button>
+                <button onclick="exportToCSV()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:bg-green-700">Export CSV</button>
             </div>
             <div id="history-list" class="space-y-2"></div>
         </section>
@@ -120,7 +133,6 @@
     </div>
 
     <script>
-        // Your Firebase config
         const firebaseConfig = {
             apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
             authDomain: "rrtracker-de70e.firebaseapp.com",
@@ -131,7 +143,7 @@
             measurementId: "G-X31008YT0P"
         };
         
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'classroom-tracker';
+        const appId = 'classroom-tracker';
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
@@ -144,41 +156,44 @@
         let currentUser = null;
 
         async function initApp() {
-            document.getElementById('btn-text').textContent = "Authenticating...";
+            const btnText = document.getElementById('btn-text');
+            btnText.textContent = "Authenticating...";
             
             try {
-                // To avoid "custom-token-mismatch" error, we use anonymous auth 
-                // since the custom token provided by the environment is tied to a different project
-                await auth.signInAnonymously();
+                // RULE 3: Auth BEFORE Queries
+                const userCredential = await auth.signInAnonymously();
+                console.log("Auth Success:", userCredential.user.uid);
+                onUserAuthenticated(userCredential.user);
             } catch (e) { 
-                console.error("Auth init failed:", e);
-                document.getElementById('btn-text').textContent = "Auth Error";
+                console.error("Auth Error:", e);
+                showError("auth", e);
             }
             
             auth.onAuthStateChanged(user => {
-                if (user) {
-                    onUserAuthenticated(user);
-                }
+                if (user) onUserAuthenticated(user);
             });
-
-            // Fail-safe trigger
-            setTimeout(() => {
-                if (!currentUser && auth.currentUser) {
-                    onUserAuthenticated(auth.currentUser);
-                } else if (!currentUser) {
-                    auth.signInAnonymously().then(res => onUserAuthenticated(res.user)).catch(err => {
-                        document.getElementById('btn-text').textContent = "Retry Connection";
-                        document.getElementById('import-btn').disabled = false;
-                        document.getElementById('import-btn').onclick = initApp;
-                    });
-                }
-            }, 2500);
 
             switchTab('tracker');
         }
 
+        function showError(type, err) {
+            const errorDiv = document.getElementById('connection-error');
+            const details = document.getElementById('error-details');
+            const ruleHelper = document.getElementById('rule-helper');
+            errorDiv.classList.remove('hidden');
+            
+            if (err.code === 'permission-denied') {
+                details.innerHTML = "<strong>Error:</strong> Firestore Security Rules are blocking access. Please update your Rules in the Firebase Console.";
+                ruleHelper.classList.remove('hidden');
+            } else if (err.code === 'auth/operation-not-allowed') {
+                details.innerHTML = "<strong>Error:</strong> Anonymous Sign-in is disabled. Go to Authentication > Sign-in Method and enable 'Anonymous'.";
+            } else {
+                details.textContent = `[${err.code}] ${err.message}`;
+            }
+        }
+
         function onUserAuthenticated(user) {
-            if (currentUser) return;
+            if (currentUser && currentUser.uid === user.uid) return;
             currentUser = user;
             setupListeners();
             enableImportUI();
@@ -190,12 +205,14 @@
             btn.onclick = handleFileUpload;
             btn.className = "w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition";
             document.getElementById('btn-text').textContent = "Import Students";
+            
             const loadingMsg = document.getElementById('roster-loading-msg');
-            if (loadingMsg) loadingMsg.textContent = "No students found.";
+            if (loadingMsg) loadingMsg.textContent = "No students in database.";
         }
 
         function setupListeners() {
             if (!currentUser) return;
+            // RULE 1: Specific Paths
             const sPath = `artifacts/${appId}/users/${currentUser.uid}/students`;
             const lPath = `artifacts/${appId}/users/${currentUser.uid}/logs`;
 
@@ -204,7 +221,10 @@
                 updatePeriodFilters();
                 renderRoster();
                 renderTracker();
-            }, err => console.error("Roster stream error:", err));
+            }, err => {
+                console.error("Firestore Student Listener Error:", err);
+                showError("firestore", err);
+            });
 
             db.collection(lPath).onSnapshot(snap => {
                 logs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
@@ -212,12 +232,12 @@
                 activePasses = logs.filter(l => l.type === 'Pass' && !l.returnTimestamp);
                 renderActivePasses();
                 renderLogs();
-            }, err => console.error("Logs stream error:", err));
+            }, err => console.error("Firestore Log Listener Error:", err));
         }
 
-        function updateStatus(step, text) {
+        function updateStatus(step, text, isError = false) {
             const el = document.getElementById(`status-step-${step}`);
-            el.innerHTML = `<span class="text-blue-500">●</span> ${text}`;
+            if (el) el.innerHTML = `<span class="${isError ? 'text-red-500' : 'text-blue-500'}">●</span> ${text}`;
         }
 
         async function handleFileUpload() {
@@ -226,21 +246,18 @@
             const btn = document.getElementById('import-btn');
 
             if (!fileInput.files.length) { alert("Please select a CSV file."); return; }
-            if (!currentUser) { alert("Waiting for secure connection..."); return; }
             
             btn.disabled = true;
             statusBox.classList.remove('hidden');
-            updateStatus(1, "Reading file...");
-            updateStatus(2, "Waiting...");
-            updateStatus(3, "Waiting...");
+            updateStatus(1, "Reading CSV...");
 
             Papa.parse(fileInput.files[0], {
                 header: true,
                 skipEmptyLines: true,
                 transformHeader: h => h.trim().toLowerCase().replace(/[\s_]/g, ''),
                 complete: async (results) => {
-                    updateStatus(1, "File parsed.");
-                    updateStatus(2, "Checking columns...");
+                    updateStatus(1, "CSV Parsed.");
+                    updateStatus(2, "Processing Rows...");
                     
                     try {
                         const batch = db.batch();
@@ -251,7 +268,7 @@
                             const fName = row.firstname || row.first || row.fname || row['first name'];
                             const lName = row.lastname || row.last || row.lname || row['last name'];
                             const period = row.period || row.class || row['per'] || "1";
-                            const sId = row.studentid || row.id || row.sid || row['student id'];
+                            const sId = row.studentid || row.id || row.sid;
 
                             if (fName || lName) {
                                 const docRef = db.collection(sPath).doc();
@@ -260,30 +277,29 @@
                                     lastName: String(lName || "").trim(),
                                     period: String(period).trim(),
                                     studentId: String(sId || docRef.id).trim(),
-                                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
                                 });
                                 count++;
                             }
                         });
 
-                        if (count === 0) {
-                            alert("No student data found. Please check your CSV column headers.");
-                            resetUI();
-                            return;
-                        }
+                        if (count === 0) throw new Error("No student names detected in CSV.");
 
-                        updateStatus(2, `Validated ${count} students.`);
-                        updateStatus(3, "Syncing with cloud...");
+                        updateStatus(2, `${count} students ready.`);
+                        updateStatus(3, "Uploading to Cloud...");
                         
                         await batch.commit();
-                        updateStatus(3, "Done!");
+                        
+                        updateStatus(3, "Sync Success!");
                         setTimeout(() => {
-                            alert(`Successfully imported ${count} students.`);
+                            alert(`Imported ${count} students successfully.`);
                             resetUI();
-                        }, 400);
+                        }, 500);
 
                     } catch (err) {
-                        alert("Database error: " + err.message);
+                        console.error("Batch Commit Error:", err);
+                        updateStatus(3, "Error: " + err.message, true);
+                        showError("firestore", err);
                         resetUI();
                     }
                 }
@@ -326,11 +342,11 @@
             const filter = document.getElementById('period-filter-roster').value;
             const filtered = filter === 'all' ? students : students.filter(s => s.period == filter);
             if (!filtered.length) { 
-                list.innerHTML = `<p class="text-slate-400 text-center italic py-8">Roster empty.</p>`; 
+                list.innerHTML = `<p class="text-slate-400 text-center italic py-8">Roster is empty.</p>`; 
                 return; 
             }
             list.innerHTML = filtered.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(s => `
-                <div class="flex justify-between items-center p-3 bg-white border border-slate-100 rounded-lg shadow-sm">
+                <div class="flex justify-between items-center p-3 bg-white border border-slate-100 rounded-lg">
                     <div>
                         <div class="font-bold text-slate-700">${s.lastName}, ${s.firstName}</div>
                         <div class="text-[10px] text-slate-400 uppercase font-mono">ID: ${s.studentId} • Per: ${s.period}</div>
@@ -343,7 +359,7 @@
         }
 
         async function deleteStudent(id) {
-            if (confirm("Delete this student?")) {
+            if (confirm("Delete student?")) {
                 await db.collection(`artifacts/${appId}/users/${currentUser.uid}/students`).doc(id).delete();
             }
         }
@@ -353,13 +369,13 @@
             const filter = document.getElementById('period-filter-tracker').value;
             const filtered = filter === 'all' ? students : students.filter(s => s.period == filter);
             if (!filtered.length) { 
-                grid.innerHTML = `<div class="col-span-full py-10 text-center text-slate-400 italic">No students in view.</div>`; 
+                grid.innerHTML = `<div class="col-span-full py-10 text-center text-slate-400 italic">No students found.</div>`; 
                 return; 
             }
             grid.innerHTML = filtered.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(s => `
                 <button onclick="openStudentActions('${s.id}')" class="p-4 bg-white border-b-4 border-slate-200 rounded-2xl shadow-sm hover:border-blue-400 transition-all text-center">
                     <div class="font-bold text-slate-800 truncate">${s.firstName} ${s.lastName[0]}.</div>
-                    <div class="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-tighter">Period ${s.period}</div>
+                    <div class="text-[10px] text-slate-400 mt-1 uppercase font-bold">Period ${s.period}</div>
                 </button>
             `).join('');
         }
@@ -367,11 +383,11 @@
         function openStudentActions(id) {
             selectedStudent = students.find(s => s.id === id);
             document.getElementById('modal-student-name').textContent = `${selectedStudent.firstName} ${selectedStudent.lastName}`;
-            document.getElementById('modal-student-info').textContent = `Period ${selectedStudent.period} • ID: ${selectedStudent.studentId}`;
+            document.getElementById('modal-student-info').textContent = `Period ${selectedStudent.period}`;
             document.getElementById('student-modal').classList.remove('hidden');
         }
 
-        function closeModal() { document.getElementById('student-modal').classList.add('hidden'); selectedStudent = null; }
+        function closeModal() { document.getElementById('student-modal').classList.add('hidden'); }
 
         async function logIncident(cat) {
             const path = `artifacts/${appId}/users/${currentUser.uid}/logs`;
@@ -386,7 +402,7 @@
         async function startPass() {
             const path = `artifacts/${appId}/users/${currentUser.uid}/logs`;
             await db.collection(path).add({
-                type: 'Pass', category: 'Out of Class', studentId: selectedStudent.studentId,
+                type: 'Pass', category: 'Out', studentId: selectedStudent.studentId,
                 name: `${selectedStudent.firstName} ${selectedStudent.lastName}`,
                 period: selectedStudent.period, timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 returnTimestamp: null
@@ -408,12 +424,12 @@
             list.innerHTML = activePasses.map(p => {
                 const mins = Math.floor((Date.now() - (p.timestamp?.toMillis() || Date.now())) / 60000);
                 return `
-                    <div class="bg-blue-600 text-white p-4 rounded-2xl shadow-lg flex justify-between items-center ring-4 ring-blue-100">
+                    <div class="bg-blue-600 text-white p-4 rounded-2xl flex justify-between items-center shadow-lg">
                         <div>
-                            <div class="font-bold text-lg leading-tight">${p.name}</div>
-                            <div class="text-xs opacity-80 font-mono">Out for ${mins}m • Per ${p.period}</div>
+                            <div class="font-bold">${p.name}</div>
+                            <div class="text-xs opacity-80">Out for ${mins}m</div>
                         </div>
-                        <button onclick="endPass('${p.id}')" class="bg-white text-blue-600 px-5 py-2 rounded-full text-sm font-black active:scale-95 transition">BACK</button>
+                        <button onclick="endPass('${p.id}')" class="bg-white text-blue-600 px-4 py-1.5 rounded-full text-sm font-bold">BACK</button>
                     </div>
                 `;
             }).join('');
@@ -421,33 +437,20 @@
 
         function renderLogs() {
             const list = document.getElementById('history-list');
-            if (!logs.length) { list.innerHTML = `<p class="text-slate-400 text-center italic py-20">History is empty.</p>`; return; }
+            if (!logs.length) { list.innerHTML = `<p class="text-slate-400 text-center italic py-20">No history found.</p>`; return; }
             list.innerHTML = logs.map(l => {
-                const date = l.timestamp?.toDate().toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || 'Saving...';
-                const color = l.type === 'Pass' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-orange-50 text-orange-700 border-orange-100';
-                return `
-                    <div class="p-4 bg-white border border-slate-100 rounded-xl shadow-sm flex items-start gap-3">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${color} border">${l.type === 'Pass' ? '🚪' : '⚠️'}</div>
-                        <div class="flex-1">
-                            <div class="flex justify-between items-start">
-                                <span class="font-bold text-slate-800">${l.name}</span>
-                                <span class="px-2 py-0.5 rounded-full text-[9px] uppercase font-black ${color} border">${l.category}</span>
-                            </div>
-                            <div class="text-[11px] text-slate-400 mt-0.5 font-medium">Period ${l.period} • ${date}</div>
-                        </div>
-                    </div>
-                `;
+                const date = l.timestamp?.toDate().toLocaleString() || 'Syncing...';
+                return `<div class="p-3 bg-white border border-slate-100 rounded-lg text-xs">
+                    <span class="font-bold">${l.name}</span>: ${l.category} (${date})
+                </div>`;
             }).join('');
         }
 
         function exportToCSV() {
-            const rows = [["Date", "Time", "Student Name", "Period", "Type", "Incident", "Duration (mins)"]];
-            logs.forEach(l => {
-                let dur = (l.returnTimestamp && l.timestamp) ? Math.floor((l.returnTimestamp.toMillis() - l.timestamp.toMillis()) / 60000) : "";
-                rows.push([l.timestamp?.toDate().toLocaleDateString(), l.timestamp?.toDate().toLocaleTimeString(), l.name, l.period, l.type, l.category, dur]);
-            });
-            const content = "data:text/csv;charset=utf-8," + rows.map(e => e.map(c => `"${c}"`).join(",")).join("\n");
-            const link = document.createElement("a"); link.href = encodeURI(content); link.download = `Classroom_Logs.csv`; link.click();
+            const rows = [["Date", "Student", "Period", "Incident"]];
+            logs.forEach(l => rows.push([l.timestamp?.toDate().toLocaleString(), l.name, l.period, l.category]));
+            const content = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+            const link = document.createElement("a"); link.href = encodeURI(content); link.download = `ClassroomLogs.csv`; link.click();
         }
 
         window.onload = initApp;
