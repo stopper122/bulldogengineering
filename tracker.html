@@ -1,171 +1,78 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Student Roster</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.2/papaparse.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-    </style>
-</head>
-<body class="p-4 md:p-8">
-    <div class="max-w-4xl mx-auto">
-        <header class="mb-8">
-            <h1 class="text-3xl font-black text-slate-900">Roster Parser</h1>
-            <p class="text-slate-500">Upload a CSV to view students sorted by period.</p>
-        </header>
+import React, { useState, useEffect } from "react";
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, addDoc, getDocs } from "firebase/firestore";
+import { getAuth, signInAnonymously } from "firebase/auth";
 
-        <!-- Upload Box -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
-            <div class="flex flex-col md:flex-row gap-4">
-                <input type="file" id="csvFile" accept=".csv" class="flex-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-200 rounded-xl p-1">
-                <button onclick="triggerParse()" class="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-100">
-                    Process CSV
-                </button>
-            </div>
-            <div id="debug-info" class="hidden mt-4 p-3 bg-slate-900 rounded-lg font-mono text-[10px] text-green-400 overflow-x-auto">
-                <!-- Debug logs will appear here -->
-            </div>
-        </div>
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
+  authDomain: "rrtracker-de70e.firebaseapp.com",
+  projectId: "rrtracker-de70e",
+  storageBucket: "rrtracker-de70e.firebasestorage.app",
+  messagingSenderId: "1057987490614",
+  appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
+  measurementId: "G-X31008YT0P"
+};
 
-        <!-- Filter Bar -->
-        <div id="controls" class="hidden mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div class="flex items-center gap-2">
-                <label class="font-bold text-slate-700">Filter Period:</label>
-                <select id="periodFilter" onchange="displayStudents()" class="bg-white border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="all">All Periods</option>
-                </select>
-            </div>
-            <div id="stats" class="text-sm font-medium text-slate-500"></div>
-        </div>
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
 
-        <!-- Roster Table -->
-        <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-200">
-            <table class="w-full text-left border-collapse">
-                <thead class="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                        <th class="px-6 py-4 text-xs font-black uppercase text-slate-400 tracking-wider">Period</th>
-                        <th class="px-6 py-4 text-xs font-black uppercase text-slate-400 tracking-wider">Last Name</th>
-                        <th class="px-6 py-4 text-xs font-black uppercase text-slate-400 tracking-wider">First Name</th>
-                        <th class="px-6 py-4 text-xs font-black uppercase text-slate-400 tracking-wider">Student ID</th>
-                    </tr>
-                </thead>
-                <tbody id="rosterBody" class="divide-y divide-slate-100">
-                    <tr>
-                        <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic">No data processed yet. Select a file and click "Process CSV".</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+export default function ClassroomTracker() {
+  const [students, setStudents] = useState([]);
+
+  useEffect(() => {
+    const init = async () => {
+      await signInAnonymously(auth);
+      loadStudents();
+    };
+    init();
+  }, []);
+
+  const loadStudents = async () => {
+    const snap = await getDocs(collection(db, "students"));
+    const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setStudents(data);
+  };
+
+  const handleCSVUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const text = await file.text();
+    const rows = text.split("\n").slice(1);
+
+    for (let row of rows) {
+      const [period, first, last, studentId] = row.split(",");
+      if (!first) continue;
+
+      await addDoc(collection(db, "students"), {
+        period,
+        first,
+        last,
+        studentId
+      });
+    }
+
+    loadStudents();
+  };
+
+  return (
+    <div style={{ fontFamily: "Arial", padding: 20, maxWidth: 900, margin: "0 auto" }}>
+      <h1>Student Roster</h1>
+
+      <input type="file" accept=".csv" onChange={handleCSVUpload} />
+
+      <h2>Students</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 10 }}>
+        {students.map((student) => (
+          <div key={student.id} style={{ border: "1px solid #ccc", padding: 10 }}>
+            <strong>{student.first} {student.last}</strong><br />
+            Period: {student.period}<br />
+            ID: {student.studentId}
+          </div>
+        ))}
+      </div>
     </div>
-
-    <script>
-        let allStudents = [];
-
-        function logDebug(msg) {
-            const el = document.getElementById('debug-info');
-            el.classList.remove('hidden');
-            el.innerHTML += `<div>> ${msg}</div>`;
-        }
-
-        function triggerParse() {
-            const fileInput = document.getElementById('csvFile');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                alert("Please select a .csv file first.");
-                return;
-            }
-
-            document.getElementById('debug-info').innerHTML = '';
-            logDebug(`File selected: ${file.name}`);
-
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    logDebug(`Headers found: ${Object.keys(results.data[0] || {}).join(', ')}`);
-                    logDebug(`Rows found: ${results.data.length}`);
-                    processData(results.data);
-                },
-                error: function(err) {
-                    logDebug(`Error: ${err.message}`);
-                    alert("Error reading file: " + err.message);
-                }
-            });
-        }
-
-        function processData(rawData) {
-            allStudents = rawData.map(row => {
-                const findVal = (keys) => {
-                    const match = Object.keys(row).find(k => 
-                        keys.some(key => k.toLowerCase().trim().includes(key.toLowerCase()))
-                    );
-                    return match ? row[match] : "";
-                };
-
-                return {
-                    period: findVal(['period', 'per', 'class', 'pd']),
-                    firstName: findVal(['first', 'fname', 'given', 'name']),
-                    lastName: findVal(['last', 'lname', 'surname']),
-                    id: findVal(['id', 'sid', 'num'])
-                };
-            }).filter(s => s.firstName || s.lastName);
-
-            allStudents.sort((a, b) => {
-                const perA = parseInt(a.period) || 0;
-                const perB = parseInt(b.period) || 0;
-                if (perA !== perB) return perA - perB;
-                return a.lastName.localeCompare(b.lastName);
-            });
-
-            setupFilters();
-            document.getElementById('controls').classList.remove('hidden');
-            displayStudents();
-            logDebug(`Successfully mapped ${allStudents.length} students.`);
-        }
-
-        function setupFilters() {
-            const select = document.getElementById('periodFilter');
-            const periods = [...new Set(allStudents.map(s => s.period))].filter(p => p).sort((a, b) => a - b);
-            
-            select.innerHTML = '<option value="all">All Periods</option>';
-            periods.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p;
-                opt.textContent = `Period ${p}`;
-                select.appendChild(opt);
-            });
-        }
-
-        function displayStudents() {
-            const filter = document.getElementById('periodFilter').value;
-            const tbody = document.getElementById('rosterBody');
-            const stats = document.getElementById('stats');
-            
-            const filtered = filter === 'all' 
-                ? allStudents 
-                : allStudents.filter(s => s.period === filter);
-
-            stats.textContent = `Showing ${filtered.length} students`;
-
-            if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-12 text-center text-slate-400 italic">No matching students found.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = filtered.map(s => `
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4 whitespace-nowrap"><span class="bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded text-sm">${s.period || '?'}</span></td>
-                    <td class="px-6 py-4 whitespace-nowrap font-bold text-slate-900">${s.lastName}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-slate-600">${s.firstName}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-slate-400 font-mono text-sm">${s.id}</td>
-                </tr>
-            `).join('');
-        }
-    </script>
-</body>
-</html>
+  );
+}
