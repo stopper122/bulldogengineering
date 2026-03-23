@@ -9,16 +9,26 @@
 
   <style>
     body { margin:0; font-family:Arial; background:#f3f4f6; }
-    .container { max-width:900px; margin:40px auto; padding:20px; }
+    .container { max-width:1200px; margin:40px auto; padding:20px; }
     .card { background:white; padding:20px; border-radius:12px; box-shadow:0 5px 15px rgba(0,0,0,0.1); margin-bottom:20px; }
-    .tabs button { margin-right:5px; padding:8px 12px; border:none; border-radius:6px; background:#ddd; cursor:pointer; }
+    .tabs button { margin-right:5px; margin-bottom:5px; padding:8px 12px; border:none; border-radius:6px; background:#ddd; cursor:pointer; }
     .tabs button.active { background:#2563eb; color:white; }
     .tabs button.current { background:#16a34a; color:white; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; }
-    th, td { border:1px solid #ccc; padding:6px; }
-    .actions button { margin-right:5px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; background:white; }
+    th, td { border:1px solid #ccc; padding:6px; font-size:14px; vertical-align:top; }
+    th { background:#f8fafc; }
+    .actions button, .tracking button { margin-right:4px; margin-bottom:4px; }
     input { margin:4px 0; padding:5px; }
-    .controls button { margin-right:5px; }
+    .controls button { margin-right:5px; margin-bottom:5px; }
+    .tiny { font-size:12px; color:#666; }
+    .pill { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; margin-right:6px; background:#eef2ff; }
+    .summary { margin-top:10px; }
+    .danger { background:#dc2626; color:white; }
+    .restroom { background:#0ea5e9; color:white; border:none; border-radius:6px; padding:5px 8px; }
+    .phone { background:#f59e0b; color:white; border:none; border-radius:6px; padding:5px 8px; }
+    .eating { background:#8b5cf6; color:white; border:none; border-radius:6px; padding:5px 8px; }
+    .games { background:#ef4444; color:white; border:none; border-radius:6px; padding:5px 8px; }
+    .neutral { background:#6b7280; color:white; border:none; border-radius:6px; padding:5px 8px; }
   </style>
 </head>
 <body>
@@ -28,6 +38,7 @@
     <h2>Upload CSV</h2>
     <input type="file" id="fileInput" accept=".csv" />
     <p id="status"></p>
+    <div class="tiny">CSV headers supported: period, first name, last name, student id</div>
   </div>
 
   <div class="card">
@@ -49,18 +60,19 @@
     <button onclick="exportData()">Export Backup</button>
     <input type="file" id="restoreFile" accept=".json" />
     <button onclick="restoreData()">Restore Backup</button>
-    <button onclick="wipeAllData()" style="background:#dc2626;color:white;">Wipe All Data</button>
+    <button onclick="wipeAllData()" class="danger">Wipe All Data</button>
   </div>
 
   <div class="card" id="results" style="display:none;">
     <div class="tabs" id="tabs"></div>
+    <div class="summary" id="periodSummary"></div>
     <div id="tableContainer"></div>
   </div>
 </div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, onSnapshot, deleteDoc, doc, updateDoc, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
@@ -80,62 +92,77 @@
   const tabsEl = document.getElementById("tabs");
   const tableContainer = document.getElementById("tableContainer");
   const resultsDiv = document.getElementById("results");
-
+  const periodSummaryEl = document.getElementById("periodSummary");
   const addBtn = document.getElementById("addBtn");
 
   let grouped = {};
   let allDocs = [];
   let sortMode = 'last';
   let currentPeriod = null;
+  let activePeriod = null;
 
-// EXPORT BACKUP
-window.exportData = () => {
-  const dataStr = JSON.stringify(allDocs, null, 2);
-  const blob = new Blob([dataStr], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "students-backup.json";
-  a.click();
-};
-
-// RESTORE BACKUP
-window.restoreData = async () => {
-  const fileInput = document.getElementById("restoreFile");
-  const file = fileInput.files[0];
-  if (!file) return alert("Select a backup file");
-
-  const text = await file.text();
-  const data = JSON.parse(text);
-
-  if (!confirm("This will ADD students from backup. Continue?")) return;
-
-  for (const s of data) {
-    await addDoc(collection(db, "students"), {
-      studentId: s.studentId,
-      firstName: s.firstName,
-      lastName: s.lastName,
-      period: s.period
-    });
+  function studentDefaults(student) {
+    return {
+      studentId: student.studentId || "",
+      firstName: student.firstName || "",
+      lastName: student.lastName || "",
+      period: student.period || "",
+      restroomCount: Number(student.restroomCount || 0),
+      phoneCount: Number(student.phoneCount || 0),
+      eatingCount: Number(student.eatingCount || 0),
+      gamesCount: Number(student.gamesCount || 0),
+      behaviorLog: Array.isArray(student.behaviorLog) ? student.behaviorLog : []
+    };
   }
 
-  alert("Restore complete");
-};
+  window.exportData = () => {
+    const dataStr = JSON.stringify(allDocs, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "students-backup.json";
+    a.click();
+  };
 
-// WIPE ALL DATA
-window.wipeAllData = async () => {
-  if (!confirm("Are you sure you want to DELETE ALL STUDENTS? This cannot be undone.")) return;
-  if (!confirm("Final warning: This will permanently erase all data.")) return;
+  window.restoreData = async () => {
+    const restoreInput = document.getElementById("restoreFile");
+    const file = restoreInput.files[0];
+    if (!file) return alert("Select a backup file");
 
-  const snapshot = await getDocs(collection(db, "students"));
+    const text = await file.text();
+    const data = JSON.parse(text);
 
-  for (const d of snapshot.docs) {
-    await deleteDoc(doc(db, "students", d.id));
-  }
+    if (!confirm("This will ADD students from backup. Continue?")) return;
 
-  alert("All data wiped");
-};
+    for (const raw of data) {
+      const s = studentDefaults(raw);
+      await addDoc(collection(db, "students"), {
+        studentId: s.studentId,
+        firstName: s.firstName,
+        lastName: s.lastName,
+        period: s.period,
+        restroomCount: s.restroomCount,
+        phoneCount: s.phoneCount,
+        eatingCount: s.eatingCount,
+        gamesCount: s.gamesCount,
+        behaviorLog: s.behaviorLog
+      });
+    }
+
+    alert("Restore complete");
+  };
+
+  window.wipeAllData = async () => {
+    if (!confirm("Are you sure you want to DELETE ALL STUDENTS? This cannot be undone.")) return;
+    if (!confirm("Final warning: This will permanently erase all data.")) return;
+
+    const snapshot = await getDocs(collection(db, "students"));
+    for (const d of snapshot.docs) {
+      await deleteDoc(doc(db, "students", d.id));
+    }
+    alert("All data wiped");
+  };
 
   async function loadFromFirebase() {
     const snapshot = await getDocs(collection(db, "students"));
@@ -143,7 +170,7 @@ window.wipeAllData = async () => {
     allDocs = [];
 
     snapshot.forEach(d => {
-      const s = d.data();
+      const s = studentDefaults(d.data());
       s._id = d.id;
       allDocs.push(s);
       if (!grouped[s.period]) grouped[s.period] = [];
@@ -151,10 +178,15 @@ window.wipeAllData = async () => {
     });
 
     renderTabs();
-    const firstPeriod = Object.keys(grouped)[0];
+    const periods = Object.keys(grouped).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+    const firstPeriod = activePeriod && grouped[activePeriod] ? activePeriod : periods[0];
     if (firstPeriod) {
       resultsDiv.style.display = "block";
       renderTable(firstPeriod);
+    } else {
+      resultsDiv.style.display = "none";
+      periodSummaryEl.innerHTML = "";
+      tableContainer.innerHTML = "";
     }
   }
 
@@ -162,37 +194,82 @@ window.wipeAllData = async () => {
 
   function renderTabs() {
     tabsEl.innerHTML = "";
-    Object.keys(grouped).sort().forEach(period => {
+    Object.keys(grouped).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).forEach(period => {
       const btn = document.createElement("button");
       btn.textContent = "Period " + period;
-      if (period == currentPeriod) btn.classList.add("current");
+      if (String(period) === String(currentPeriod)) btn.classList.add("current");
+      if (String(period) === String(activePeriod)) btn.classList.add("active");
       btn.onclick = () => renderTable(period);
       tabsEl.appendChild(btn);
     });
   }
 
+  function renderSummary(period, students) {
+    const restroom = students.reduce((sum, s) => sum + (s.restroomCount || 0), 0);
+    const phone = students.reduce((sum, s) => sum + (s.phoneCount || 0), 0);
+    const eating = students.reduce((sum, s) => sum + (s.eatingCount || 0), 0);
+    const games = students.reduce((sum, s) => sum + (s.gamesCount || 0), 0);
+
+    periodSummaryEl.innerHTML = `
+      <span class="pill"><strong>Period ${period}</strong></span>
+      <span class="pill">Students: ${students.length}</span>
+      <span class="pill">Restroom: ${restroom}</span>
+      <span class="pill">Phone: ${phone}</span>
+      <span class="pill">Eating: ${eating}</span>
+      <span class="pill">Games: ${games}</span>
+    `;
+  }
+
   function renderTable(period) {
-    let students = [...grouped[period]];
+    activePeriod = String(period);
+    let students = [...(grouped[period] || [])];
 
     if (sortMode === "first") {
-      students.sort((a,b) => a.firstName.localeCompare(b.firstName));
+      students.sort((a, b) => (a.firstName || "").localeCompare(b.firstName || ""));
     }
     if (sortMode === "last") {
-      students.sort((a,b) => a.lastName.localeCompare(b.lastName));
+      students.sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
     }
 
-    document.querySelectorAll(".tabs button").forEach(btn => btn.classList.remove("active"));
-    const activeBtn = [...tabsEl.children].find(b => b.textContent.includes(period));
-    if (activeBtn) activeBtn.classList.add("active");
+    renderTabs();
+    renderSummary(period, students);
 
-    let html = "<table><tr><th>ID</th><th>Name</th><th>Actions</th></tr>";
+    let html = `
+      <table>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Restroom</th>
+          <th>Phone</th>
+          <th>Eating</th>
+          <th>Games</th>
+          <th>Track</th>
+          <th>Actions</th>
+        </tr>`;
+
     students.forEach(s => {
+      const lastEvent = s.behaviorLog && s.behaviorLog.length ? s.behaviorLog[s.behaviorLog.length - 1] : null;
+      const lastEventText = lastEvent ? `${lastEvent.type} (${new Date(lastEvent.time).toLocaleString()})` : "No events";
+
       html += `<tr>
         <td>${s.studentId}</td>
-        <td>${s.firstName} ${s.lastName}</td>
+        <td>
+          <strong>${s.lastName}, ${s.firstName}</strong><br>
+          <span class="tiny">Last event: ${lastEventText}</span>
+        </td>
+        <td>${s.restroomCount || 0}</td>
+        <td>${s.phoneCount || 0}</td>
+        <td>${s.eatingCount || 0}</td>
+        <td>${s.gamesCount || 0}</td>
+        <td class="tracking">
+          <button class="restroom" onclick="recordEvent('${s._id}', 'restroom')">Restroom +1</button>
+          <button class="phone" onclick="recordEvent('${s._id}', 'phone')">Phone +1</button>
+          <button class="eating" onclick="recordEvent('${s._id}', 'eating')">Eating +1</button>
+          <button class="games" onclick="recordEvent('${s._id}', 'games')">Games +1</button>
+        </td>
         <td class="actions">
-          <button onclick="editStudent('${s._id}')">Edit</button>
-          <button onclick="deleteStudent('${s._id}')">Delete</button>
+          <button class="neutral" onclick="editStudent('${s._id}')">Edit</button>
+          <button class="danger" onclick="deleteStudent('${s._id}')">Delete</button>
         </td>
       </tr>`;
     });
@@ -203,8 +280,7 @@ window.wipeAllData = async () => {
 
   window.setSort = (mode) => {
     sortMode = mode;
-    const active = document.querySelector('.tabs button.active');
-    if (active) renderTable(active.textContent.split(' ')[1]);
+    if (activePeriod) renderTable(activePeriod);
   };
 
   window.setCurrentPeriod = () => {
@@ -219,8 +295,11 @@ window.wipeAllData = async () => {
   window.editStudent = async (id) => {
     const student = allDocs.find(s => s._id === id);
     const firstName = prompt("First Name:", student.firstName);
+    if (firstName === null) return;
     const lastName = prompt("Last Name:", student.lastName);
+    if (lastName === null) return;
     const period = prompt("Period:", student.period);
+    if (period === null) return;
 
     await updateDoc(doc(db, "students", id), {
       firstName,
@@ -229,11 +308,31 @@ window.wipeAllData = async () => {
     });
   };
 
+  window.recordEvent = async (id, type) => {
+    const fieldMap = {
+      restroom: "restroomCount",
+      phone: "phoneCount",
+      eating: "eatingCount",
+      games: "gamesCount"
+    };
+
+    const field = fieldMap[type];
+    if (!field) return;
+
+    await updateDoc(doc(db, "students", id), {
+      [field]: increment(1),
+      behaviorLog: arrayUnion({
+        type,
+        time: new Date().toISOString()
+      })
+    });
+  };
+
   addBtn.onclick = async () => {
-    const studentId = document.getElementById("newId").value;
-    const firstName = document.getElementById("newFirst").value;
-    const lastName = document.getElementById("newLast").value;
-    const period = document.getElementById("newPeriod").value;
+    const studentId = document.getElementById("newId").value.trim();
+    const firstName = document.getElementById("newFirst").value.trim();
+    const lastName = document.getElementById("newLast").value.trim();
+    const period = document.getElementById("newPeriod").value.trim();
 
     if (!studentId || !period) return alert("Missing required fields");
 
@@ -241,8 +340,18 @@ window.wipeAllData = async () => {
       studentId,
       firstName,
       lastName,
-      period
+      period,
+      restroomCount: 0,
+      phoneCount: 0,
+      eatingCount: 0,
+      gamesCount: 0,
+      behaviorLog: []
     });
+
+    document.getElementById("newId").value = "";
+    document.getElementById("newFirst").value = "";
+    document.getElementById("newLast").value = "";
+    document.getElementById("newPeriod").value = "";
   };
 
   loadFromFirebase();
@@ -266,10 +375,10 @@ window.wipeAllData = async () => {
               normalized[k.toLowerCase().trim()] = student[k];
             });
 
-            const studentId = normalized["student id"];
-            const period = normalized["period"];
-            const firstName = normalized["first name"] || "";
-            const lastName = normalized["last name"] || "";
+            const studentId = (normalized["student id"] || normalized["studentid"] || "").trim();
+            const period = (normalized["period"] || "").trim();
+            const firstName = (normalized["first name"] || "").trim();
+            const lastName = (normalized["last name"] || "").trim();
 
             if (!studentId || !period) continue;
 
@@ -277,12 +386,17 @@ window.wipeAllData = async () => {
               studentId,
               firstName,
               lastName,
-              period
+              period,
+              restroomCount: 0,
+              phoneCount: 0,
+              eatingCount: 0,
+              gamesCount: 0,
+              behaviorLog: []
             });
           }
 
           statusEl.textContent = "Upload complete";
-
+          fileInput.value = "";
         } catch (err) {
           console.error(err);
           statusEl.textContent = "Error uploading";
