@@ -1,94 +1,133 @@
-import React, { useState } from "react";
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc } from "firebase/firestore";
-import Papa from "papaparse";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student CSV Uploader</title>
 
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
-  authDomain: "rrtracker-de70e.firebaseapp.com",
-  projectId: "rrtracker-de70e",
-  storageBucket: "rrtracker-de70e.firebasestorage.app",
-  messagingSenderId: "1057987490614",
-  appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
-  measurementId: "G-X31008YT0P"
-};
+  <!-- Firebase (v9 modular via CDN) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+    // Make Firebase available globally
+    window.initFirebase = () => {
+      const firebaseConfig = {
+        apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
+        authDomain: "rrtracker-de70e.firebaseapp.com",
+        projectId: "rrtracker-de70e",
+        storageBucket: "rrtracker-de70e.firebasestorage.app",
+        messagingSenderId: "1057987490614",
+        appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
+        measurementId: "G-X31008YT0P"
+      };
 
-export default function App() {
-  const [fileName, setFileName] = useState("");
-  const [status, setStatus] = useState("");
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+      return { db, collection, addDoc };
+    };
+  </script>
 
-    setFileName(file.name);
-    setStatus("Parsing CSV...");
+  <!-- PapaParse -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        try {
-          setStatus("Uploading to Firebase...");
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f3f4f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
 
-          const students = results.data;
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 400px;
+    }
 
-          for (const student of students) {
-            // Expect CSV columns: studentId, period
-            await addDoc(collection(db, "students"), {
-              studentId: student.studentId,
-              period: student.period,
-              timestamp: new Date()
-            });
-          }
+    h1 {
+      text-align: center;
+      margin-bottom: 16px;
+    }
 
-          setStatus("Upload complete!");
-        } catch (error) {
-          console.error(error);
-          setStatus("Error uploading data");
-        }
-      }
-    });
-  };
+    .status {
+      margin-top: 10px;
+      color: #2563eb;
+      font-weight: bold;
+    }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-6 rounded-2xl shadow-lg w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-4 text-center">
-          Student CSV Uploader
-        </h1>
+    pre {
+      background: #eee;
+      padding: 8px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
 
-        <input
-          type="file"
-          accept=".csv"
-          onChange={handleFileUpload}
-          className="mb-4"
-        />
+  <div class="card">
+    <h1>Student CSV Uploader</h1>
 
-        {fileName && (
-          <p className="text-sm text-gray-600">File: {fileName}</p>
-        )}
+    <input type="file" id="fileInput" accept=".csv" />
 
-        {status && (
-          <p className="mt-2 text-sm font-medium text-blue-600">
-            {status}
-          </p>
-        )}
+    <p id="fileName"></p>
+    <p id="status" class="status"></p>
 
-        <div className="mt-4 text-xs text-gray-500">
-          <p>CSV format:</p>
-          <pre className="bg-gray-100 p-2 rounded mt-1">
+    <div>
+      <p>CSV format:</p>
+      <pre>
 studentId,period
 12345,1
 67890,2
-          </pre>
-        </div>
-      </div>
+      </pre>
     </div>
-  );
-}
+  </div>
+
+  <script type="module">
+    const { db, collection, addDoc } = window.initFirebase();
+
+    const fileInput = document.getElementById("fileInput");
+    const fileNameEl = document.getElementById("fileName");
+    const statusEl = document.getElementById("status");
+
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      fileNameEl.textContent = "File: " + file.name;
+      statusEl.textContent = "Parsing CSV...";
+
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          try {
+            statusEl.textContent = "Uploading to Firebase...";
+
+            for (const student of results.data) {
+              await addDoc(collection(db, "students"), {
+                studentId: student.studentId,
+                period: student.period,
+                timestamp: new Date()
+              });
+            }
+
+            statusEl.textContent = "Upload complete!";
+          } catch (err) {
+            console.error(err);
+            statusEl.textContent = "Error uploading data";
+          }
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
