@@ -2,387 +2,262 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Classroom Management Tracker v1.4.6</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Student Roster Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.2/papaparse.min.js"></script>
+    <!-- Firebase Legacy SDKs for broadest compatibility -->
     <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-auth-compat.js"></script>
     <style>
-        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(229, 231, 235, 1); }
-        .tab-active { border-bottom: 3px solid #3b82f6; color: #1d4ed8; }
-        body { background-color: #f3f4f6; -webkit-tap-highlight-color: transparent; font-family: system-ui, -apple-system, sans-serif; }
-        .loading-dots:after { content: '.'; animation: dots 1.5s steps(5, end) infinite; }
-        @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+        .loading-shimmer {
+            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
     </style>
 </head>
-<body class="min-h-screen pb-20">
+<body class="min-h-screen flex flex-col">
 
-    <nav class="sticky top-0 z-50 bg-white shadow-sm px-4 py-3 flex justify-between items-center border-b border-slate-100">
-        <div class="flex items-baseline gap-2">
-            <h1 class="font-bold text-xl text-slate-800 tracking-tight">Classroom Tracker</h1>
-            <span class="text-[10px] font-mono bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded border border-blue-100">v1.4.6</span>
-        </div>
-        <div class="flex gap-1 sm:gap-2">
-            <button onclick="switchTab('roster')" class="nav-btn px-3 py-1.5 text-sm font-semibold rounded-lg transition">Roster</button>
-            <button onclick="switchTab('tracker')" class="nav-btn px-3 py-1.5 text-sm font-semibold rounded-lg transition">Tracker</button>
-            <button onclick="switchTab('logs')" class="nav-btn px-3 py-1.5 text-sm font-semibold rounded-lg transition">Logs</button>
-        </div>
-    </nav>
-
-    <div class="max-w-4xl mx-auto p-4">
-        <!-- CONNECTION ERRORS -->
-        <div id="connection-error" class="hidden mb-6 p-5 bg-red-50 border-2 border-red-100 rounded-2xl text-red-900 shadow-sm">
-            <div class="flex items-center gap-3 mb-2">
-                <div class="bg-red-500 text-white rounded-full p-1">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                </div>
-                <h3 class="font-bold text-lg">System Access Denied</h3>
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 py-4 sm:px-6">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">Classroom Roster</h1>
+                <p id="connection-status" class="text-[10px] font-bold uppercase text-amber-500 tracking-widest flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span> Connecting...
+                </p>
             </div>
-            <p id="error-details" class="text-sm opacity-90 mb-4"></p>
-            <div id="rule-helper" class="hidden p-4 bg-slate-900 text-slate-300 rounded-xl font-mono text-[11px] overflow-x-auto mb-4 border border-slate-700">
-                <span class="text-blue-400">// Change your Security Rules to this:</span><br>
-                allow read, write: if request.auth != null;
+            <div id="user-display" class="hidden text-right">
+                <p class="text-[10px] font-mono text-slate-400" id="user-id-label"></p>
             </div>
-            <button onclick="location.reload()" class="w-full bg-red-600 text-white py-2 rounded-xl font-bold shadow-lg shadow-red-200 hover:bg-red-700 transition">Try Again</button>
         </div>
+    </header>
 
-        <!-- ROSTER TAB -->
-        <section id="tab-roster" class="tab-content">
-            <div class="glass-card rounded-2xl p-6 shadow-sm mb-6 border-l-4 border-l-blue-500">
-                <h2 class="text-lg font-bold text-slate-800 mb-1">Import Student Roster</h2>
-                <p class="text-xs text-slate-500 mb-6">Upload a CSV file with columns: <b>First Name, Last Name, Period</b></p>
-                
-                <div class="relative mb-4">
-                    <input type="file" id="csv-file" accept=".csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer bg-slate-50 rounded-xl border border-dashed border-slate-300 p-2">
+    <main class="flex-1 max-w-5xl mx-auto w-full p-4 sm:p-6 space-y-6">
+        
+        <!-- Upload Section -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h2 class="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">Import Data</h2>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <div class="flex-1 relative">
+                    <input type="file" id="csv-input" accept=".csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer bg-slate-50 rounded-xl border border-dashed border-slate-300 p-1.5">
                 </div>
-                
-                <button id="import-btn" disabled onclick="handleFileUpload()" class="w-full bg-slate-300 text-white py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
-                    <span id="btn-text" class="loading-dots">Initializing Cloud Connection</span>
+                <button id="upload-btn" onclick="handleUpload()" disabled class="bg-blue-600 disabled:bg-slate-300 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">
+                    Sync to Cloud
                 </button>
-                
-                <div id="import-status-box" class="mt-4 p-4 bg-slate-800 rounded-xl text-xs font-mono text-slate-300 hidden border border-slate-700 shadow-inner">
-                    <div id="status-step-1" class="flex items-center gap-2 mb-1 opacity-50"><span>○</span> <span>Reading CSV File</span></div>
-                    <div id="status-step-2" class="flex items-center gap-2 mb-1 opacity-50"><span>○</span> <span>Validating Headers</span></div>
-                    <div id="status-step-3" class="flex items-center gap-2 opacity-50"><span>○</span> <span>Uploading to Database</span></div>
-                </div>
             </div>
-
-            <div class="glass-card rounded-2xl p-6 shadow-sm">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-lg font-bold text-slate-800">Managed Students</h2>
-                    <select id="period-filter-roster" onchange="renderRoster()" class="border-0 bg-slate-100 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none">
-                        <option value="all">All Periods</option>
-                    </select>
-                </div>
-                <div id="roster-list" class="space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar">
-                    <div class="py-20 text-center">
-                        <div class="text-slate-300 mb-2">
-                            <svg class="w-12 h-12 mx-auto opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 01-9-3.5m9.936-3.064a4 4 0 11-5.292-5.292M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        </div>
-                        <p id="roster-loading-msg" class="text-slate-400 italic text-sm">Awaiting authentication...</p>
-                    </div>
-                </div>
+            <p class="mt-3 text-[11px] text-slate-400">Supported columns: Period, First Name, Last Name, Student ID (or similar names)</p>
+            
+            <!-- Progress Feedback -->
+            <div id="progress-box" class="hidden mt-4 p-4 bg-slate-900 rounded-xl font-mono text-xs text-blue-400 space-y-1">
+                <div id="step-read">○ Reading file...</div>
+                <div id="step-validate">○ Validating students...</div>
+                <div id="step-upload">○ Saving to cloud...</div>
             </div>
         </section>
 
-        <!-- TRACKER TAB -->
-        <section id="tab-tracker" class="tab-content hidden">
-            <div id="active-passes" class="mb-8 hidden">
-                <h2 class="text-xs font-black text-blue-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <span class="w-2 h-2 bg-blue-500 rounded-full animate-ping"></span>
-                    Live Out-of-Class
-                </h2>
-                <div id="active-passes-list" class="grid gap-4 grid-cols-1 sm:grid-cols-2"></div>
-            </div>
-
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-lg font-bold text-slate-800">Class Board</h2>
-                <select id="period-filter-tracker" onchange="renderTracker()" class="border-0 bg-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none">
-                    <option value="all">Filter: All</option>
-                </select>
-            </div>
-            <div id="tracker-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
-        </section>
-
-        <!-- LOGS TAB -->
-        <section id="tab-logs" class="tab-content hidden">
-            <div class="flex justify-between items-center mb-8 bg-white p-4 rounded-2xl shadow-sm">
-                <div>
-                    <h2 class="text-lg font-bold text-slate-800">Action History</h2>
-                    <p class="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Automatic Cloud Logging</p>
-                </div>
-                <button onclick="exportToCSV()" class="bg-green-500 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition">Export CSV</button>
-            </div>
-            <div id="history-list" class="space-y-3"></div>
-        </section>
-    </div>
-
-    <!-- ACTION MODAL -->
-    <div id="student-modal" class="fixed inset-0 bg-slate-900/80 hidden z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-md">
-        <div class="bg-white rounded-t-[2.5rem] sm:rounded-[2rem] w-full max-w-md p-8 shadow-2xl animate-slide-up">
-            <div class="text-center mb-8">
-                <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 font-black text-2xl" id="modal-initials">JS</div>
-                <h3 id="modal-student-name" class="text-2xl font-black text-slate-900 leading-tight">Student Name</h3>
-                <p id="modal-student-info" class="text-[10px] text-blue-500 font-black uppercase tracking-[0.2em] mt-2"></p>
-            </div>
-            <div class="grid grid-cols-1 gap-3">
-                <button onclick="logIncident('Phone')" class="group bg-slate-50 p-5 rounded-2xl font-bold flex items-center justify-between hover:bg-orange-50 hover:text-orange-700 transition-all border border-transparent hover:border-orange-100">
-                    <span class="flex items-center gap-3">📱 <span class="text-slate-700 group-hover:text-orange-700">Phone Violation</span></span>
-                    <span class="opacity-30">→</span>
-                </button>
-                <button onclick="logIncident('Eating')" class="group bg-slate-50 p-5 rounded-2xl font-bold flex items-center justify-between hover:bg-yellow-50 hover:text-yellow-700 transition-all border border-transparent hover:border-yellow-100">
-                    <span class="flex items-center gap-3">🍕 <span class="text-slate-700 group-hover:text-yellow-700">Eating/Drinking</span></span>
-                    <span class="opacity-30">→</span>
-                </button>
-                <button onclick="logIncident('Disruptive')" class="group bg-slate-50 p-5 rounded-2xl font-bold flex items-center justify-between hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-100">
-                    <span class="flex items-center gap-3">🗣️ <span class="text-slate-700 group-hover:text-red-700">Disruptive Behavior</span></span>
-                    <span class="opacity-30">→</span>
-                </button>
-                <div class="h-px bg-slate-100 my-4"></div>
-                <button onclick="startPass()" class="bg-blue-600 text-white p-5 rounded-2xl font-black shadow-xl shadow-blue-200 flex items-center justify-between hover:bg-blue-700 active:scale-95 transition-all">
-                    <span>🚪 START HALL PASS</span>
-                    <span class="text-xl">+</span>
-                </button>
-                <button onclick="closeModal()" class="mt-6 text-slate-400 text-xs font-black uppercase tracking-widest hover:text-slate-600 py-2">Close</button>
-            </div>
+        <!-- Filters -->
+        <div class="flex items-center justify-between">
+            <h2 class="text-lg font-extrabold text-slate-800">Student List</h2>
+            <select id="period-filter" onchange="renderRoster()" class="bg-white border border-slate-200 text-sm font-bold text-slate-700 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+                <option value="all">All Periods</option>
+            </select>
         </div>
-    </div>
+
+        <!-- Roster Display -->
+        <div id="roster-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Loading States -->
+            <div class="loading-shimmer h-24 rounded-2xl"></div>
+            <div class="loading-shimmer h-24 rounded-2xl"></div>
+            <div class="loading-shimmer h-24 rounded-2xl"></div>
+            <div class="loading-shimmer h-24 rounded-2xl"></div>
+        </div>
+
+    </main>
+
+    <!-- Clear Data Footer -->
+    <footer class="p-6 text-center safe-area-bottom">
+        <button onclick="clearAllData()" class="text-xs font-bold text-red-400 hover:text-red-600 uppercase tracking-widest p-2 transition">
+            Reset Database
+        </button>
+    </footer>
 
     <script>
+        // Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
             authDomain: "rrtracker-de70e.firebaseapp.com",
             projectId: "rrtracker-de70e",
             storageBucket: "rrtracker-de70e.firebasestorage.app",
             messagingSenderId: "1057987490614",
-            appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
-            measurementId: "G-X31008YT0P"
+            appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997"
         };
-        
-        const appId = 'classroom-tracker';
-        
+        const APP_ID = 'student-roster-manager';
+
+        // Initialize
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
 
         let students = [];
-        let logs = [];
-        let activePasses = [];
-        let selectedStudent = null;
         let currentUser = null;
 
-        async function initApp() {
+        async function init() {
             try {
-                // Rule 3: Authentic before queries
-                const userCredential = await auth.signInAnonymously();
-                onUserAuthenticated(userCredential.user);
-            } catch (e) { 
-                console.error("Auth Error:", e);
-                showError(e);
-            }
-            
-            auth.onAuthStateChanged(user => {
-                if (user) onUserAuthenticated(user);
-            });
+                const cred = await auth.signInAnonymously();
+                currentUser = cred.user;
+                
+                document.getElementById('connection-status').innerHTML = `<span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Cloud Connected`;
+                document.getElementById('connection-status').className = "text-[10px] font-bold uppercase text-green-600 tracking-widest flex items-center gap-1";
+                document.getElementById('user-display').classList.remove('hidden');
+                document.getElementById('user-id-label').textContent = `ID: ${currentUser.uid.substr(0,8)}...`;
+                document.getElementById('upload-btn').disabled = false;
 
-            switchTab('tracker');
-        }
-
-        function showError(err) {
-            const errorDiv = document.getElementById('connection-error');
-            const details = document.getElementById('error-details');
-            const ruleHelper = document.getElementById('rule-helper');
-            errorDiv.classList.remove('hidden');
-            
-            if (err.code === 'permission-denied') {
-                details.textContent = "Your Firestore database exists but is blocking our connection. Update your rules to allow access.";
-                ruleHelper.classList.remove('hidden');
-            } else if (err.code === 'auth/operation-not-allowed') {
-                details.textContent = "Anonymous Login is disabled in your Firebase console under Authentication > Sign-in Method.";
-            } else {
-                details.textContent = `Error [${err.code}]: ${err.message}`;
+                setupListener();
+            } catch (err) {
+                console.error(err);
+                document.getElementById('connection-status').textContent = "Connection Error";
             }
         }
 
-        function onUserAuthenticated(user) {
-            if (currentUser && currentUser.uid === user.uid) return;
-            currentUser = user;
-            setupListeners();
-            enableImportUI();
-        }
-
-        function enableImportUI() {
-            const btn = document.getElementById('import-btn');
-            const btnText = document.getElementById('btn-text');
-            btn.disabled = false;
-            btn.className = "w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all cursor-pointer";
-            btnText.classList.remove('loading-dots');
-            btnText.textContent = "Begin Student Import";
-            
-            const loadingMsg = document.getElementById('roster-loading-msg');
-            if (loadingMsg) loadingMsg.textContent = "System ready. Import a CSV to begin.";
-        }
-
-        function setupListeners() {
-            if (!currentUser) return;
-            const sPath = `artifacts/${appId}/users/${currentUser.uid}/students`;
-            const lPath = `artifacts/${appId}/users/${currentUser.uid}/logs`;
-
-            db.collection(sPath).onSnapshot(snap => {
+        function setupListener() {
+            const path = `artifacts/${APP_ID}/users/${currentUser.uid}/students`;
+            db.collection(path).onSnapshot(snap => {
                 students = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                updatePeriodFilters();
+                updateFilters();
                 renderRoster();
-                renderTracker();
-            }, err => showError(err));
-
-            db.collection(lPath).onSnapshot(snap => {
-                logs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-                        .sort((a,b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
-                activePasses = logs.filter(l => l.type === 'Pass' && !l.returnTimestamp);
-                renderActivePasses();
-                renderLogs();
-            }, err => console.error("Logs error:", err));
+            }, err => {
+                console.error("Firestore Error:", err);
+            });
         }
 
-        function updateStatus(step, text, isError = false) {
-            const el = document.getElementById(`status-step-${step}`);
-            if (el) {
-                el.style.opacity = "1";
-                el.innerHTML = `<span class="${isError ? 'text-red-500' : 'text-blue-400'} font-black">${isError ? '✕' : '✓'}</span> <span>${text}</span>`;
-            }
+        function updateFilters() {
+            const select = document.getElementById('period-filter');
+            const currentVal = select.value;
+            const periods = [...new Set(students.map(s => s.period))].sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric: true}));
+            
+            select.innerHTML = '<option value="all">All Periods</option>';
+            periods.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = `Period ${p}`;
+                select.appendChild(opt);
+            });
+            select.value = currentVal;
         }
 
-        async function handleFileUpload() {
-            const fileInput = document.getElementById('csv-file');
-            const statusBox = document.getElementById('import-status-box');
-            const btn = document.getElementById('import-btn');
+        function handleUpload() {
+            const fileInput = document.getElementById('csv-input');
+            const box = document.getElementById('progress-box');
+            if (!fileInput.files.length) return alert("Please select a file.");
 
-            if (!fileInput.files.length) { alert("Please choose a file first."); return; }
-            
-            btn.disabled = true;
-            statusBox.classList.remove('hidden');
-            
-            // Step 1: Read
-            updateStatus(1, "Parsing CSV Data...");
-            
+            box.classList.remove('hidden');
+            setStep('read', 'parsing');
+
             Papa.parse(fileInput.files[0], {
                 header: true,
                 skipEmptyLines: true,
                 complete: async (results) => {
-                    updateStatus(1, "CSV Data Read.");
-                    updateStatus(2, "Checking Columns...");
+                    setStep('read', 'done');
+                    setStep('validate', 'processing');
 
                     try {
                         const batch = db.batch();
-                        const sPath = `artifacts/${appId}/users/${currentUser.uid}/students`;
+                        const path = `artifacts/${APP_ID}/users/${currentUser.uid}/students`;
                         let count = 0;
 
-                        // Flexible header searching
                         results.data.forEach(row => {
-                            const find = (keywords) => {
-                                const keys = Object.keys(row);
-                                const match = keys.find(k => keywords.some(kw => k.toLowerCase().includes(kw)));
-                                return match ? row[match] : null;
+                            // Helper to find data regardless of header capitalization/naming
+                            const get = (keys) => {
+                                const found = Object.keys(row).find(k => keys.some(kw => k.toLowerCase().includes(kw)));
+                                return found ? row[found] : null;
                             };
 
-                            const fName = find(['first', 'fname', 'given']);
-                            const lName = find(['last', 'lname', 'surname', 'family']);
-                            const period = find(['per', 'class', 'group', 'section']) || "1";
-                            const sId = find(['id', 'sid', 'num']) || Math.random().toString(36).substr(2, 9);
+                            const fName = get(['first', 'fname', 'given']);
+                            const lName = get(['last', 'lname', 'surname']);
+                            const period = get(['per', 'class', 'group', 'section']) || "1";
+                            const sId = get(['id', 'sid', 'student id', 'num']) || Math.random().toString(36).substr(2, 6).toUpperCase();
 
                             if (fName || lName) {
-                                const docRef = db.collection(sPath).doc();
-                                batch.set(docRef, {
+                                const ref = db.collection(path).doc();
+                                batch.set(ref, {
                                     firstName: String(fName || "").trim(),
                                     lastName: String(lName || "").trim(),
                                     period: String(period).trim(),
                                     studentId: String(sId).trim(),
-                                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                                 });
                                 count++;
                             }
                         });
 
-                        if (count === 0) {
-                            throw new Error("Could not find names. Column headers should be: First Name, Last Name.");
-                        }
+                        if (count === 0) throw new Error("No student data found in CSV.");
 
-                        updateStatus(2, `Found ${count} Students.`);
-                        updateStatus(3, "Syncing to Cloud...");
-                        
+                        setStep('validate', `found ${count} students`);
+                        setStep('upload', 'syncing...');
+
                         await batch.commit();
-                        
-                        updateStatus(3, "Cloud Sync Finished!");
+
+                        setStep('upload', 'success!');
                         setTimeout(() => {
-                            alert(`Success! ${count} students imported.`);
-                            btn.disabled = false;
-                            statusBox.classList.add('hidden');
+                            box.classList.add('hidden');
                             fileInput.value = "";
-                        }, 800);
+                        }, 2000);
 
                     } catch (err) {
-                        updateStatus(2, "Mapping Failed", true);
-                        updateStatus(3, err.message, true);
-                        btn.disabled = false;
+                        alert(err.message);
+                        box.classList.add('hidden');
                     }
-                },
-                error: (err) => {
-                    updateStatus(1, "Parse Failed", true);
-                    btn.disabled = false;
                 }
             });
         }
 
-        function switchTab(id) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('tab-active', 'bg-blue-600', 'text-white'));
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.add('text-slate-500', 'hover:bg-slate-100'));
-            
-            const content = document.getElementById(`tab-${id}`);
-            if (content) content.classList.remove('hidden');
-            
-            const btn = Array.from(document.querySelectorAll('.nav-btn')).find(b => b.textContent.toLowerCase() === id);
-            if (btn) {
-                btn.classList.add('tab-active', 'bg-blue-600', 'text-white');
-                btn.classList.remove('text-slate-500', 'hover:bg-slate-100');
-            }
-        }
-
-        function updatePeriodFilters() {
-            const periods = [...new Set(students.map(s => s.period))].sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric: true}));
-            ['period-filter-roster', 'period-filter-tracker'].forEach(id => {
-                const select = document.getElementById(id);
-                if (!select) return;
-                const currentVal = select.value;
-                select.innerHTML = id.includes('tracker') ? '<option value="all">Filter: All</option>' : '<option value="all">All Periods</option>';
-                periods.forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p; opt.textContent = `Period ${p}`;
-                    select.appendChild(opt);
-                });
-                select.value = currentVal;
-            });
+        function setStep(id, text) {
+            const el = document.getElementById(`step-${id}`);
+            const icons = { parsing: '⏳', processing: '🔍', done: '✅', success: '✨' };
+            el.textContent = `${icons[text] || '○'} ${id.toUpperCase()}: ${text}`;
+            el.className = text.includes('success') || text.includes('done') ? 'text-green-400' : 'text-blue-400';
         }
 
         function renderRoster() {
-            const list = document.getElementById('roster-list');
-            const filter = document.getElementById('period-filter-roster').value;
-            const filtered = filter === 'all' ? students : students.filter(s => s.period == filter);
+            const container = document.getElementById('roster-container');
+            const filter = document.getElementById('period-filter').value;
             
-            if (!filtered.length) { 
-                list.innerHTML = `<p class="text-slate-400 text-center italic py-10">Roster empty.</p>`; 
-                return; 
-            }
-            
-            list.innerHTML = filtered.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(s => `
-                <div class="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-xl shadow-sm">
-                    <div>
-                        <div class="font-bold text-slate-800">${s.lastName}, ${s.firstName}</div>
-                        <div class="text-[10px] text-slate-400 uppercase font-black tracking-widest mt-0.5">Per: ${s.period} • ID: ${s.studentId}</div>
+            let displayList = filter === 'all' ? students : students.filter(s => s.period === filter);
+
+            // Sorting: Period first, then Last Name
+            displayList.sort((a, b) => {
+                const perA = String(a.period).padStart(3, '0');
+                const perB = String(b.period).padStart(3, '0');
+                if (perA !== perB) return perA.localeCompare(perB);
+                return a.lastName.localeCompare(b.lastName);
+            });
+
+            if (displayList.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full py-20 text-center">
+                        <p class="text-slate-400 italic">No students found. Upload a CSV to start.</p>
                     </div>
-                    <button onclick="deleteStudent('${s.id}')" class="p-2 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                `;
+                return;
+            }
+
+            container.innerHTML = displayList.map(s => `
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group hover:border-blue-300 transition-colors">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="bg-blue-100 text-blue-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">Per ${s.period}</span>
+                            <span class="text-xs font-mono text-slate-400">#${s.studentId}</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-900 mt-1">${s.lastName}, ${s.firstName}</h3>
+                    </div>
+                    <button onclick="deleteStudent('${s.id}')" class="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-red-500 transition-all">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                 </div>
@@ -390,121 +265,23 @@
         }
 
         async function deleteStudent(id) {
-            if (confirm("Permanently remove this student?")) {
-                await db.collection(`artifacts/${appId}/users/${currentUser.uid}/students`).doc(id).delete();
+            if (confirm("Delete this student from the cloud?")) {
+                await db.collection(`artifacts/${APP_ID}/users/${currentUser.uid}/students`).doc(id).delete();
             }
         }
 
-        function renderTracker() {
-            const grid = document.getElementById('tracker-grid');
-            const filter = document.getElementById('period-filter-tracker').value;
-            const filtered = filter === 'all' ? students : students.filter(s => s.period == filter);
-            
-            if (!filtered.length) { 
-                grid.innerHTML = `<div class="col-span-full py-20 text-center text-slate-300 italic">No students found.</div>`; 
-                return; 
+        async function clearAllData() {
+            if (confirm("DANGER: This will delete ALL student data. Proceed?")) {
+                const path = `artifacts/${APP_ID}/users/${currentUser.uid}/students`;
+                const snap = await db.collection(path).get();
+                const batch = db.batch();
+                snap.docs.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+                alert("Database cleared.");
             }
-            
-            grid.innerHTML = filtered.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(s => `
-                <button onclick="openStudentActions('${s.id}')" class="group relative p-5 bg-white border-b-4 border-slate-200 rounded-[2rem] shadow-sm hover:border-blue-500 hover:-translate-y-1 active:scale-95 transition-all text-center">
-                    <div class="w-10 h-10 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3 font-bold text-xs group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
-                        ${s.firstName[0]}${s.lastName[0]}
-                    </div>
-                    <div class="font-black text-slate-800 truncate text-sm">${s.firstName}</div>
-                    <div class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Per ${s.period}</div>
-                </button>
-            `).join('');
         }
 
-        function openStudentActions(id) {
-            selectedStudent = students.find(s => s.id === id);
-            document.getElementById('modal-student-name').textContent = `${selectedStudent.firstName} ${selectedStudent.lastName}`;
-            document.getElementById('modal-student-info').textContent = `Period ${selectedStudent.period} • ID ${selectedStudent.studentId}`;
-            document.getElementById('modal-initials').textContent = `${selectedStudent.firstName[0]}${selectedStudent.lastName[0]}`;
-            document.getElementById('student-modal').classList.remove('hidden');
-        }
-
-        function closeModal() { document.getElementById('student-modal').classList.add('hidden'); }
-
-        async function logIncident(cat) {
-            const path = `artifacts/${appId}/users/${currentUser.uid}/logs`;
-            await db.collection(path).add({
-                type: 'Behavior', category: cat, studentId: selectedStudent.studentId,
-                name: `${selectedStudent.firstName} ${selectedStudent.lastName}`,
-                period: selectedStudent.period, timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            closeModal();
-        }
-
-        async function startPass() {
-            const path = `artifacts/${appId}/users/${currentUser.uid}/logs`;
-            await db.collection(path).add({
-                type: 'Pass', category: 'Out', studentId: selectedStudent.studentId,
-                name: `${selectedStudent.firstName} ${selectedStudent.lastName}`,
-                period: selectedStudent.period, timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                returnTimestamp: null
-            });
-            closeModal();
-        }
-
-        async function endPass(logId) {
-            await db.collection(`artifacts/${appId}/users/${currentUser.uid}/logs`).doc(logId).update({
-                returnTimestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        }
-
-        function renderActivePasses() {
-            const list = document.getElementById('active-passes-list');
-            const container = document.getElementById('active-passes');
-            if (!activePasses.length) { container.classList.add('hidden'); return; }
-            container.classList.remove('hidden');
-            list.innerHTML = activePasses.map(p => {
-                const mins = Math.floor((Date.now() - (p.timestamp?.toMillis() || Date.now())) / 60000);
-                return `
-                    <div class="bg-blue-600 text-white p-5 rounded-2xl flex justify-between items-center shadow-xl shadow-blue-200">
-                        <div>
-                            <div class="font-black text-lg">${p.name}</div>
-                            <div class="text-[10px] font-black uppercase tracking-widest opacity-80">Away for ${mins} Minutes</div>
-                        </div>
-                        <button onclick="endPass('${p.id}')" class="bg-white text-blue-600 px-5 py-2 rounded-xl text-xs font-black shadow-lg active:scale-95 transition-all">RETURN</button>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function renderLogs() {
-            const list = document.getElementById('history-list');
-            if (!logs.length) { list.innerHTML = `<div class="py-20 text-center text-slate-300 italic">No activity logs recorded yet.</div>`; return; }
-            list.innerHTML = logs.map(l => {
-                const date = l.timestamp?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) || 'Syncing...';
-                const isPass = l.type === 'Pass';
-                return `<div class="p-4 bg-white border border-slate-100 rounded-xl flex justify-between items-center shadow-sm">
-                    <div class="flex items-center gap-3">
-                        <div class="text-lg">${l.category === 'Phone' ? '📱' : l.category === 'Eating' ? '🍕' : l.category === 'Disruptive' ? '🗣️' : '🚪'}</div>
-                        <div>
-                            <div class="font-bold text-slate-800 text-sm">${l.name}</div>
-                            <div class="text-[9px] text-slate-400 font-bold uppercase">${l.category} • Period ${l.period}</div>
-                        </div>
-                    </div>
-                    <div class="text-[10px] font-bold text-slate-400">${date}</div>
-                </div>`;
-            }).join('');
-        }
-
-        function exportToCSV() {
-            const rows = [["Date", "Student", "Period", "Type", "Category"]];
-            logs.forEach(l => rows.push([l.timestamp?.toDate().toLocaleString(), l.name, l.period, l.type, l.category]));
-            const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
-            const link = document.createElement("a");
-            link.setAttribute("href", encodeURI(csvContent));
-            link.setAttribute("download", `Classroom_Activity_${new Date().toLocaleDateString()}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        window.onload = initApp;
-        setInterval(renderActivePasses, 30000);
+        window.onload = init;
     </script>
 </body>
 </html>
