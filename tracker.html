@@ -5,12 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Student CSV Uploader</title>
 
-  <!-- Firebase (v9 modular via CDN) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // Make Firebase available globally
     window.initFirebase = () => {
       const firebaseConfig = {
         apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
@@ -29,7 +27,6 @@
     };
   </script>
 
-  <!-- PapaParse -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <style>
@@ -37,111 +34,146 @@
       margin: 0;
       font-family: Arial, sans-serif;
       background: #f3f4f6;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
     }
 
     .card {
       background: white;
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 400px;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
     }
 
-    h1 {
-      text-align: center;
-      margin-bottom: 16px;
-    }
-
-    .status {
-      margin-top: 10px;
-      color: #2563eb;
-      font-weight: bold;
-    }
-
-    pre {
-      background: #eee;
-      padding: 8px;
+    .tabs button {
+      margin-right: 5px;
+      padding: 8px 12px;
+      border: none;
       border-radius: 6px;
+      background: #ddd;
+      cursor: pointer;
+    }
+
+    .tabs button.active {
+      background: #2563eb;
+      color: white;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: left;
     }
   </style>
 </head>
 <body>
 
+<div class="container">
   <div class="card">
-    <h1>Student CSV Uploader</h1>
-
+    <h2>Upload CSV</h2>
     <input type="file" id="fileInput" accept=".csv" />
-
-    <p id="fileName"></p>
-    <p id="status" class="status"></p>
-
-    <div>
-      <p>CSV format:</p>
-      <pre>
-studentId,period
-12345,1
-67890,2
-      </pre>
-    </div>
+    <p id="status"></p>
   </div>
 
-  <script type="module">
-    const { db, collection, addDoc } = window.initFirebase();
+  <div class="card" id="results" style="display:none;">
+    <div class="tabs" id="tabs"></div>
+    <div id="tableContainer"></div>
+  </div>
+</div>
 
-    const fileInput = document.getElementById("fileInput");
-    const fileNameEl = document.getElementById("fileName");
-    const statusEl = document.getElementById("status");
+<script type="module">
+  const { db, collection, addDoc } = window.initFirebase();
 
-    fileInput.addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+  const fileInput = document.getElementById("fileInput");
+  const statusEl = document.getElementById("status");
+  const tabsEl = document.getElementById("tabs");
+  const tableContainer = document.getElementById("tableContainer");
+  const resultsDiv = document.getElementById("results");
 
-      fileNameEl.textContent = "File: " + file.name;
-      statusEl.textContent = "Parsing CSV...";
+  let grouped = {};
 
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: async (results) => {
-          try {
-            statusEl.textContent = "Uploading to Firebase...";
-
-            for (const student of results.data) {
-              // Handle different possible column names
-              const studentId = student.studentId || student["student id"] || student.id;
-              const period = student.period;
-              const firstName = student["first name"] || student.firstName;
-              const lastName = student["last name"] || student.lastName;
-
-              // Skip rows with missing required data
-              if (!studentId || !period) {
-                console.warn("Skipping invalid row:", student);
-                continue;
-              }
-
-              await addDoc(collection(db, "students"), {
-                studentId,
-                period,
-                firstName: firstName || "",
-                lastName: lastName || "",
-                timestamp: new Date()
-              });
-                        }
-
-            statusEl.textContent = "Upload complete!";
-          } catch (err) {
-            console.error(err);
-            statusEl.textContent = "Error uploading data";
-          }
-        }
-      });
+  function renderTabs() {
+    tabsEl.innerHTML = "";
+    Object.keys(grouped).sort().forEach(period => {
+      const btn = document.createElement("button");
+      btn.textContent = "Period " + period;
+      btn.onclick = () => renderTable(period);
+      tabsEl.appendChild(btn);
     });
-  </script>
+  }
+
+  function renderTable(period) {
+    const students = grouped[period];
+
+    document.querySelectorAll(".tabs button").forEach(btn => btn.classList.remove("active"));
+    [...tabsEl.children].find(b => b.textContent.includes(period)).classList.add("active");
+
+    let html = "<table><tr><th>ID</th><th>Name</th></tr>";
+    students.forEach(s => {
+      html += `<tr><td>${s.studentId}</td><td>${s.firstName} ${s.lastName}</td></tr>`;
+    });
+    html += "</table>";
+
+    tableContainer.innerHTML = html;
+  }
+
+  fileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    statusEl.textContent = "Parsing CSV...";
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        grouped = {};
+
+        try {
+          statusEl.textContent = "Uploading...";
+
+          for (const student of results.data) {
+            const studentId = student.studentId || student["student id"];
+            const period = student.period;
+            const firstName = student["first name"] || "";
+            const lastName = student["last name"] || "";
+
+            if (!studentId || !period) continue;
+
+            if (!grouped[period]) grouped[period] = [];
+
+            const obj = { studentId, period, firstName, lastName };
+            grouped[period].push(obj);
+
+            await addDoc(collection(db, "students"), obj);
+          }
+
+          statusEl.textContent = "Upload complete";
+          resultsDiv.style.display = "block";
+
+          renderTabs();
+          const firstPeriod = Object.keys(grouped)[0];
+          if (firstPeriod) renderTable(firstPeriod);
+
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = "Error uploading";
+        }
+      }
+    });
+  });
+</script>
 
 </body>
 </html>
