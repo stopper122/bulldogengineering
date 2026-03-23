@@ -112,11 +112,26 @@ studentId,period
             statusEl.textContent = "Uploading to Firebase...";
 
             for (const student of results.data) {
+              // Handle different possible column names
+              const studentId = student.studentId || student["student id"] || student.id;
+              const period = student.period;
+              const firstName = student["first name"] || student.firstName;
+              const lastName = student["last name"] || student.lastName;
+
+              // Skip rows with missing required data
+              if (!studentId || !period) {
+                console.warn("Skipping invalid row:", student);
+                continue;
+              }
+
               await addDoc(collection(db, "students"), {
-                studentId: student.studentId,
-                period: student.period,
+                studentId,
+                period,
+                firstName: firstName || "",
+                lastName: lastName || "",
                 timestamp: new Date()
               });
+            });
             }
 
             statusEl.textContent = "Upload complete!";
