@@ -172,6 +172,18 @@
     return overdue ? `Out ${elapsed} min - counts as used` : `Out ${elapsed} min`;
   }
 
+  function isRestroomPassOverdue(student) {
+    return Boolean(
+      student.restroomActive &&
+      student.restroomStartTime &&
+      getElapsedMs(student.restroomStartTime) > restroomLimitMinutes * 60000
+    );
+  }
+
+  function getDisplayedRestroomUsedCount(student) {
+    return Number(student.restroomCount || 0) + (isRestroomPassOverdue(student) ? 1 : 0);
+  }
+
   function flattenMasterLog() {
     const rows = [];
     allDocs.forEach(student => {
@@ -336,7 +348,7 @@
   }
 
   function renderSummary(period, students) {
-    const restroom = students.reduce((sum, s) => sum + (s.restroomCount || 0), 0);
+    const restroom = students.reduce((sum, s) => sum + getDisplayedRestroomUsedCount(s), 0);
     const restroomOut = students.filter(s => s.restroomActive).length;
     const phone = students.reduce((sum, s) => sum + (s.phoneCount || 0), 0);
     const eating = students.reduce((sum, s) => sum + (s.eatingCount || 0), 0);
@@ -387,7 +399,7 @@
       const lastEventText = lastEvent ? `${lastEvent.type} (${new Date(lastEvent.time).toLocaleString()})` : "No events";
       const elapsedMs = s.restroomActive && s.restroomStartTime ? getElapsedMs(s.restroomStartTime) : 0;
       const elapsedText = s.restroomActive ? formatDuration(elapsedMs) : "";
-      const overdueLive = s.restroomActive && elapsedMs > restroomLimitMinutes * 60000;
+      const overdueLive = isRestroomPassOverdue(s);
 
       html += `<tr>
         <td>${s.studentId}</td>
@@ -395,7 +407,7 @@
           <strong>${s.lastName}, ${s.firstName}</strong><br>
           <span class="tiny">Last event: ${lastEventText}</span>
         </td>
-        <td>${s.restroomCount || 0}</td>
+        <td>${getDisplayedRestroomUsedCount(s)}</td>
         <td>${getRestroomStatusText(s)}${s.restroomActive ? `<br><span class="${overdueLive ? "timer-overdue" : "timer-live"}">Live: ${elapsedText}</span>` : ""}</td>
         <td>${s.phoneCount || 0}</td>
         <td>${s.eatingCount || 0}</td>
