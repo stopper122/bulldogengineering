@@ -485,8 +485,9 @@
     if (!student || !student.restroomActive || !student.restroomStartTime) return;
 
     const endTime = new Date().toISOString();
+    const elapsedMs = getElapsedMs(student.restroomStartTime);
     const elapsed = getElapsedMinutes(student.restroomStartTime);
-    const passUsed = elapsed > restroomLimitMinutes;
+    const passUsed = elapsedMs > restroomLimitMinutes * 60000;
 
     const updateData = {
       restroomActive: false,
