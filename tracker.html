@@ -13,10 +13,12 @@
     .card { background:white; padding:20px; border-radius:12px; box-shadow:0 5px 15px rgba(0,0,0,0.1); margin-bottom:20px; }
     .tabs button { margin-right:5px; padding:8px 12px; border:none; border-radius:6px; background:#ddd; cursor:pointer; }
     .tabs button.active { background:#2563eb; color:white; }
+    .tabs button.current { background:#16a34a; color:white; }
     table { width:100%; border-collapse:collapse; margin-top:10px; }
     th, td { border:1px solid #ccc; padding:6px; }
     .actions button { margin-right:5px; }
     input { margin:4px 0; padding:5px; }
+    .controls button { margin-right:5px; }
   </style>
 </head>
 <body>
@@ -35,6 +37,14 @@
     <input id="newLast" placeholder="Last Name" />
     <input id="newPeriod" placeholder="Period" />
     <button id="addBtn">Add</button>
+  </div>
+
+  <div class="card controls">
+    <h3>Controls</h3>
+    <button onclick="setSort('first')">Sort by First Name</button>
+    <button onclick="setSort('last')">Sort by Last Name</button>
+    <input id="currentPeriodInput" placeholder="Current Period" />
+    <button onclick="setCurrentPeriod()">Set Current Period</button>
   </div>
 
   <div class="card" id="results" style="display:none;">
@@ -70,6 +80,8 @@
 
   let grouped = {};
   let allDocs = [];
+  let sortMode = null;
+  let currentPeriod = null;
 
   async function loadFromFirebase() {
     const snapshot = await getDocs(collection(db, "students"));
@@ -99,13 +111,25 @@
     Object.keys(grouped).sort().forEach(period => {
       const btn = document.createElement("button");
       btn.textContent = "Period " + period;
+      if (period == currentPeriod) btn.classList.add("current");
       btn.onclick = () => renderTable(period);
       tabsEl.appendChild(btn);
     });
   }
 
   function renderTable(period) {
-    const students = grouped[period];
+    let students = [...grouped[period]];
+
+    if (sortMode === "first") {
+      students.sort((a,b) => a.firstName.localeCompare(b.firstName));
+    }
+    if (sortMode === "last") {
+      students.sort((a,b) => a.lastName.localeCompare(b.lastName));
+    }
+
+    document.querySelectorAll(".tabs button").forEach(btn => btn.classList.remove("active"));
+    const activeBtn = [...tabsEl.children].find(b => b.textContent.includes(period));
+    if (activeBtn) activeBtn.classList.add("active");
 
     let html = "<table><tr><th>ID</th><th>Name</th><th>Actions</th></tr>";
     students.forEach(s => {
@@ -122,6 +146,17 @@
 
     tableContainer.innerHTML = html;
   }
+
+  window.setSort = (mode) => {
+    sortMode = mode;
+    const active = document.querySelector('.tabs button.active');
+    if (active) renderTable(active.textContent.split(' ')[1]);
+  };
+
+  window.setCurrentPeriod = () => {
+    currentPeriod = document.getElementById("currentPeriodInput").value;
+    renderTabs();
+  };
 
   window.deleteStudent = async (id) => {
     await deleteDoc(doc(db, "students", id));
