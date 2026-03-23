@@ -4,10 +4,15 @@ import { getFirestore, collection, addDoc, getDocs } from "firebase/firestore";
 import { getAuth, signInAnonymously } from "firebase/auth";
 
 // 🔥 Replace with your Firebase config
+// 🔥 IMPORTANT: You MUST paste your real Firebase config here or the app will break
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
+  apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
+  authDomain: "rrtracker-de70e.firebaseapp.com",
+  projectId: "rrtracker-de70e",
+  storageBucket: "rrtracker-de70e.firebasestorage.app",
+  messagingSenderId: "1057987490614",
+  appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
+  measurementId: "G-X31008YT0P"
 };
 
 const app = initializeApp(firebaseConfig);
