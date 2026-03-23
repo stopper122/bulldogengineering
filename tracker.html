@@ -5,28 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Student CSV Uploader</title>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-    window.initFirebase = () => {
-      const firebaseConfig = {
-        apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
-        authDomain: "rrtracker-de70e.firebaseapp.com",
-        projectId: "rrtracker-de70e",
-        storageBucket: "rrtracker-de70e.firebasestorage.app",
-        messagingSenderId: "1057987490614",
-        appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
-        measurementId: "G-X31008YT0P"
-      };
-
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app);
-
-      return { db, collection, addDoc };
-    };
-  </script>
-
+  <!-- PapaParse -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <style>
@@ -93,7 +72,22 @@
 </div>
 
 <script type="module">
-  const { db, collection, addDoc } = window.initFirebase();
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // Firebase setup
+  const firebaseConfig = {
+    apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
+    authDomain: "rrtracker-de70e.firebaseapp.com",
+    projectId: "rrtracker-de70e",
+    storageBucket: "rrtracker-de70e.firebasestorage.app",
+    messagingSenderId: "1057987490614",
+    appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
+    measurementId: "G-X31008YT0P"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
 
   const fileInput = document.getElementById("fileInput");
   const statusEl = document.getElementById("status");
@@ -117,7 +111,9 @@
     const students = grouped[period];
 
     document.querySelectorAll(".tabs button").forEach(btn => btn.classList.remove("active"));
-    [...tabsEl.children].find(b => b.textContent.includes(period)).classList.add("active");
+
+    const activeBtn = [...tabsEl.children].find(b => b.textContent.includes(period));
+    if (activeBtn) activeBtn.classList.add("active");
 
     let html = "<table><tr><th>ID</th><th>Name</th></tr>";
     students.forEach(s => {
