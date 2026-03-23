@@ -29,6 +29,11 @@
     .eating { background:#8b5cf6; color:white; border:none; border-radius:6px; padding:5px 8px; }
     .games { background:#ef4444; color:white; border:none; border-radius:6px; padding:5px 8px; }
     .neutral { background:#6b7280; color:white; border:none; border-radius:6px; padding:5px 8px; }
+    .timer-live { font-weight:bold; color:#0f766e; }
+    .timer-overdue { font-weight:bold; color:#b91c1c; }
+    .log-table-wrap { max-height:420px; overflow:auto; }
+    .small-btn { padding:6px 10px; border:none; border-radius:6px; background:#1f2937; color:white; cursor:pointer; }
+    .master-log-hidden { display:none; }
   </style>
 </head>
 <body>
@@ -63,12 +68,19 @@
     <input type="file" id="restoreFile" accept=".json" />
     <button onclick="restoreData()">Restore Backup</button>
     <button onclick="wipeAllData()" class="danger">Wipe All Data</button>
+    <button onclick="toggleMasterLog()" class="small-btn">Show/Hide Master Log</button>
   </div>
 
   <div class="card" id="results" style="display:none;">
     <div class="tabs" id="tabs"></div>
     <div class="summary" id="periodSummary"></div>
     <div id="tableContainer"></div>
+  </div>
+
+  <div class="card master-log-hidden" id="masterLogCard">
+    <h3>Master Event Log</h3>
+    <div class="tiny">Shows restroom starts and returns plus phone, eating, and games events across all students.</div>
+    <div class="log-table-wrap" id="masterLogContainer"></div>
   </div>
 </div>
 
@@ -99,10 +111,11 @@
 
   let grouped = {};
   let allDocs = [];
-  let sortMode = 'last';
+  let sortMode = "last";
   let currentPeriod = null;
   let activePeriod = null;
   let restroomLimitMinutes = 6;
+  let masterLogVisible = false;
 
   async function loadSettings() {
     const settingsRef = doc(db, "appSettings", "shared");
@@ -134,6 +147,92 @@
       restroomHistory: Array.isArray(student.restroomHistory) ? student.restroomHistory : []
     };
   }
+
+  function formatDuration(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  function getElapsedMs(startTime) {
+    if (!startTime) return 0;
+    return Date.now() - new Date(startTime).getTime();
+  }
+
+  function getElapsedMinutes(startTime) {
+    if (!startTime) return 0;
+    return Math.floor(getElapsedMs(startTime) / 60000);
+  }
+
+  function getRestroomStatusText(student) {
+    if (!student.restroomActive || !student.restroomStartTime) return "In class";
+    const elapsed = getElapsedMinutes(student.restroomStartTime);
+    const overdue = elapsed > restroomLimitMinutes;
+    return overdue ? `Out ${elapsed} min - counts as used` : `Out ${elapsed} min`;
+  }
+
+  function flattenMasterLog() {
+    const rows = [];
+    allDocs.forEach(student => {
+      const name = `${student.lastName}, ${student.firstName}`.replace(/^,\s*/, "").trim();
+      (student.behaviorLog || []).forEach(entry => {
+        rows.push({
+          studentId: student.studentId,
+          name,
+          period: student.period,
+          type: entry.type || "",
+          time: entry.time || "",
+          minutes: entry.minutes ?? ""
+        });
+      });
+    });
+    rows.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+    return rows;
+  }
+
+  function renderMasterLog() {
+    const card = document.getElementById("masterLogCard");
+    const container = document.getElementById("masterLogContainer");
+    card.className = masterLogVisible ? "card" : "card master-log-hidden";
+    if (!masterLogVisible) return;
+
+    const rows = flattenMasterLog();
+    if (!rows.length) {
+      container.innerHTML = "<div class='tiny'>No events recorded yet.</div>";
+      return;
+    }
+
+    let html = `
+      <table>
+        <tr>
+          <th>Time</th>
+          <th>Period</th>
+          <th>Student</th>
+          <th>ID</th>
+          <th>Event</th>
+          <th>Minutes</th>
+        </tr>`;
+
+    rows.forEach(row => {
+      html += `<tr>
+        <td>${row.time ? new Date(row.time).toLocaleString() : ""}</td>
+        <td>${row.period || ""}</td>
+        <td>${row.name || ""}</td>
+        <td>${row.studentId || ""}</td>
+        <td>${row.type || ""}</td>
+        <td>${row.minutes !== "" ? row.minutes : ""}</td>
+      </tr>`;
+    });
+
+    html += "</table>";
+    container.innerHTML = html;
+  }
+
+  window.toggleMasterLog = () => {
+    masterLogVisible = !masterLogVisible;
+    renderMasterLog();
+  };
 
   window.exportData = () => {
     const dataStr = JSON.stringify(allDocs, null, 2);
@@ -201,6 +300,7 @@
     });
 
     renderTabs();
+    renderMasterLog();
     const periods = Object.keys(grouped).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
     const firstPeriod = activePeriod && grouped[activePeriod] ? activePeriod : periods[0];
     if (firstPeriod) {
@@ -285,6 +385,9 @@
     students.forEach(s => {
       const lastEvent = s.behaviorLog && s.behaviorLog.length ? s.behaviorLog[s.behaviorLog.length - 1] : null;
       const lastEventText = lastEvent ? `${lastEvent.type} (${new Date(lastEvent.time).toLocaleString()})` : "No events";
+      const elapsedMs = s.restroomActive && s.restroomStartTime ? getElapsedMs(s.restroomStartTime) : 0;
+      const elapsedText = s.restroomActive ? formatDuration(elapsedMs) : "";
+      const overdueLive = s.restroomActive && elapsedMs > restroomLimitMinutes * 60000;
 
       html += `<tr>
         <td>${s.studentId}</td>
@@ -293,7 +396,7 @@
           <span class="tiny">Last event: ${lastEventText}</span>
         </td>
         <td>${s.restroomCount || 0}</td>
-        <td>${getRestroomStatusText(s)}</td>
+        <td>${getRestroomStatusText(s)}${s.restroomActive ? `<br><span class="${overdueLive ? "timer-overdue" : "timer-live"}">Live: ${elapsedText}</span>` : ""}</td>
         <td>${s.phoneCount || 0}</td>
         <td>${s.eatingCount || 0}</td>
         <td>${s.gamesCount || 0}</td>
@@ -345,18 +448,6 @@
       period
     });
   };
-
-  function getElapsedMinutes(startTime) {
-    if (!startTime) return 0;
-    return Math.floor((Date.now() - new Date(startTime).getTime()) / 60000);
-  }
-
-  function getRestroomStatusText(student) {
-    if (!student.restroomActive || !student.restroomStartTime) return "In class";
-    const elapsed = getElapsedMinutes(student.restroomStartTime);
-    const overdue = elapsed > restroomLimitMinutes;
-    return overdue ? `Out ${elapsed} min - counts as used` : `Out ${elapsed} min`;
-  }
 
   window.setRestroomLimit = async () => {
     const value = Number(document.getElementById("restroomLimitInput").value);
@@ -461,7 +552,8 @@
 
   setInterval(() => {
     if (activePeriod) renderTable(activePeriod);
-  }, 30000);
+    if (masterLogVisible) renderMasterLog();
+  }, 1000);
 
   fileInput.addEventListener("change", (e) => {
     const file = e.target.files[0];
@@ -499,9 +591,9 @@
               eatingCount: 0,
               gamesCount: 0,
               behaviorLog: [],
-      restroomActive: false,
-      restroomStartTime: null,
-      restroomHistory: []
+              restroomActive: false,
+              restroomStartTime: null,
+              restroomHistory: []
             });
           }
 
