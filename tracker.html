@@ -19,8 +19,16 @@
         </header>
 
         <!-- Upload Box -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border-2 border-dashed border-slate-300 mb-8 transition-all hover:border-blue-400">
-            <input type="file" id="csvFile" accept=".csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
+            <div class="flex flex-col md:flex-row gap-4">
+                <input type="file" id="csvFile" accept=".csv" class="flex-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-200 rounded-xl p-1">
+                <button onclick="triggerParse()" class="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-100">
+                    Process CSV
+                </button>
+            </div>
+            <div id="debug-info" class="hidden mt-4 p-3 bg-slate-900 rounded-lg font-mono text-[10px] text-green-400 overflow-x-auto">
+                <!-- Debug logs will appear here -->
+            </div>
         </div>
 
         <!-- Filter Bar -->
@@ -47,7 +55,7 @@
                 </thead>
                 <tbody id="rosterBody" class="divide-y divide-slate-100">
                     <tr>
-                        <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic">No data uploaded yet.</td>
+                        <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic">No data processed yet. Select a file and click "Process CSV".</td>
                     </tr>
                 </tbody>
             </table>
@@ -57,43 +65,56 @@
     <script>
         let allStudents = [];
 
-        document.getElementById('csvFile').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+        function logDebug(msg) {
+            const el = document.getElementById('debug-info');
+            el.classList.remove('hidden');
+            el.innerHTML += `<div>> ${msg}</div>`;
+        }
 
-            // Use PapaParse with the most basic settings to avoid over-engineering the header detection
+        function triggerParse() {
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert("Please select a .csv file first.");
+                return;
+            }
+
+            document.getElementById('debug-info').innerHTML = '';
+            logDebug(`File selected: ${file.name}`);
+
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
                 complete: function(results) {
-                    console.log("Raw Results:", results);
+                    logDebug(`Headers found: ${Object.keys(results.data[0] || {}).join(', ')}`);
+                    logDebug(`Rows found: ${results.data.length}`);
                     processData(results.data);
                 },
                 error: function(err) {
+                    logDebug(`Error: ${err.message}`);
                     alert("Error reading file: " + err.message);
                 }
             });
-        });
+        }
 
         function processData(rawData) {
             allStudents = rawData.map(row => {
-                // Try to find the values regardless of capitalization in headers
                 const findVal = (keys) => {
                     const match = Object.keys(row).find(k => 
-                        keys.some(key => k.toLowerCase().trim() === key.toLowerCase())
+                        keys.some(key => k.toLowerCase().trim().includes(key.toLowerCase()))
                     );
                     return match ? row[match] : "";
                 };
 
                 return {
                     period: findVal(['period', 'per', 'class', 'pd']),
-                    firstName: findVal(['first name', 'first', 'fname', 'given name']),
-                    lastName: findVal(['last name', 'last', 'lname', 'surname']),
-                    id: findVal(['student id', 'id', 'id number', 'student number', 'sid'])
+                    firstName: findVal(['first', 'fname', 'given', 'name']),
+                    lastName: findVal(['last', 'lname', 'surname']),
+                    id: findVal(['id', 'sid', 'num'])
                 };
-            }).filter(s => s.firstName || s.lastName); // Only keep rows that have a name
+            }).filter(s => s.firstName || s.lastName);
 
-            // Sort by period (numeric) then last name
             allStudents.sort((a, b) => {
                 const perA = parseInt(a.period) || 0;
                 const perB = parseInt(b.period) || 0;
@@ -101,12 +122,10 @@
                 return a.lastName.localeCompare(b.lastName);
             });
 
-            // Setup filters
             setupFilters();
-            
-            // Show controls and display
             document.getElementById('controls').classList.remove('hidden');
             displayStudents();
+            logDebug(`Successfully mapped ${allStudents.length} students.`);
         }
 
         function setupFilters() {
