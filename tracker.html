@@ -9,638 +9,164 @@
 
   <style>
     body { margin:0; font-family:Arial; background:#f3f4f6; }
-    .container { max-width:1200px; margin:40px auto; padding:20px; }
+
+    .layout {
+      display:flex;
+      height:100vh;
+    }
+
+    .main {
+      flex:1;
+      overflow:auto;
+      padding:20px;
+    }
+
+    .sidebar {
+      width:400px;
+      background:#111827;
+      color:white;
+      overflow:auto;
+      transition: transform 0.3s ease;
+    }
+
+    .sidebar.hidden {
+      transform: translateX(100%);
+    }
+
+    .sidebar h3 { margin-top:0; }
+
+    .container { max-width:1200px; margin:auto; }
     .card { background:white; padding:20px; border-radius:12px; box-shadow:0 5px 15px rgba(0,0,0,0.1); margin-bottom:20px; }
+
     .tabs button { margin-right:5px; margin-bottom:5px; padding:8px 12px; border:none; border-radius:6px; background:#ddd; cursor:pointer; }
     .tabs button.active { background:#2563eb; color:white; }
     .tabs button.current { background:#16a34a; color:white; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; background:white; }
-    th, td { border:1px solid #ccc; padding:6px; font-size:14px; vertical-align:top; }
-    th { background:#f8fafc; }
-    .actions button, .tracking button { margin-right:4px; margin-bottom:4px; }
-    input { margin:4px 0; padding:5px; }
-    .controls button { margin-right:5px; margin-bottom:5px; }
-    .tiny { font-size:12px; color:#666; }
-    .pill { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; margin-right:6px; background:#eef2ff; }
-    .summary { margin-top:10px; }
-    .danger { background:#dc2626; color:white; }
-    .restroom { background:#0ea5e9; color:white; border:none; border-radius:6px; padding:5px 8px; }
-    .phone { background:#f59e0b; color:white; border:none; border-radius:6px; padding:5px 8px; }
-    .eating { background:#8b5cf6; color:white; border:none; border-radius:6px; padding:5px 8px; }
-    .games { background:#ef4444; color:white; border:none; border-radius:6px; padding:5px 8px; }
-    .neutral { background:#6b7280; color:white; border:none; border-radius:6px; padding:5px 8px; }
-    .timer-live { font-weight:bold; color:#0f766e; }
-    .timer-overdue { font-weight:bold; color:#b91c1c; }
-    .log-table-wrap { max-height:420px; overflow:auto; }
-    .small-btn { padding:6px 10px; border:none; border-radius:6px; background:#1f2937; color:white; cursor:pointer; }
-    .master-log-hidden { display:none; }
+
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { border:1px solid #ccc; padding:6px; font-size:14px; }
+
+    .log-table-wrap { max-height:90vh; overflow:auto; }
+
+    .timer-live { color:#10b981; }
+    .timer-overdue { color:#ef4444; font-weight:bold; }
+
+    .toggle-btn {
+      position:fixed;
+      right:10px;
+      top:10px;
+      z-index:1000;
+      padding:10px;
+    }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <div class="card">
-    <h2>Upload CSV</h2>
-    <input type="file" id="fileInput" accept=".csv" />
-    <p id="status"></p>
-    <div class="tiny">CSV headers supported: period, first name, last name, student id</div>
+<button class="toggle-btn" onclick="toggleMasterLog()">Toggle Log</button>
+
+<div class="layout">
+
+  <div class="main">
+    <div class="container">
+
+      <div class="card">
+        <h2>Upload CSV</h2>
+        <input type="file" id="fileInput" accept=".csv" />
+        <p id="status"></p>
+      </div>
+
+      <div class="card">
+        <h3>Add Student</h3>
+        <input id="newId" placeholder="Student ID" />
+        <input id="newFirst" placeholder="First Name" />
+        <input id="newLast" placeholder="Last Name" />
+        <input id="newPeriod" placeholder="Period" />
+        <button id="addBtn">Add</button>
+      </div>
+
+      <div class="card" id="results" style="display:none;">
+        <div class="tabs" id="tabs"></div>
+        <div id="tableContainer"></div>
+      </div>
+
+    </div>
   </div>
 
-  <div class="card">
-    <h3>Add Student</h3>
-    <input id="newId" placeholder="Student ID" />
-    <input id="newFirst" placeholder="First Name" />
-    <input id="newLast" placeholder="Last Name" />
-    <input id="newPeriod" placeholder="Period" />
-    <button id="addBtn">Add</button>
+  <div class="sidebar hidden" id="masterLogSidebar">
+    <div style="padding:20px;">
+      <h3>Master Log</h3>
+      <div id="masterLogContainer"></div>
+    </div>
   </div>
 
-  <div class="card controls">
-    <h3>Controls</h3>
-    <button onclick="setSort('first')">Sort by First Name</button>
-    <button onclick="setSort('last')">Sort by Last Name</button>
-    <input id="currentPeriodInput" placeholder="Current Period" />
-    <button onclick="setCurrentPeriod()">Set Current Period</button>
-    <input id="restroomLimitInput" type="number" min="1" value="6" style="width:90px;" />
-    <button onclick="setRestroomLimit()">Set Pass Limit (min)</button>
-    <br/><br/>
-    <button onclick="exportData()">Export Backup</button>
-    <input type="file" id="restoreFile" accept=".json" />
-    <button onclick="restoreData()">Restore Backup</button>
-    <button onclick="wipeAllData()" class="danger">Wipe All Data</button>
-    <button onclick="toggleMasterLog()" class="small-btn">Show/Hide Master Log</button>
-  </div>
-
-  <div class="card" id="results" style="display:none;">
-    <div class="tabs" id="tabs"></div>
-    <div class="summary" id="periodSummary"></div>
-    <div id="tableContainer"></div>
-  </div>
-
-  <div class="card master-log-hidden" id="masterLogCard">
-    <h3>Master Event Log</h3>
-    <div class="tiny">Shows restroom starts and returns plus phone, eating, and games events across all students.</div>
-    <div class="log-table-wrap" id="masterLogContainer"></div>
-  </div>
 </div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, onSnapshot, deleteDoc, doc, updateDoc, increment, arrayUnion, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
-    authDomain: "rrtracker-de70e.firebaseapp.com",
-    projectId: "rrtracker-de70e",
-    storageBucket: "rrtracker-de70e.firebasestorage.app",
-    messagingSenderId: "1057987490614",
-    appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
-    measurementId: "G-X31008YT0P"
-  };
-
-  const app = initializeApp(firebaseConfig);
+  const app = initializeApp({ projectId: "rrtracker-de70e" });
   const db = getFirestore(app);
 
-  const fileInput = document.getElementById("fileInput");
-  const statusEl = document.getElementById("status");
   const tabsEl = document.getElementById("tabs");
   const tableContainer = document.getElementById("tableContainer");
-  const resultsDiv = document.getElementById("results");
-  const periodSummaryEl = document.getElementById("periodSummary");
-  const addBtn = document.getElementById("addBtn");
+  const sidebar = document.getElementById("masterLogSidebar");
 
   let grouped = {};
   let allDocs = [];
-  let sortMode = "last";
-  let currentPeriod = null;
-  let activePeriod = null;
-  let restroomLimitMinutes = 6;
-  let masterLogVisible = false;
-
-  async function loadSettings() {
-    const settingsRef = doc(db, "appSettings", "shared");
-    const snap = await getDoc(settingsRef);
-    if (snap.exists()) {
-      const data = snap.data() || {};
-      restroomLimitMinutes = Number(data.restroomLimitMinutes || 6);
-      document.getElementById("restroomLimitInput").value = restroomLimitMinutes;
-    } else {
-      await setDoc(settingsRef, { restroomLimitMinutes: 6 });
-      restroomLimitMinutes = 6;
-      document.getElementById("restroomLimitInput").value = 6;
-    }
-  }
-
-  function studentDefaults(student) {
-    return {
-      studentId: student.studentId || "",
-      firstName: student.firstName || "",
-      lastName: student.lastName || "",
-      period: student.period || "",
-      restroomCount: Number(student.restroomCount || 0),
-      phoneCount: Number(student.phoneCount || 0),
-      eatingCount: Number(student.eatingCount || 0),
-      gamesCount: Number(student.gamesCount || 0),
-      behaviorLog: Array.isArray(student.behaviorLog) ? student.behaviorLog : [],
-      restroomActive: Boolean(student.restroomActive),
-      restroomStartTime: student.restroomStartTime || null,
-      restroomHistory: Array.isArray(student.restroomHistory) ? student.restroomHistory : []
-    };
-  }
-
-  function formatDuration(ms) {
-    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${String(seconds).padStart(2, "0")}`;
-  }
-
-  function getElapsedMs(startTime) {
-    if (!startTime) return 0;
-    return Date.now() - new Date(startTime).getTime();
-  }
-
-  function getElapsedMinutes(startTime) {
-    if (!startTime) return 0;
-    return Math.floor(getElapsedMs(startTime) / 60000);
-  }
-
-  function getRestroomStatusText(student) {
-    if (!student.restroomActive || !student.restroomStartTime) return "In class";
-    const elapsed = getElapsedMinutes(student.restroomStartTime);
-    const overdue = elapsed > restroomLimitMinutes;
-    return overdue ? `Out ${elapsed} min - counts as used` : `Out ${elapsed} min`;
-  }
-
-  function isRestroomPassOverdue(student) {
-    return Boolean(
-      student.restroomActive &&
-      student.restroomStartTime &&
-      getElapsedMs(student.restroomStartTime) > restroomLimitMinutes * 60000
-    );
-  }
-
-  function getDisplayedRestroomUsedCount(student) {
-    return Number(student.restroomCount || 0) + (isRestroomPassOverdue(student) ? 1 : 0);
-  }
-
-  function flattenMasterLog() {
-    const rows = [];
-    allDocs.forEach(student => {
-      const name = `${student.lastName}, ${student.firstName}`.replace(/^,\s*/, "").trim();
-      (student.behaviorLog || []).forEach(entry => {
-        rows.push({
-          studentId: student.studentId,
-          name,
-          period: student.period,
-          type: entry.type || "",
-          time: entry.time || "",
-          minutes: entry.minutes ?? ""
-        });
-      });
-    });
-    rows.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-    return rows;
-  }
-
-  function renderMasterLog() {
-    const card = document.getElementById("masterLogCard");
-    const container = document.getElementById("masterLogContainer");
-    card.className = masterLogVisible ? "card" : "card master-log-hidden";
-    if (!masterLogVisible) return;
-
-    const rows = flattenMasterLog();
-    if (!rows.length) {
-      container.innerHTML = "<div class='tiny'>No events recorded yet.</div>";
-      return;
-    }
-
-    let html = `
-      <table>
-        <tr>
-          <th>Time</th>
-          <th>Period</th>
-          <th>Student</th>
-          <th>ID</th>
-          <th>Event</th>
-          <th>Minutes</th>
-        </tr>`;
-
-    rows.forEach(row => {
-      html += `<tr>
-        <td>${row.time ? new Date(row.time).toLocaleString() : ""}</td>
-        <td>${row.period || ""}</td>
-        <td>${row.name || ""}</td>
-        <td>${row.studentId || ""}</td>
-        <td>${row.type || ""}</td>
-        <td>${row.minutes !== "" ? row.minutes : ""}</td>
-      </tr>`;
-    });
-
-    html += "</table>";
-    container.innerHTML = html;
-  }
 
   window.toggleMasterLog = () => {
-    masterLogVisible = !masterLogVisible;
-    renderMasterLog();
+    sidebar.classList.toggle("hidden");
   };
 
-  window.exportData = () => {
-    const dataStr = JSON.stringify(allDocs, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "students-backup.json";
-    a.click();
-  };
+  function renderTabs() {
+    tabsEl.innerHTML = "";
+    Object.keys(grouped).forEach(period => {
+      const btn = document.createElement("button");
+      btn.textContent = "Period " + period;
+      btn.onclick = () => renderTable(period);
+      tabsEl.appendChild(btn);
+    });
+  }
 
-  window.restoreData = async () => {
-    const restoreInput = document.getElementById("restoreFile");
-    const file = restoreInput.files[0];
-    if (!file) return alert("Select a backup file");
+  function renderTable(period) {
+    const students = grouped[period];
+    let html = "<table><tr><th>Name</th></tr>";
+    students.forEach(s => {
+      html += `<tr><td>${s.lastName}, ${s.firstName}</td></tr>`;
+    });
+    html += "</table>";
+    tableContainer.innerHTML = html;
+  }
 
-    const text = await file.text();
-    const data = JSON.parse(text);
-
-    if (!confirm("This will ADD students from backup. Continue?")) return;
-
-    for (const raw of data) {
-      const s = studentDefaults(raw);
-      await addDoc(collection(db, "students"), {
-        studentId: s.studentId,
-        firstName: s.firstName,
-        lastName: s.lastName,
-        period: s.period,
-        restroomCount: s.restroomCount,
-        phoneCount: s.phoneCount,
-        eatingCount: s.eatingCount,
-        gamesCount: s.gamesCount,
-        behaviorLog: s.behaviorLog,
-        restroomActive: s.restroomActive,
-        restroomStartTime: s.restroomStartTime,
-        restroomHistory: s.restroomHistory
+  function renderLog() {
+    let html = "<table><tr><th>Student</th><th>Event</th></tr>";
+    allDocs.forEach(s => {
+      (s.behaviorLog || []).forEach(e => {
+        html += `<tr><td>${s.lastName}</td><td>${e.type}</td></tr>`;
       });
-    }
+    });
+    html += "</table>";
+    document.getElementById("masterLogContainer").innerHTML = html;
+  }
 
-    alert("Restore complete");
-  };
-
-  window.wipeAllData = async () => {
-    if (!confirm("Are you sure you want to DELETE ALL STUDENTS? This cannot be undone.")) return;
-    if (!confirm("Final warning: This will permanently erase all data.")) return;
-
-    const snapshot = await getDocs(collection(db, "students"));
-    for (const d of snapshot.docs) {
-      await deleteDoc(doc(db, "students", d.id));
-    }
-    alert("All data wiped");
-  };
-
-  async function loadFromFirebase() {
-    const snapshot = await getDocs(collection(db, "students"));
+  async function load() {
+    const snap = await getDocs(collection(db, "students"));
     grouped = {};
     allDocs = [];
 
-    snapshot.forEach(d => {
-      const s = studentDefaults(d.data());
-      s._id = d.id;
+    snap.forEach(d => {
+      const s = d.data();
       allDocs.push(s);
       if (!grouped[s.period]) grouped[s.period] = [];
       grouped[s.period].push(s);
     });
 
     renderTabs();
-    renderMasterLog();
-    const periods = Object.keys(grouped).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
-    const firstPeriod = activePeriod && grouped[activePeriod] ? activePeriod : periods[0];
-    if (firstPeriod) {
-      resultsDiv.style.display = "block";
-      renderTable(firstPeriod);
-    } else {
-      resultsDiv.style.display = "none";
-      periodSummaryEl.innerHTML = "";
-      tableContainer.innerHTML = "";
-    }
+    renderLog();
   }
 
-  onSnapshot(collection(db, "students"), loadFromFirebase);
+  onSnapshot(collection(db, "students"), load);
 
-  onSnapshot(doc(db, "appSettings", "shared"), (snap) => {
-    if (!snap.exists()) return;
-    const data = snap.data() || {};
-    restroomLimitMinutes = Number(data.restroomLimitMinutes || 6);
-    document.getElementById("restroomLimitInput").value = restroomLimitMinutes;
-    if (activePeriod) renderTable(activePeriod);
-  });
-
-  function renderTabs() {
-    tabsEl.innerHTML = "";
-    Object.keys(grouped).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).forEach(period => {
-      const btn = document.createElement("button");
-      btn.textContent = "Period " + period;
-      if (String(period) === String(currentPeriod)) btn.classList.add("current");
-      if (String(period) === String(activePeriod)) btn.classList.add("active");
-      btn.onclick = () => renderTable(period);
-      tabsEl.appendChild(btn);
-    });
-  }
-
-  function renderSummary(period, students) {
-    const restroom = students.reduce((sum, s) => sum + getDisplayedRestroomUsedCount(s), 0);
-    const restroomOut = students.filter(s => s.restroomActive).length;
-    const phone = students.reduce((sum, s) => sum + (s.phoneCount || 0), 0);
-    const eating = students.reduce((sum, s) => sum + (s.eatingCount || 0), 0);
-    const games = students.reduce((sum, s) => sum + (s.gamesCount || 0), 0);
-
-    periodSummaryEl.innerHTML = `
-      <span class="pill"><strong>Period ${period}</strong></span>
-      <span class="pill">Students: ${students.length}</span>
-      <span class="pill">Used Passes: ${restroom}</span>
-      <span class="pill">Out Now: ${restroomOut}</span>
-      <span class="pill">Limit: ${restroomLimitMinutes} min</span>
-      <span class="pill">Phone: ${phone}</span>
-      <span class="pill">Eating: ${eating}</span>
-      <span class="pill">Games: ${games}</span>
-    `;
-  }
-
-  function renderTable(period) {
-    activePeriod = String(period);
-    let students = [...(grouped[period] || [])];
-
-    if (sortMode === "first") {
-      students.sort((a, b) => (a.firstName || "").localeCompare(b.firstName || ""));
-    }
-    if (sortMode === "last") {
-      students.sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
-    }
-
-    renderTabs();
-    renderSummary(period, students);
-
-    let html = `
-      <table>
-        <tr>
-          <th>ID</th>
-          <th>Name</th>
-          <th>Restroom Used</th>
-          <th>Pass Adjust</th>
-          <th>Restroom Status</th>
-          <th>Phone</th>
-          <th>Eating</th>
-          <th>Games</th>
-          <th>Track</th>
-          <th>Actions</th>
-        </tr>`;
-
-    students.forEach(s => {
-      const lastEvent = s.behaviorLog && s.behaviorLog.length ? s.behaviorLog[s.behaviorLog.length - 1] : null;
-      const lastEventText = lastEvent ? `${lastEvent.type} (${new Date(lastEvent.time).toLocaleString()})` : "No events";
-      const elapsedMs = s.restroomActive && s.restroomStartTime ? getElapsedMs(s.restroomStartTime) : 0;
-      const elapsedText = s.restroomActive ? formatDuration(elapsedMs) : "";
-      const overdueLive = isRestroomPassOverdue(s);
-
-      html += `<tr>
-        <td>${s.studentId}</td>
-        <td>
-          <strong>${s.lastName}, ${s.firstName}</strong><br>
-          <span class="tiny">Last event: ${lastEventText}</span>
-        </td>
-        <td>${getDisplayedRestroomUsedCount(s)}</td>
-        <td class="tracking">
-          <button class="neutral" onclick="adjustRestroomCount('${s._id}', -1)">-1</button>
-          <button class="neutral" onclick="adjustRestroomCount('${s._id}', 1)">+1</button>
-        </td>
-        <td>${getRestroomStatusText(s)}${s.restroomActive ? `<br><span class="${overdueLive ? "timer-overdue" : "timer-live"}">Live: ${elapsedText}</span>` : ""}</td>
-        <td>${s.phoneCount || 0}</td>
-        <td>${s.eatingCount || 0}</td>
-        <td>${s.gamesCount || 0}</td>
-        <td class="tracking">
-          ${s.restroomActive
-            ? `<button class="restroom" onclick="endRestroomPass('${s._id}')">End Restroom</button>`
-            : `<button class="restroom" onclick="startRestroomPass('${s._id}')">Start Restroom</button>`}
-          <button class="phone" onclick="recordEvent('${s._id}', 'phone')">Phone +1</button>
-          <button class="eating" onclick="recordEvent('${s._id}', 'eating')">Eating +1</button>
-          <button class="games" onclick="recordEvent('${s._id}', 'games')">Games +1</button>
-        </td>
-        <td class="actions">
-          <button class="neutral" onclick="editStudent('${s._id}')">Edit</button>
-          <button class="danger" onclick="deleteStudent('${s._id}')">Delete</button>
-        </td>
-      </tr>`;
-    });
-    html += "</table>";
-
-    tableContainer.innerHTML = html;
-  }
-
-  window.setSort = (mode) => {
-    sortMode = mode;
-    if (activePeriod) renderTable(activePeriod);
-  };
-
-  window.setCurrentPeriod = () => {
-    currentPeriod = document.getElementById("currentPeriodInput").value;
-    renderTabs();
-  };
-
-  window.deleteStudent = async (id) => {
-    await deleteDoc(doc(db, "students", id));
-  };
-
-  window.editStudent = async (id) => {
-    const student = allDocs.find(s => s._id === id);
-    const firstName = prompt("First Name:", student.firstName);
-    if (firstName === null) return;
-    const lastName = prompt("Last Name:", student.lastName);
-    if (lastName === null) return;
-    const period = prompt("Period:", student.period);
-    if (period === null) return;
-
-    await updateDoc(doc(db, "students", id), {
-      firstName,
-      lastName,
-      period
-    });
-  };
-
-  window.setRestroomLimit = async () => {
-    const value = Number(document.getElementById("restroomLimitInput").value);
-    if (!value || value < 1) return alert("Enter a valid minute limit");
-    await setDoc(doc(db, "appSettings", "shared"), {
-      restroomLimitMinutes: value
-    }, { merge: true });
-  };
-
-  window.startRestroomPass = async (id) => {
-    await updateDoc(doc(db, "students", id), {
-      restroomActive: true,
-      restroomStartTime: new Date().toISOString(),
-      behaviorLog: arrayUnion({
-        type: "restroom_start",
-        time: new Date().toISOString()
-      })
-    });
-  };
-
-  window.endRestroomPass = async (id) => {
-    const student = allDocs.find(s => s._id === id);
-    if (!student || !student.restroomActive || !student.restroomStartTime) return;
-
-    const endTime = new Date().toISOString();
-    const elapsedMs = getElapsedMs(student.restroomStartTime);
-    const elapsed = getElapsedMinutes(student.restroomStartTime);
-    const passUsed = elapsedMs > restroomLimitMinutes * 60000;
-
-    const updateData = {
-      restroomActive: false,
-      restroomStartTime: null,
-      restroomHistory: arrayUnion({
-        startTime: student.restroomStartTime,
-        endTime,
-        minutes: elapsed,
-        countedAsUsed: passUsed
-      }),
-      behaviorLog: arrayUnion({
-        type: passUsed ? "restroom_used" : "restroom_returned",
-        time: endTime,
-        minutes: elapsed
-      })
-    };
-
-    if (passUsed) {
-      updateData.restroomCount = increment(1);
-    }
-
-    await updateDoc(doc(db, "students", id), updateData);
-  };
-
-  window.adjustRestroomCount = async (id, delta) => {
-    const student = allDocs.find(s => s._id === id);
-    if (!student) return;
-
-    const current = Number(student.restroomCount || 0);
-    const next = Math.max(0, current + delta);
-
-    await updateDoc(doc(db, "students", id), {
-      restroomCount: next,
-      behaviorLog: arrayUnion({
-        type: delta > 0 ? "restroom_manual_add" : "restroom_manual_subtract",
-        time: new Date().toISOString(),
-        value: next
-      })
-    });
-  };
-
-  window.recordEvent = async (id, type) => {
-    const fieldMap = {
-      phone: "phoneCount",
-      eating: "eatingCount",
-      games: "gamesCount"
-    };
-
-    const field = fieldMap[type];
-    if (!field) return;
-
-    await updateDoc(doc(db, "students", id), {
-      [field]: increment(1),
-      behaviorLog: arrayUnion({
-        type,
-        time: new Date().toISOString()
-      })
-    });
-  };
-
-  addBtn.onclick = async () => {
-    const studentId = document.getElementById("newId").value.trim();
-    const firstName = document.getElementById("newFirst").value.trim();
-    const lastName = document.getElementById("newLast").value.trim();
-    const period = document.getElementById("newPeriod").value.trim();
-
-    if (!studentId || !period) return alert("Missing required fields");
-
-    await addDoc(collection(db, "students"), {
-      studentId,
-      firstName,
-      lastName,
-      period,
-      restroomCount: 0,
-      phoneCount: 0,
-      eatingCount: 0,
-      gamesCount: 0,
-      behaviorLog: [],
-      restroomActive: false,
-      restroomStartTime: null,
-      restroomHistory: []
-    });
-
-    document.getElementById("newId").value = "";
-    document.getElementById("newFirst").value = "";
-    document.getElementById("newLast").value = "";
-    document.getElementById("newPeriod").value = "";
-  };
-
-  await loadSettings();
-  loadFromFirebase();
-
-  setInterval(() => {
-    if (activePeriod) renderTable(activePeriod);
-    if (masterLogVisible) renderMasterLog();
-  }, 1000);
-
-  fileInput.addEventListener("change", (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    statusEl.textContent = "Parsing CSV...";
-
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        try {
-          statusEl.textContent = "Uploading...";
-
-          for (const student of results.data) {
-            const normalized = {};
-            Object.keys(student).forEach(k => {
-              normalized[k.toLowerCase().trim()] = student[k];
-            });
-
-            const studentId = (normalized["student id"] || normalized["studentid"] || "").trim();
-            const period = (normalized["period"] || "").trim();
-            const firstName = (normalized["first name"] || "").trim();
-            const lastName = (normalized["last name"] || "").trim();
-
-            if (!studentId || !period) continue;
-
-            await addDoc(collection(db, "students"), {
-              studentId,
-              firstName,
-              lastName,
-              period,
-              restroomCount: 0,
-              phoneCount: 0,
-              eatingCount: 0,
-              gamesCount: 0,
-              behaviorLog: [],
-              restroomActive: false,
-              restroomStartTime: null,
-              restroomHistory: []
-            });
-          }
-
-          statusEl.textContent = "Upload complete";
-          fileInput.value = "";
-        } catch (err) {
-          console.error(err);
-          statusEl.textContent = "Error uploading";
-        }
-      }
-    });
-  });
 </script>
 
 </body>
