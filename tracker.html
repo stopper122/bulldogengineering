@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Classroom Management Tracker v1.4.5</title>
+    <title>Classroom Management Tracker v1.4.6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.2/papaparse.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js"></script>
@@ -12,122 +12,140 @@
     <style>
         .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(229, 231, 235, 1); }
         .tab-active { border-bottom: 3px solid #3b82f6; color: #1d4ed8; }
-        body { background-color: #f3f4f6; -webkit-tap-highlight-color: transparent; }
+        body { background-color: #f3f4f6; -webkit-tap-highlight-color: transparent; font-family: system-ui, -apple-system, sans-serif; }
+        .loading-dots:after { content: '.'; animation: dots 1.5s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
     </style>
 </head>
 <body class="min-h-screen pb-20">
 
-    <nav class="sticky top-0 z-50 bg-white shadow-sm px-4 py-3 flex justify-between items-center">
+    <nav class="sticky top-0 z-50 bg-white shadow-sm px-4 py-3 flex justify-between items-center border-b border-slate-100">
         <div class="flex items-baseline gap-2">
-            <h1 class="font-bold text-xl text-slate-800">Classroom Manager</h1>
-            <span class="text-[10px] font-mono bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">v1.4.5</span>
+            <h1 class="font-bold text-xl text-slate-800 tracking-tight">Classroom Tracker</h1>
+            <span class="text-[10px] font-mono bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded border border-blue-100">v1.4.6</span>
         </div>
         <div class="flex gap-1 sm:gap-2">
-            <button onclick="switchTab('roster')" class="nav-btn px-2 sm:px-3 py-1 text-sm font-medium rounded-md transition hover:bg-slate-100">Roster</button>
-            <button onclick="switchTab('tracker')" class="nav-btn px-2 sm:px-3 py-1 text-sm font-medium rounded-md transition hover:bg-slate-100">Tracker</button>
-            <button onclick="switchTab('logs')" class="nav-btn px-2 sm:px-3 py-1 text-sm font-medium rounded-md transition hover:bg-slate-100">Logs</button>
+            <button onclick="switchTab('roster')" class="nav-btn px-3 py-1.5 text-sm font-semibold rounded-lg transition">Roster</button>
+            <button onclick="switchTab('tracker')" class="nav-btn px-3 py-1.5 text-sm font-semibold rounded-lg transition">Tracker</button>
+            <button onclick="switchTab('logs')" class="nav-btn px-3 py-1.5 text-sm font-semibold rounded-lg transition">Logs</button>
         </div>
     </nav>
 
     <div class="max-w-4xl mx-auto p-4">
-        <!-- CRITICAL ALERTS -->
-        <div id="connection-error" class="hidden mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 text-sm">
-            <p class="font-bold">Firestore Configuration Required</p>
-            <p id="error-details">Initializing...</p>
-            <div id="rule-helper" class="mt-3 p-3 bg-white border border-red-100 rounded text-xs font-mono hidden">
-                // Paste this in Firestore > Rules:<br>
-                match /artifacts/classroom-tracker/users/{userId}/{allPaths=**} {<br>
-                &nbsp;&nbsp;allow read, write: if request.auth != null && request.auth.uid == userId;<br>
-                }
+        <!-- CONNECTION ERRORS -->
+        <div id="connection-error" class="hidden mb-6 p-5 bg-red-50 border-2 border-red-100 rounded-2xl text-red-900 shadow-sm">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="bg-red-500 text-white rounded-full p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                </div>
+                <h3 class="font-bold text-lg">System Access Denied</h3>
             </div>
-            <button onclick="location.reload()" class="mt-4 bg-red-600 text-white px-3 py-1 rounded text-xs font-bold">Retry Connection</button>
+            <p id="error-details" class="text-sm opacity-90 mb-4"></p>
+            <div id="rule-helper" class="hidden p-4 bg-slate-900 text-slate-300 rounded-xl font-mono text-[11px] overflow-x-auto mb-4 border border-slate-700">
+                <span class="text-blue-400">// Change your Security Rules to this:</span><br>
+                allow read, write: if request.auth != null;
+            </div>
+            <button onclick="location.reload()" class="w-full bg-red-600 text-white py-2 rounded-xl font-bold shadow-lg shadow-red-200 hover:bg-red-700 transition">Try Again</button>
         </div>
 
         <!-- ROSTER TAB -->
         <section id="tab-roster" class="tab-content">
-            <div class="glass-card rounded-xl p-6 shadow-sm mb-6 border-l-4 border-l-blue-500">
-                <h2 class="text-lg font-semibold mb-2">Upload Roster</h2>
-                <p class="text-[11px] text-slate-500 mb-4 bg-slate-50 p-2 rounded">
-                    <strong>CSV Columns:</strong> Period, First Name, Last Name, Student ID
-                </p>
-                <input type="file" id="csv-file" accept=".csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mb-4">
+            <div class="glass-card rounded-2xl p-6 shadow-sm mb-6 border-l-4 border-l-blue-500">
+                <h2 class="text-lg font-bold text-slate-800 mb-1">Import Student Roster</h2>
+                <p class="text-xs text-slate-500 mb-6">Upload a CSV file with columns: <b>First Name, Last Name, Period</b></p>
                 
-                <button id="import-btn" disabled onclick="handleFileUpload()" class="w-full bg-slate-400 text-white py-2.5 rounded-lg font-medium transition disabled:opacity-50 flex items-center justify-center">
-                    <span id="btn-text">Initializing Auth...</span>
+                <div class="relative mb-4">
+                    <input type="file" id="csv-file" accept=".csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer bg-slate-50 rounded-xl border border-dashed border-slate-300 p-2">
+                </div>
+                
+                <button id="import-btn" disabled onclick="handleFileUpload()" class="w-full bg-slate-300 text-white py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                    <span id="btn-text" class="loading-dots">Initializing Cloud Connection</span>
                 </button>
                 
-                <div id="import-status-box" class="mt-3 p-3 bg-slate-50 rounded-lg text-xs font-mono text-slate-600 hidden">
-                    <div id="status-step-1">○ Reading File...</div>
-                    <div id="status-step-2">○ Validating Data...</div>
-                    <div id="status-step-3">○ Saving to Cloud...</div>
+                <div id="import-status-box" class="mt-4 p-4 bg-slate-800 rounded-xl text-xs font-mono text-slate-300 hidden border border-slate-700 shadow-inner">
+                    <div id="status-step-1" class="flex items-center gap-2 mb-1 opacity-50"><span>○</span> <span>Reading CSV File</span></div>
+                    <div id="status-step-2" class="flex items-center gap-2 mb-1 opacity-50"><span>○</span> <span>Validating Headers</span></div>
+                    <div id="status-step-3" class="flex items-center gap-2 opacity-50"><span>○</span> <span>Uploading to Database</span></div>
                 </div>
             </div>
 
-            <div class="glass-card rounded-xl p-6 shadow-sm">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-semibold">Current Roster</h2>
-                    <select id="period-filter-roster" onchange="renderRoster()" class="border rounded-lg px-2 py-1 text-sm bg-white">
+            <div class="glass-card rounded-2xl p-6 shadow-sm">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-lg font-bold text-slate-800">Managed Students</h2>
+                    <select id="period-filter-roster" onchange="renderRoster()" class="border-0 bg-slate-100 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none">
                         <option value="all">All Periods</option>
                     </select>
                 </div>
-                <div id="roster-list" class="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                    <p id="roster-loading-msg" class="text-slate-400 text-center italic py-10">Waiting for Authentication...</p>
+                <div id="roster-list" class="space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar">
+                    <div class="py-20 text-center">
+                        <div class="text-slate-300 mb-2">
+                            <svg class="w-12 h-12 mx-auto opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 01-9-3.5m9.936-3.064a4 4 0 11-5.292-5.292M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        </div>
+                        <p id="roster-loading-msg" class="text-slate-400 italic text-sm">Awaiting authentication...</p>
+                    </div>
                 </div>
             </div>
         </section>
 
         <!-- TRACKER TAB -->
         <section id="tab-tracker" class="tab-content hidden">
-            <div id="active-passes" class="mb-6 hidden">
-                <h2 class="text-sm font-bold text-blue-600 uppercase tracking-widest mb-3">Live Out-of-Class Passes</h2>
-                <div id="active-passes-list" class="grid gap-3 grid-cols-1 sm:grid-cols-2"></div>
+            <div id="active-passes" class="mb-8 hidden">
+                <h2 class="text-xs font-black text-blue-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-blue-500 rounded-full animate-ping"></span>
+                    Live Out-of-Class
+                </h2>
+                <div id="active-passes-list" class="grid gap-4 grid-cols-1 sm:grid-cols-2"></div>
             </div>
 
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold">Log Action</h2>
-                <select id="period-filter-tracker" onchange="renderTracker()" class="border rounded-lg px-2 py-1 text-sm bg-white shadow-sm">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-lg font-bold text-slate-800">Class Board</h2>
+                <select id="period-filter-tracker" onchange="renderTracker()" class="border-0 bg-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none">
                     <option value="all">Filter: All</option>
                 </select>
             </div>
-            <div id="tracker-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div>
+            <div id="tracker-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
         </section>
 
         <!-- LOGS TAB -->
         <section id="tab-logs" class="tab-content hidden">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-lg font-semibold">Incident History</h2>
-                <button onclick="exportToCSV()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:bg-green-700">Export CSV</button>
+            <div class="flex justify-between items-center mb-8 bg-white p-4 rounded-2xl shadow-sm">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800">Action History</h2>
+                    <p class="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Automatic Cloud Logging</p>
+                </div>
+                <button onclick="exportToCSV()" class="bg-green-500 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition">Export CSV</button>
             </div>
-            <div id="history-list" class="space-y-2"></div>
+            <div id="history-list" class="space-y-3"></div>
         </section>
     </div>
 
     <!-- ACTION MODAL -->
-    <div id="student-modal" class="fixed inset-0 bg-slate-900/60 hidden z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
-            <div class="text-center mb-6">
-                <h3 id="modal-student-name" class="text-xl font-bold text-slate-800">Student Name</h3>
-                <p id="modal-student-info" class="text-xs text-slate-400 uppercase tracking-widest mt-1"></p>
+    <div id="student-modal" class="fixed inset-0 bg-slate-900/80 hidden z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-md">
+        <div class="bg-white rounded-t-[2.5rem] sm:rounded-[2rem] w-full max-w-md p-8 shadow-2xl animate-slide-up">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 font-black text-2xl" id="modal-initials">JS</div>
+                <h3 id="modal-student-name" class="text-2xl font-black text-slate-900 leading-tight">Student Name</h3>
+                <p id="modal-student-info" class="text-[10px] text-blue-500 font-black uppercase tracking-[0.2em] mt-2"></p>
             </div>
             <div class="grid grid-cols-1 gap-3">
-                <button onclick="logIncident('Phone')" class="bg-orange-50 text-orange-700 p-4 rounded-2xl font-bold border-2 border-orange-100 flex items-center justify-between hover:bg-orange-100 transition text-left">
-                    <span>📱 Phone Use</span>
-                    <span>→</span>
+                <button onclick="logIncident('Phone')" class="group bg-slate-50 p-5 rounded-2xl font-bold flex items-center justify-between hover:bg-orange-50 hover:text-orange-700 transition-all border border-transparent hover:border-orange-100">
+                    <span class="flex items-center gap-3">📱 <span class="text-slate-700 group-hover:text-orange-700">Phone Violation</span></span>
+                    <span class="opacity-30">→</span>
                 </button>
-                <button onclick="logIncident('Eating')" class="bg-yellow-50 text-yellow-700 p-4 rounded-2xl font-bold border-2 border-yellow-100 flex items-center justify-between hover:bg-yellow-100 transition text-left">
-                    <span>🍕 Eating/Drinking</span>
-                    <span>→</span>
+                <button onclick="logIncident('Eating')" class="group bg-slate-50 p-5 rounded-2xl font-bold flex items-center justify-between hover:bg-yellow-50 hover:text-yellow-700 transition-all border border-transparent hover:border-yellow-100">
+                    <span class="flex items-center gap-3">🍕 <span class="text-slate-700 group-hover:text-yellow-700">Eating/Drinking</span></span>
+                    <span class="opacity-30">→</span>
                 </button>
-                <button onclick="logIncident('Disruptive')" class="bg-red-50 text-red-700 p-4 rounded-2xl font-bold border-2 border-red-100 flex items-center justify-between hover:bg-red-100 transition text-left">
-                    <span>🗣️ Disruptive</span>
-                    <span>→</span>
+                <button onclick="logIncident('Disruptive')" class="group bg-slate-50 p-5 rounded-2xl font-bold flex items-center justify-between hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-100">
+                    <span class="flex items-center gap-3">🗣️ <span class="text-slate-700 group-hover:text-red-700">Disruptive Behavior</span></span>
+                    <span class="opacity-30">→</span>
                 </button>
-                <div class="h-px bg-slate-100 my-2"></div>
-                <button onclick="startPass()" class="bg-blue-600 text-white p-4 rounded-2xl font-bold shadow-lg shadow-blue-200 flex items-center justify-between hover:bg-blue-700 transition text-left">
-                    <span>🚪 Start Pass</span>
-                    <span>+</span>
+                <div class="h-px bg-slate-100 my-4"></div>
+                <button onclick="startPass()" class="bg-blue-600 text-white p-5 rounded-2xl font-black shadow-xl shadow-blue-200 flex items-center justify-between hover:bg-blue-700 active:scale-95 transition-all">
+                    <span>🚪 START HALL PASS</span>
+                    <span class="text-xl">+</span>
                 </button>
-                <button onclick="closeModal()" class="mt-4 text-slate-400 text-sm font-semibold py-2">Cancel</button>
+                <button onclick="closeModal()" class="mt-6 text-slate-400 text-xs font-black uppercase tracking-widest hover:text-slate-600 py-2">Close</button>
             </div>
         </div>
     </div>
@@ -156,17 +174,13 @@
         let currentUser = null;
 
         async function initApp() {
-            const btnText = document.getElementById('btn-text');
-            btnText.textContent = "Authenticating...";
-            
             try {
-                // RULE 3: Auth BEFORE Queries
+                // Rule 3: Authentic before queries
                 const userCredential = await auth.signInAnonymously();
-                console.log("Auth Success:", userCredential.user.uid);
                 onUserAuthenticated(userCredential.user);
             } catch (e) { 
                 console.error("Auth Error:", e);
-                showError("auth", e);
+                showError(e);
             }
             
             auth.onAuthStateChanged(user => {
@@ -176,19 +190,19 @@
             switchTab('tracker');
         }
 
-        function showError(type, err) {
+        function showError(err) {
             const errorDiv = document.getElementById('connection-error');
             const details = document.getElementById('error-details');
             const ruleHelper = document.getElementById('rule-helper');
             errorDiv.classList.remove('hidden');
             
             if (err.code === 'permission-denied') {
-                details.innerHTML = "<strong>Error:</strong> Firestore Security Rules are blocking access. Please update your Rules in the Firebase Console.";
+                details.textContent = "Your Firestore database exists but is blocking our connection. Update your rules to allow access.";
                 ruleHelper.classList.remove('hidden');
             } else if (err.code === 'auth/operation-not-allowed') {
-                details.innerHTML = "<strong>Error:</strong> Anonymous Sign-in is disabled. Go to Authentication > Sign-in Method and enable 'Anonymous'.";
+                details.textContent = "Anonymous Login is disabled in your Firebase console under Authentication > Sign-in Method.";
             } else {
-                details.textContent = `[${err.code}] ${err.message}`;
+                details.textContent = `Error [${err.code}]: ${err.message}`;
             }
         }
 
@@ -201,18 +215,18 @@
 
         function enableImportUI() {
             const btn = document.getElementById('import-btn');
+            const btnText = document.getElementById('btn-text');
             btn.disabled = false;
-            btn.onclick = handleFileUpload;
-            btn.className = "w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition";
-            document.getElementById('btn-text').textContent = "Import Students";
+            btn.className = "w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all cursor-pointer";
+            btnText.classList.remove('loading-dots');
+            btnText.textContent = "Begin Student Import";
             
             const loadingMsg = document.getElementById('roster-loading-msg');
-            if (loadingMsg) loadingMsg.textContent = "No students in database.";
+            if (loadingMsg) loadingMsg.textContent = "System ready. Import a CSV to begin.";
         }
 
         function setupListeners() {
             if (!currentUser) return;
-            // RULE 1: Specific Paths
             const sPath = `artifacts/${appId}/users/${currentUser.uid}/students`;
             const lPath = `artifacts/${appId}/users/${currentUser.uid}/logs`;
 
@@ -221,10 +235,7 @@
                 updatePeriodFilters();
                 renderRoster();
                 renderTracker();
-            }, err => {
-                console.error("Firestore Student Listener Error:", err);
-                showError("firestore", err);
-            });
+            }, err => showError(err));
 
             db.collection(lPath).onSnapshot(snap => {
                 logs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
@@ -232,12 +243,15 @@
                 activePasses = logs.filter(l => l.type === 'Pass' && !l.returnTimestamp);
                 renderActivePasses();
                 renderLogs();
-            }, err => console.error("Firestore Log Listener Error:", err));
+            }, err => console.error("Logs error:", err));
         }
 
         function updateStatus(step, text, isError = false) {
             const el = document.getElementById(`status-step-${step}`);
-            if (el) el.innerHTML = `<span class="${isError ? 'text-red-500' : 'text-blue-500'}">●</span> ${text}`;
+            if (el) {
+                el.style.opacity = "1";
+                el.innerHTML = `<span class="${isError ? 'text-red-500' : 'text-blue-400'} font-black">${isError ? '✕' : '✓'}</span> <span>${text}</span>`;
+            }
         }
 
         async function handleFileUpload() {
@@ -245,30 +259,38 @@
             const statusBox = document.getElementById('import-status-box');
             const btn = document.getElementById('import-btn');
 
-            if (!fileInput.files.length) { alert("Please select a CSV file."); return; }
+            if (!fileInput.files.length) { alert("Please choose a file first."); return; }
             
             btn.disabled = true;
             statusBox.classList.remove('hidden');
-            updateStatus(1, "Reading CSV...");
-
+            
+            // Step 1: Read
+            updateStatus(1, "Parsing CSV Data...");
+            
             Papa.parse(fileInput.files[0], {
                 header: true,
                 skipEmptyLines: true,
-                transformHeader: h => h.trim().toLowerCase().replace(/[\s_]/g, ''),
                 complete: async (results) => {
-                    updateStatus(1, "CSV Parsed.");
-                    updateStatus(2, "Processing Rows...");
-                    
+                    updateStatus(1, "CSV Data Read.");
+                    updateStatus(2, "Checking Columns...");
+
                     try {
                         const batch = db.batch();
                         const sPath = `artifacts/${appId}/users/${currentUser.uid}/students`;
                         let count = 0;
 
+                        // Flexible header searching
                         results.data.forEach(row => {
-                            const fName = row.firstname || row.first || row.fname || row['first name'];
-                            const lName = row.lastname || row.last || row.lname || row['last name'];
-                            const period = row.period || row.class || row['per'] || "1";
-                            const sId = row.studentid || row.id || row.sid;
+                            const find = (keywords) => {
+                                const keys = Object.keys(row);
+                                const match = keys.find(k => keywords.some(kw => k.toLowerCase().includes(kw)));
+                                return match ? row[match] : null;
+                            };
+
+                            const fName = find(['first', 'fname', 'given']);
+                            const lName = find(['last', 'lname', 'surname', 'family']);
+                            const period = find(['per', 'class', 'group', 'section']) || "1";
+                            const sId = find(['id', 'sid', 'num']) || Math.random().toString(36).substr(2, 9);
 
                             if (fName || lName) {
                                 const docRef = db.collection(sPath).doc();
@@ -276,49 +298,56 @@
                                     firstName: String(fName || "").trim(),
                                     lastName: String(lName || "").trim(),
                                     period: String(period).trim(),
-                                    studentId: String(sId || docRef.id).trim(),
+                                    studentId: String(sId).trim(),
                                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                                 });
                                 count++;
                             }
                         });
 
-                        if (count === 0) throw new Error("No student names detected in CSV.");
+                        if (count === 0) {
+                            throw new Error("Could not find names. Column headers should be: First Name, Last Name.");
+                        }
 
-                        updateStatus(2, `${count} students ready.`);
-                        updateStatus(3, "Uploading to Cloud...");
+                        updateStatus(2, `Found ${count} Students.`);
+                        updateStatus(3, "Syncing to Cloud...");
                         
                         await batch.commit();
                         
-                        updateStatus(3, "Sync Success!");
+                        updateStatus(3, "Cloud Sync Finished!");
                         setTimeout(() => {
-                            alert(`Imported ${count} students successfully.`);
-                            resetUI();
-                        }, 500);
+                            alert(`Success! ${count} students imported.`);
+                            btn.disabled = false;
+                            statusBox.classList.add('hidden');
+                            fileInput.value = "";
+                        }, 800);
 
                     } catch (err) {
-                        console.error("Batch Commit Error:", err);
-                        updateStatus(3, "Error: " + err.message, true);
-                        showError("firestore", err);
-                        resetUI();
+                        updateStatus(2, "Mapping Failed", true);
+                        updateStatus(3, err.message, true);
+                        btn.disabled = false;
                     }
+                },
+                error: (err) => {
+                    updateStatus(1, "Parse Failed", true);
+                    btn.disabled = false;
                 }
             });
-
-            function resetUI() {
-                btn.disabled = false;
-                statusBox.classList.add('hidden');
-                fileInput.value = "";
-            }
         }
 
         function switchTab(id) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('tab-active', 'bg-blue-50', 'text-blue-700'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('tab-active', 'bg-blue-600', 'text-white'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.add('text-slate-500', 'hover:bg-slate-100'));
+            
             const content = document.getElementById(`tab-${id}`);
             if (content) content.classList.remove('hidden');
+            
             const btn = Array.from(document.querySelectorAll('.nav-btn')).find(b => b.textContent.toLowerCase() === id);
-            if (btn) btn.classList.add('tab-active', 'bg-blue-50', 'text-blue-700');
+            if (btn) {
+                btn.classList.add('tab-active', 'bg-blue-600', 'text-white');
+                btn.classList.remove('text-slate-500', 'hover:bg-slate-100');
+            }
         }
 
         function updatePeriodFilters() {
@@ -341,25 +370,27 @@
             const list = document.getElementById('roster-list');
             const filter = document.getElementById('period-filter-roster').value;
             const filtered = filter === 'all' ? students : students.filter(s => s.period == filter);
+            
             if (!filtered.length) { 
-                list.innerHTML = `<p class="text-slate-400 text-center italic py-8">Roster is empty.</p>`; 
+                list.innerHTML = `<p class="text-slate-400 text-center italic py-10">Roster empty.</p>`; 
                 return; 
             }
+            
             list.innerHTML = filtered.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(s => `
-                <div class="flex justify-between items-center p-3 bg-white border border-slate-100 rounded-lg">
+                <div class="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-xl shadow-sm">
                     <div>
-                        <div class="font-bold text-slate-700">${s.lastName}, ${s.firstName}</div>
-                        <div class="text-[10px] text-slate-400 uppercase font-mono">ID: ${s.studentId} • Per: ${s.period}</div>
+                        <div class="font-bold text-slate-800">${s.lastName}, ${s.firstName}</div>
+                        <div class="text-[10px] text-slate-400 uppercase font-black tracking-widest mt-0.5">Per: ${s.period} • ID: ${s.studentId}</div>
                     </div>
-                    <button onclick="deleteStudent('${s.id}')" class="p-2 text-slate-300 hover:text-red-500 transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    <button onclick="deleteStudent('${s.id}')" class="p-2 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                 </div>
             `).join('');
         }
 
         async function deleteStudent(id) {
-            if (confirm("Delete student?")) {
+            if (confirm("Permanently remove this student?")) {
                 await db.collection(`artifacts/${appId}/users/${currentUser.uid}/students`).doc(id).delete();
             }
         }
@@ -368,14 +399,19 @@
             const grid = document.getElementById('tracker-grid');
             const filter = document.getElementById('period-filter-tracker').value;
             const filtered = filter === 'all' ? students : students.filter(s => s.period == filter);
+            
             if (!filtered.length) { 
-                grid.innerHTML = `<div class="col-span-full py-10 text-center text-slate-400 italic">No students found.</div>`; 
+                grid.innerHTML = `<div class="col-span-full py-20 text-center text-slate-300 italic">No students found.</div>`; 
                 return; 
             }
+            
             grid.innerHTML = filtered.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(s => `
-                <button onclick="openStudentActions('${s.id}')" class="p-4 bg-white border-b-4 border-slate-200 rounded-2xl shadow-sm hover:border-blue-400 transition-all text-center">
-                    <div class="font-bold text-slate-800 truncate">${s.firstName} ${s.lastName[0]}.</div>
-                    <div class="text-[10px] text-slate-400 mt-1 uppercase font-bold">Period ${s.period}</div>
+                <button onclick="openStudentActions('${s.id}')" class="group relative p-5 bg-white border-b-4 border-slate-200 rounded-[2rem] shadow-sm hover:border-blue-500 hover:-translate-y-1 active:scale-95 transition-all text-center">
+                    <div class="w-10 h-10 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3 font-bold text-xs group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
+                        ${s.firstName[0]}${s.lastName[0]}
+                    </div>
+                    <div class="font-black text-slate-800 truncate text-sm">${s.firstName}</div>
+                    <div class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Per ${s.period}</div>
                 </button>
             `).join('');
         }
@@ -383,7 +419,8 @@
         function openStudentActions(id) {
             selectedStudent = students.find(s => s.id === id);
             document.getElementById('modal-student-name').textContent = `${selectedStudent.firstName} ${selectedStudent.lastName}`;
-            document.getElementById('modal-student-info').textContent = `Period ${selectedStudent.period}`;
+            document.getElementById('modal-student-info').textContent = `Period ${selectedStudent.period} • ID ${selectedStudent.studentId}`;
+            document.getElementById('modal-initials').textContent = `${selectedStudent.firstName[0]}${selectedStudent.lastName[0]}`;
             document.getElementById('student-modal').classList.remove('hidden');
         }
 
@@ -424,12 +461,12 @@
             list.innerHTML = activePasses.map(p => {
                 const mins = Math.floor((Date.now() - (p.timestamp?.toMillis() || Date.now())) / 60000);
                 return `
-                    <div class="bg-blue-600 text-white p-4 rounded-2xl flex justify-between items-center shadow-lg">
+                    <div class="bg-blue-600 text-white p-5 rounded-2xl flex justify-between items-center shadow-xl shadow-blue-200">
                         <div>
-                            <div class="font-bold">${p.name}</div>
-                            <div class="text-xs opacity-80">Out for ${mins}m</div>
+                            <div class="font-black text-lg">${p.name}</div>
+                            <div class="text-[10px] font-black uppercase tracking-widest opacity-80">Away for ${mins} Minutes</div>
                         </div>
-                        <button onclick="endPass('${p.id}')" class="bg-white text-blue-600 px-4 py-1.5 rounded-full text-sm font-bold">BACK</button>
+                        <button onclick="endPass('${p.id}')" class="bg-white text-blue-600 px-5 py-2 rounded-xl text-xs font-black shadow-lg active:scale-95 transition-all">RETURN</button>
                     </div>
                 `;
             }).join('');
@@ -437,20 +474,33 @@
 
         function renderLogs() {
             const list = document.getElementById('history-list');
-            if (!logs.length) { list.innerHTML = `<p class="text-slate-400 text-center italic py-20">No history found.</p>`; return; }
+            if (!logs.length) { list.innerHTML = `<div class="py-20 text-center text-slate-300 italic">No activity logs recorded yet.</div>`; return; }
             list.innerHTML = logs.map(l => {
-                const date = l.timestamp?.toDate().toLocaleString() || 'Syncing...';
-                return `<div class="p-3 bg-white border border-slate-100 rounded-lg text-xs">
-                    <span class="font-bold">${l.name}</span>: ${l.category} (${date})
+                const date = l.timestamp?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) || 'Syncing...';
+                const isPass = l.type === 'Pass';
+                return `<div class="p-4 bg-white border border-slate-100 rounded-xl flex justify-between items-center shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <div class="text-lg">${l.category === 'Phone' ? '📱' : l.category === 'Eating' ? '🍕' : l.category === 'Disruptive' ? '🗣️' : '🚪'}</div>
+                        <div>
+                            <div class="font-bold text-slate-800 text-sm">${l.name}</div>
+                            <div class="text-[9px] text-slate-400 font-bold uppercase">${l.category} • Period ${l.period}</div>
+                        </div>
+                    </div>
+                    <div class="text-[10px] font-bold text-slate-400">${date}</div>
                 </div>`;
             }).join('');
         }
 
         function exportToCSV() {
-            const rows = [["Date", "Student", "Period", "Incident"]];
-            logs.forEach(l => rows.push([l.timestamp?.toDate().toLocaleString(), l.name, l.period, l.category]));
-            const content = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
-            const link = document.createElement("a"); link.href = encodeURI(content); link.download = `ClassroomLogs.csv`; link.click();
+            const rows = [["Date", "Student", "Period", "Type", "Category"]];
+            logs.forEach(l => rows.push([l.timestamp?.toDate().toLocaleString(), l.name, l.period, l.type, l.category]));
+            const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+            const link = document.createElement("a");
+            link.setAttribute("href", encodeURI(csvContent));
+            link.setAttribute("download", `Classroom_Activity_${new Date().toLocaleDateString()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         window.onload = initApp;
