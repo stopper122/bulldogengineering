@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, getDocs, query } from "firebase/firestore";
+import { getFirestore, collection, addDoc, getDocs } from "firebase/firestore";
 import { getAuth, signInAnonymously } from "firebase/auth";
 
-// 🔥 TODO: Replace with your Firebase config
+// 🔥 Replace with your Firebase config
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_AUTH_DOMAIN",
@@ -17,11 +17,13 @@ const auth = getAuth(app);
 export default function ClassroomTracker() {
   const [students, setStudents] = useState([]);
   const [logs, setLogs] = useState([]);
-  const [csvData, setCsvData] = useState("");
 
   useEffect(() => {
-    signInAnonymously(auth);
-    loadData();
+    const init = async () => {
+      await signInAnonymously(auth);
+      await loadData();
+    };
+    init();
   }, []);
 
   const loadData = async () => {
@@ -34,6 +36,8 @@ export default function ClassroomTracker() {
 
   const handleCSVUpload = async (e) => {
     const file = e.target.files[0];
+    if (!file) return;
+
     const text = await file.text();
     const rows = text.split("\n").slice(1);
 
@@ -76,36 +80,45 @@ export default function ClassroomTracker() {
   };
 
   return (
-    <div className="p-4 grid gap-4">
-      <h1 className="text-2xl font-bold">Classroom Tracker</h1>
+    <div style={{ fontFamily: "Arial, sans-serif", padding: 20, maxWidth: 900, margin: "0 auto" }}>
+      <h1 style={{ fontSize: 28, marginBottom: 10 }}>Classroom Tracker</h1>
 
-      <div>
+      <div style={{ marginBottom: 15 }}>
         <input type="file" accept=".csv" onChange={handleCSVUpload} />
       </div>
 
-      <button onClick={exportData} className="bg-blue-500 text-white p-2 rounded">
+      <button
+        onClick={exportData}
+        style={{ padding: "8px 12px", marginBottom: 20, cursor: "pointer" }}
+      >
         Export Backup
       </button>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <h2>Students</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 10 }}>
         {students.map((student) => (
-          <div key={student.id} className="p-3 border rounded shadow">
-            <div className="font-semibold">
+          <div
+            key={student.id}
+            style={{ border: "1px solid #ccc", borderRadius: 6, padding: 10 }}
+          >
+            <div style={{ fontWeight: "bold" }}>
               {student.first} {student.last}
             </div>
-            <div className="text-sm">Period: {student.period}</div>
+            <div style={{ fontSize: 12, marginBottom: 8 }}>
+              Period: {student.period}
+            </div>
 
-            <div className="flex gap-2 mt-2">
+            <div style={{ display: "flex", gap: 6 }}>
               <button
                 onClick={() => logEvent(student, "Out of Class")}
-                className="bg-yellow-500 text-white px-2 py-1 rounded"
+                style={{ flex: 1, padding: 6, cursor: "pointer" }}
               >
                 Pass
               </button>
 
               <button
                 onClick={() => logEvent(student, "Behavior")}
-                className="bg-red-500 text-white px-2 py-1 rounded"
+                style={{ flex: 1, padding: 6, cursor: "pointer" }}
               >
                 Behavior
               </button>
@@ -114,10 +127,13 @@ export default function ClassroomTracker() {
         ))}
       </div>
 
+      <h2 style={{ marginTop: 30 }}>Logs</h2>
       <div>
-        <h2 className="text-xl font-bold">Logs</h2>
         {logs.map((log) => (
-          <div key={log.id} className="text-sm border-b py-1">
+          <div
+            key={log.id}
+            style={{ borderBottom: "1px solid #eee", padding: "6px 0", fontSize: 14 }}
+          >
             {log.name} - {log.type} - {new Date(log.timestamp).toLocaleString()}
           </div>
         ))}
