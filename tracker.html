@@ -106,6 +106,7 @@
         <button onclick="setRestroomLimit()">Set Pass Limit (min)</button>
         <br><br>
         <button onclick="exportData()">Export Backup</button>
+        <button onclick="exportMasterLogCsv()">Export Master Log CSV</button>
         <input type="file" id="restoreFile" accept=".json" />
         <button onclick="restoreData()">Restore Backup</button>
         <button onclick="wipeAllData()" class="danger">Wipe All Data</button>
@@ -277,6 +278,38 @@
     const a = document.createElement("a");
     a.href = url;
     a.download = "students-backup.json";
+    a.click();
+  };
+
+  window.exportMasterLogCsv = () => {
+    const rows = flattenMasterLog();
+    const headers = ["time", "period", "student", "studentId", "event", "minutes", "value"];
+
+    const escapeCsv = (value) => {
+      const str = String(value ?? "");
+      return '"' + str.replace(/"/g, '""') + '"';
+    };
+
+    const csvLines = [headers.join(",")];
+
+    rows.forEach(row => {
+      csvLines.push([
+        escapeCsv(row.time),
+        escapeCsv(row.period),
+        escapeCsv(row.name),
+        escapeCsv(row.studentId),
+        escapeCsv(row.type),
+        escapeCsv(row.minutes),
+        escapeCsv(row.value)
+      ].join(","));
+    });
+
+    const blob = new Blob([csvLines.join("
+")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "master-log.csv";
     a.click();
   };
 
