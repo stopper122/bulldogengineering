@@ -332,7 +332,7 @@
       <div class="compact-grid">
         <div class="card">
           <h2 style="margin:0 0 8px 0; font-size:18px;">Upload CSV</h2>
-          <div class="inline-row">
+          <div class="inline-row" id="controlsContent">
             <input type="file" id="fileInput" accept=".csv" />
             <span id="status" class="tiny"></span>
           </div>
@@ -359,7 +359,10 @@
 
       <div class="freeze-panel">
       <div class="card controls">
-        <h3 style="margin:0 0 8px 0; font-size:16px;">Quick Controls</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h3 style="margin:0; font-size:16px;">Quick Controls</h3>
+          <button class="toggle-btn" onclick="toggleControls()">Hide</button>
+        </div>
         <div class="inline-row">
           <button onclick="setSort('first')">First</button>
           <button onclick="setSort('last')">Last</button>
@@ -444,6 +447,7 @@
   let touchMode = localStorage.getItem("studentTrackerTouchMode") === "true";
   let soundAlertsEnabled = localStorage.getItem("studentTrackerSoundAlerts") === "true";
   let selectedStudentId = null;
+  let controlsVisible = true;
 
   function applySavedModes() {
     document.body.classList.toggle("touch-mode", touchMode);
@@ -749,6 +753,19 @@
     soundAlertsEnabled = !soundAlertsEnabled;
     localStorage.setItem("studentTrackerSoundAlerts", String(soundAlertsEnabled));
     showToast(soundAlertsEnabled ? "Sound alerts enabled." : "Sound alerts disabled.", "success");
+  };
+
+  window.toggleControls = () => {
+    controlsVisible = !controlsVisible;
+    const el = document.getElementById("controlsContent");
+    const btn = document.querySelector(".controls .toggle-btn");
+    if (controlsVisible) {
+      el.style.display = "flex";
+      btn.textContent = "Hide";
+    } else {
+      el.style.display = "none";
+      btn.textContent = "Show";
+    }
   };
 
   window.toggleMasterLog = () => {
