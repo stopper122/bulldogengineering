@@ -45,18 +45,19 @@
     }
     .freeze-panel {
       position: sticky;
-      top: 0;
+      top: 44px;
       z-index: 12;
       background:#eef2f7;
       padding-top:6px;
       padding-bottom:2px;
     }
     .results-sticky {
-      position: static;
-      top: auto;
-      z-index: auto;
+      position: sticky;
+      top: 122px;
+      z-index: 11;
       background:#eef2f7;
       padding-bottom:8px;
+      box-shadow: 0 6px 12px rgba(15,23,42,0.06);
     }
     body.touch-mode .controls button,
     body.touch-mode .tabs button,
@@ -110,7 +111,7 @@
     .toggle-btn { background:#111827; color:white; padding:7px 10px; border:none; border-radius:8px; font-size:12px; }
     .panel-toggle-row {
       position: sticky;
-      top: 0;
+      top: 44px;
       z-index: 14;
       background:#eef2f7;
       padding-bottom:8px;
@@ -329,6 +330,9 @@
       .compact-grid, .modal-grid { grid-template-columns:1fr; }
       .student-table {
         min-width: 980px;
+      }
+      .results-sticky {
+        top: 150px;
       }
     }
   </style>
