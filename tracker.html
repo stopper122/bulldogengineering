@@ -11,7 +11,7 @@
     body { margin:0; font-family:Inter, Arial, sans-serif; background:#eef2f7; color:#0f172a; }
     body.touch-mode { font-size:16px; }
     .layout { display:flex; min-height:100vh; }
-    .main { flex:1; padding:14px; overflow:auto; }
+    .main { flex:1; padding:14px; overflow:visible; }
     .sidebar {
       width:420px;
       background:#111827;
@@ -106,25 +106,26 @@
       align-items:center;
     }
     .table-wrap {
-      overflow:auto;
-      max-height:68vh;
-      border:1px solid #e2e8f0;
-      border-radius:10px;
-      background:white;
+      overflow: visible;
+      max-height: none;
+      border: none;
+      border-radius: 0;
+      background: transparent;
     }
     .student-table {
-      min-width: 1220px;
-      table-layout: fixed;
+      width: 100%;
+      min-width: 1100px;
+      table-layout: auto;
     }
     .student-table th:nth-child(1), .student-table td:nth-child(1) { width: 90px; }
-    .student-table th:nth-child(2), .student-table td:nth-child(2) { width: 260px; }
+    .student-table th:nth-child(2), .student-table td:nth-child(2) { min-width: 250px; }
     .student-table th:nth-child(3), .student-table td:nth-child(3) { width: 96px; text-align:center; }
-    .student-table th:nth-child(4), .student-table td:nth-child(4) { width: 210px; }
+    .student-table th:nth-child(4), .student-table td:nth-child(4) { min-width: 220px; }
     .student-table th:nth-child(5), .student-table td:nth-child(5),
     .student-table th:nth-child(6), .student-table td:nth-child(6),
     .student-table th:nth-child(7), .student-table td:nth-child(7) { width: 72px; text-align:center; }
-    .student-table th:nth-child(8), .student-table td:nth-child(8) { width: 170px; }
-    .student-table th:nth-child(9), .student-table td:nth-child(9) { width: 150px; }
+    .student-table th:nth-child(8), .student-table td:nth-child(8) { min-width: 170px; }
+    .student-table th:nth-child(9), .student-table td:nth-child(9) { min-width: 150px; }
     .clip-cell {
       white-space: normal;
       overflow-wrap: anywhere;
@@ -234,13 +235,19 @@
       color:#92400e;
       font-weight:700;
     }
-    .sticky-col-left-1 { position:sticky; left:0; z-index:3; background:#f8fafc; }
-    .sticky-col-left-2 { position:sticky; left:90px; z-index:3; background:#f8fafc; }
-    .sticky-col-right { position:sticky; right:0; z-index:3; background:#f8fafc; }
-    .sticky-col-left-2 { position:sticky; left:90px; z-index:2; background:inherit; }
-    .sticky-col-right { position:sticky; right:0; z-index:2; background:inherit; }
-    
-    th.sticky-col-left-1, th.sticky-col-left-2, th.sticky-col-right { z-index:4; }
+    .sticky-col-left-1, .sticky-col-left-2, .sticky-col-right {
+      position: static;
+      left: auto;
+      right: auto;
+      z-index: auto;
+      background: white;
+    }
+    th.sticky-col-left-1, th.sticky-col-left-2, th.sticky-col-right {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: #f8fafc !important;
+    }
     .modal-overlay {
       position:fixed;
       inset:0;
@@ -285,9 +292,8 @@
       }
       .compact-grid, .modal-grid { grid-template-columns:1fr; }
       .student-table {
-        min-width: 1120px;
+        min-width: 980px;
       }
-      .sticky-col-left-2 { left:90px; }
     }
   </style>
 </head>
