@@ -101,6 +101,22 @@
       z-index:10;
     }
     .toggle-btn { background:#111827; color:white; padding:7px 10px; border:none; border-radius:8px; font-size:12px; }
+    .panel-toggle-row {
+      position: sticky;
+      top: 44px;
+      z-index: 14;
+      background:#eef2f7;
+      padding-bottom:8px;
+    }
+    .top-left-toggle {
+      background:#111827;
+      color:white;
+      padding:8px 12px;
+      border:none;
+      border-radius:8px;
+      font-size:12px;
+      cursor:pointer;
+    }
     .compact-grid {
       display:grid;
       grid-template-columns: 1.2fr 1fr;
@@ -329,6 +345,11 @@
         <button class="toggle-btn" onclick="toggleMasterLog()">Show/Hide Master Log</button>
       </div>
 
+      <div class="panel-toggle-row">
+        <button class="top-left-toggle" onclick="toggleTopPanels()">Hide Top Panels</button>
+      </div>
+
+      <div id="topPanelsWrap">
       <div class="compact-grid">
         <div class="card">
           <h2 style="margin:0 0 8px 0; font-size:18px;">Upload CSV</h2>
@@ -383,6 +404,7 @@
         </div>
       </div>
 
+      </div>
       </div>
 
       <div class="card" id="results" style="display:none;">
@@ -448,6 +470,7 @@
   let soundAlertsEnabled = localStorage.getItem("studentTrackerSoundAlerts") === "true";
   let selectedStudentId = null;
   let controlsVisible = true;
+  let topPanelsVisible = true;
 
   function applySavedModes() {
     document.body.classList.toggle("touch-mode", touchMode);
@@ -753,6 +776,19 @@
     soundAlertsEnabled = !soundAlertsEnabled;
     localStorage.setItem("studentTrackerSoundAlerts", String(soundAlertsEnabled));
     showToast(soundAlertsEnabled ? "Sound alerts enabled." : "Sound alerts disabled.", "success");
+  };
+
+  window.toggleTopPanels = () => {
+    topPanelsVisible = !topPanelsVisible;
+    const wrap = document.getElementById("topPanelsWrap");
+    const btn = document.querySelector(".top-left-toggle");
+    if (topPanelsVisible) {
+      wrap.style.display = "block";
+      btn.textContent = "Hide Top Panels";
+    } else {
+      wrap.style.display = "none";
+      btn.textContent = "Show Top Panels";
+    }
   };
 
   window.toggleControls = () => {
