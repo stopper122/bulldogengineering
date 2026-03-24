@@ -112,7 +112,27 @@
       border-radius:10px;
       background:white;
     }
-    .name-cell strong { display:block; margin-bottom:2px; }
+    .student-table {
+      min-width: 1220px;
+      table-layout: fixed;
+    }
+    .student-table th:nth-child(1), .student-table td:nth-child(1) { width: 90px; }
+    .student-table th:nth-child(2), .student-table td:nth-child(2) { width: 260px; }
+    .student-table th:nth-child(3), .student-table td:nth-child(3) { width: 90px; text-align:center; }
+    .student-table th:nth-child(4), .student-table td:nth-child(4) { width: 96px; text-align:center; }
+    .student-table th:nth-child(5), .student-table td:nth-child(5) { width: 210px; }
+    .student-table th:nth-child(6), .student-table td:nth-child(6),
+    .student-table th:nth-child(7), .student-table td:nth-child(7),
+    .student-table th:nth-child(8), .student-table td:nth-child(8) { width: 72px; text-align:center; }
+    .student-table th:nth-child(9), .student-table td:nth-child(9) { width: 170px; }
+    .student-table th:nth-child(10), .student-table td:nth-child(10) { width: 150px; }
+    .clip-cell {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .name-cell strong { display:block; margin-bottom:2px; line-height:1.25; }
+    .name-cell .tiny { display:block; line-height:1.25; }
     .name-button {
       all:unset;
       cursor:pointer;
@@ -195,9 +215,10 @@
       color:#92400e;
       font-weight:700;
     }
-    .sticky-col-left-1 { position:sticky; left:0; z-index:2; }
-    .sticky-col-left-2 { position:sticky; left:76px; z-index:2; }
-    .sticky-col-right { position:sticky; right:0; z-index:2; }
+    .sticky-col-left-1 { position:sticky; left:0; z-index:2; background:inherit; }
+    .sticky-col-left-2 { position:sticky; left:90px; z-index:2; background:inherit; }
+    .sticky-col-right { position:sticky; right:0; z-index:2; background:inherit; }
+    
     th.sticky-col-left-1, th.sticky-col-left-2, th.sticky-col-right { z-index:4; }
     .modal-overlay {
       position:fixed;
@@ -242,7 +263,10 @@
         z-index:2500;
       }
       .compact-grid, .modal-grid { grid-template-columns:1fr; }
-      .sticky-col-left-2 { left:68px; }
+      .student-table {
+        min-width: 1120px;
+      }
+      .sticky-col-left-2 { left:90px; }
     }
   </style>
 </head>
@@ -545,7 +569,7 @@
       container.innerHTML = "<div class='tiny' style='color:#d1d5db;'>No events recorded yet.</div>";
       return;
     }
-    let html = `<table><tr><th>Time</th><th>Period</th><th>Student</th><th>ID</th><th>Event</th><th>Minutes</th><th>Value</th></tr>`;
+    let html = `<table class="student-table"><tr><th>Time</th><th>Period</th><th>Student</th><th>ID</th><th>Event</th><th>Minutes</th><th>Value</th></tr>`;
     rows.forEach(row => {
       html += `<tr>
         <td>${row.time ? new Date(row.time).toLocaleString() : ""}</td>
@@ -911,7 +935,7 @@
       const rowClass = overdueLive ? "row-overdue" : nearLimit ? "row-warning" : flags.length ? "row-flagged" : "";
       html += `<tr class="${rowClass}">
         <td class="sticky-col-left-1">${s.studentId}</td>
-        <td class="name-cell sticky-col-left-2">
+        <td class="name-cell sticky-col-left-2 clip-cell">
           <button class="name-button" onclick="openStudentDetail('${s._id}')">
             <strong>${s.lastName}, ${s.firstName}${flags.map(flag => `<span class='flag-badge'>${flag}</span>`).join("")}</strong>
             <span class="tiny">${lastEventText}</span>
@@ -922,17 +946,17 @@
           <button class="btn-minus" onclick="adjustRestroomCount('${s._id}', -1)">➖</button>
           <button class="btn-plus" onclick="adjustRestroomCount('${s._id}', 1)">➕</button>
         </td>
-        <td>${getRestroomStatusText(s)}${s.restroomActive ? `<br><span class="${overdueLive ? "timer-overdue" : nearLimit ? "timer-warning" : "timer-live"}">Live: ${elapsedText}</span>` : ""}</td>
+        <td class="clip-cell">${getRestroomStatusText(s)}${s.restroomActive ? `<br><span class="${overdueLive ? "timer-overdue" : nearLimit ? "timer-warning" : "timer-live"}">Live: ${elapsedText}</span>` : ""}</td>
         <td>${s.phoneCount || 0}</td>
         <td>${s.eatingCount || 0}</td>
         <td>${s.gamesCount || 0}</td>
-        <td class="tracking">
+        <td class="tracking clip-cell">
           ${s.restroomActive ? `<button class="restroom" onclick="endRestroomPass('${s._id}')">⏹️</button>` : `<button class="restroom" onclick="startRestroomPass('${s._id}')">🚻</button>`}
           <button class="phone" onclick="recordEvent('${s._id}', 'phone')">📱+</button>
           <button class="eating" onclick="recordEvent('${s._id}', 'eating')">🍔+</button>
           <button class="games" onclick="recordEvent('${s._id}', 'games')">🎮+</button>
         </td>
-        <td class="actions sticky-col-right">
+        <td class="actions sticky-col-right clip-cell">
           <button class="report" onclick="openStudentDetail('${s._id}')">👁️</button>
           <button class="report" onclick="exportStudentReport('${s._id}')">📄</button>
           <button class="neutral" onclick="editStudent('${s._id}')">✏️</button>
