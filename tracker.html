@@ -154,7 +154,10 @@
       max-height: calc(100vh - var(--left-drawer-top, 0px) - 14px);
       overflow: auto;
       z-index: 16;
-      transform: translateX(calc(-100% + 54px));
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      padding-right: 6px;
+    }
       transition: transform 0.25s ease;
       padding-right: 6px;
     }
@@ -216,6 +219,26 @@
       border-radius:8px;
       font-size:12px;
       cursor:pointer;
+    }
+    .drawer-handle {
+      position: fixed;
+      left: 10px;
+      top: calc(var(--left-drawer-top, 0px) + 12px);
+      z-index: 17;
+      background:#111827;
+      color:white;
+      border:none;
+      border-radius:10px;
+      padding:10px 8px;
+      font-size:12px;
+      cursor:pointer;
+      box-shadow:0 8px 18px rgba(15,23,42,0.18);
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      display:none;
+    }
+    .drawer-handle.visible {
+      display:block;
     }
     .compact-grid {
       display:grid;
@@ -455,6 +478,8 @@
         <button class="toggle-btn" onclick="toggleMasterLog()">Show/Hide Master Log</button>
       </div>
 
+      <button id="leftDrawerHandle" class="drawer-handle" onclick="toggleTopPanels()">Show Panel</button>
+
       <div class="panel-toggle-row">
         <button class="top-left-toggle" onclick="toggleTopPanels()">Hide Left Panel</button>
       </div>
@@ -602,7 +627,7 @@
     root.style.setProperty("--left-drawer-top", `${topbarHeight + panelToggleHeight}px`);
     const drawer = document.getElementById("topPanelsWrap");
     const drawerWidth = drawer ? drawer.offsetWidth : 360;
-    const gap = topPanelsVisible ? drawerWidth + 18 : 72;
+    const gap = topPanelsVisible ? drawerWidth + 18 : 0;
     root.style.setProperty("--main-left-gap", `${gap}px`);
   }
 
@@ -913,8 +938,10 @@
     topPanelsVisible = !topPanelsVisible;
     const wrap = document.getElementById("topPanelsWrap");
     const btn = document.querySelector(".top-left-toggle");
+    const handle = document.getElementById("leftDrawerHandle");
     wrap.classList.toggle("open", topPanelsVisible);
     btn.textContent = topPanelsVisible ? "Hide Left Panel" : "Show Left Panel";
+    handle.classList.toggle("visible", !topPanelsVisible);
     updateStickyOffsets();
   };
 
