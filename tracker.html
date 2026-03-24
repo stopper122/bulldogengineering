@@ -117,7 +117,13 @@
     .log-table th:nth-child(7), .log-table td:nth-child(7) { white-space:nowrap; width:70px; text-align:center; }
     .log-wrap th { border-color:#e2e8f0; }
     .log-wrap th, .log-wrap td { border-color:#374151; background:#1f2937; }
-    .log-wrap th { background:#f8fafc; color:#111827; }
+    .log-wrap th {
+      background:#f8fafc !important;
+      color:#111827;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
     .topbar {
       display:flex;
       justify-content:space-between;
