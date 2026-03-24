@@ -18,13 +18,17 @@
       color:white;
       border-left:1px solid #374151;
       transform:translateX(100%);
-      transition:transform 0.25s ease;
+      transition:transform 0.25s ease, width 0.25s ease;
       position:fixed;
       right:0;
       top:var(--sidebar-top, 0px);
       height:calc(100vh - var(--sidebar-top, 0px));
       overflow:auto;
       z-index:18;
+    }
+    .sidebar.open {
+      transform:translateX(0);
+      width:min(900px, calc(100vw - 24px));
     }
     .sidebar.open { transform:translateX(0); }
     .container { max-width:1180px; margin:0 auto; }
@@ -94,7 +98,7 @@
     .timer-live { font-weight:bold; color:#0f766e; }
     .timer-overdue { font-weight:bold; color:#b91c1c; }
     .timer-warning { font-weight:bold; color:#b45309; }
-    .log-wrap { padding:18px; }
+    .log-wrap { padding:18px; min-width:760px; }
     .log-wrap table { background:#1f2937; color:white; }
     .log-table {
       width:100%;
@@ -508,7 +512,7 @@
   let soundAlertsEnabled = localStorage.getItem("studentTrackerSoundAlerts") === "true";
   let selectedStudentId = null;
   let controlsVisible = true;
-  let topPanelsVisible = true;
+  let topPanelsVisible = false;
 
   function applySavedModes() {
     document.body.classList.toggle("touch-mode", touchMode);
@@ -1266,6 +1270,10 @@
   };
 
   applySavedModes();
+  document.getElementById("topPanelsWrap").style.display = "none";
+  const topPanelsBtn = document.querySelector(".top-left-toggle");
+  if (topPanelsBtn) topPanelsBtn.textContent = "Show Top Panels";
+  updateStickyOffsets();
   await loadSettings();
   loadFromFirebase();
 
