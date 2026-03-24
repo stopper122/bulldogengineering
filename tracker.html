@@ -94,6 +94,7 @@
     .phone { background:#f59e0b; color:white; }
     .eating { background:#8b5cf6; color:white; }
     .games { background:#ef4444; color:white; }
+    .sleep { background:#6366f1; color:white; }
     .report { background:#334155; color:white; }
     .timer-live { font-weight:bold; color:#0f766e; }
     .timer-overdue { font-weight:bold; color:#b91c1c; }
@@ -555,6 +556,7 @@
       phoneCount: Number(student.phoneCount || 0),
       eatingCount: Number(student.eatingCount || 0),
       gamesCount: Number(student.gamesCount || 0),
+      sleepCount: Number(student.sleepCount || 0),
       behaviorLog: Array.isArray(student.behaviorLog) ? student.behaviorLog : [],
       restroomActive: Boolean(student.restroomActive),
       restroomStartTime: student.restroomStartTime || null,
@@ -1073,6 +1075,7 @@
     const phone = students.reduce((sum, s) => sum + (s.phoneCount || 0), 0);
     const eating = students.reduce((sum, s) => sum + (s.eatingCount || 0), 0);
     const games = students.reduce((sum, s) => sum + (s.gamesCount || 0), 0);
+    const sleep = students.reduce((sum, s) => sum + (s.sleepCount || 0), 0);
     periodSummaryEl.innerHTML = `
       <span class="pill"><strong>Period ${period}</strong></span>
       <span class="pill">Students: ${students.length}</span>
@@ -1081,7 +1084,8 @@
       <span class="pill">Limit: ${restroomLimitMinutes} min</span>
       <span class="pill">Phone: ${phone}</span>
       <span class="pill">Eating: ${eating}</span>
-      <span class="pill">Games: ${games}</span>`;
+      <span class="pill">Games: ${games}</span>
+      <span class="pill">Sleep: ${sleep}</span>`;
   }
 
   function renderTable(period) {
@@ -1142,6 +1146,7 @@
           <button class="phone" onclick="recordEvent('${s._id}', 'phone')">📱+</button>
           <button class="eating" onclick="recordEvent('${s._id}', 'eating')">🍔+</button>
           <button class="games" onclick="recordEvent('${s._id}', 'games')">🎮+</button>
+          <button class="sleep" onclick="recordEvent('${s._id}', 'sleep')">😴</button>
         </td>
         <td class="actions sticky-col-right clip-cell">
           <button class="report" onclick="openStudentDetail('${s._id}')">👁️</button>
@@ -1241,7 +1246,7 @@
   };
 
   window.recordEvent = async (id, type) => {
-    const fieldMap = { phone: "phoneCount", eating: "eatingCount", games: "gamesCount" };
+    const fieldMap = { phone: "phoneCount", eating: "eatingCount", games: "gamesCount", sleep: "sleepCount" };
     const field = fieldMap[type];
     if (!field) return;
     await updateDoc(doc(db, "students", id), {
@@ -1262,7 +1267,7 @@
     }
     await addDoc(collection(db, "students"), {
       studentId, firstName, lastName, period,
-      restroomCount: 0, phoneCount: 0, eatingCount: 0, gamesCount: 0,
+      restroomCount: 0, phoneCount: 0, eatingCount: 0, gamesCount: 0, sleepCount: 0,
       behaviorLog: [], restroomActive: false, restroomStartTime: null, restroomHistory: []
     });
     document.getElementById("newId").value = "";
@@ -1313,7 +1318,7 @@
             }
             await addDoc(collection(db, "students"), {
               studentId, firstName, lastName, period,
-              restroomCount: 0, phoneCount: 0, eatingCount: 0, gamesCount: 0,
+              restroomCount: 0, phoneCount: 0, eatingCount: 0, gamesCount: 0, sleepCount: 0,
               behaviorLog: [], restroomActive: false, restroomStartTime: null, restroomHistory: []
             });
             added += 1;
