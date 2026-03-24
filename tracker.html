@@ -11,7 +11,7 @@
     body { margin:0; font-family:Inter, Arial, sans-serif; background:#eef2f7; color:#0f172a; }
     body.touch-mode { font-size:16px; }
     .layout { display:flex; min-height:100vh; }
-    .main { flex:1; padding:14px; overflow:visible; }
+    .main { flex:1; padding:14px; padding-left:calc(14px + var(--main-left-gap, 0px)); overflow:visible; transition:padding-left 0.25s ease; }
     .sidebar {
       width:420px;
       background:#111827;
@@ -143,7 +143,8 @@
       position: fixed;
       left: 14px;
       top: var(--left-drawer-top, 0px);
-      width: min(360px, calc(100vw - 28px));
+      width: 360px;
+      max-width: calc(100vw - 28px);
       max-height: calc(100vh - var(--left-drawer-top, 0px) - 14px);
       overflow: auto;
       z-index: 16;
@@ -371,6 +372,7 @@
     .detail-list { margin:0; padding-left:18px; }
     @media (max-width: 980px) {
       .layout { display:block; }
+      .main { padding-left:14px; }
       .sidebar {
         position:fixed;
         right:0;
@@ -549,6 +551,10 @@
     root.style.setProperty("--results-top", `${topbarHeight + panelToggleHeight}px`);
     root.style.setProperty("--sidebar-top", `${topbarHeight}px`);
     root.style.setProperty("--left-drawer-top", `${topbarHeight + panelToggleHeight}px`);
+    const drawer = document.getElementById("topPanelsWrap");
+    const drawerWidth = drawer ? drawer.offsetWidth : 360;
+    const gap = topPanelsVisible ? drawerWidth + 18 : 72;
+    root.style.setProperty("--main-left-gap", `${gap}px`);
   }
 
   async function loadSettings() {
