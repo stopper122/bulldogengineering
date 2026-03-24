@@ -96,6 +96,21 @@
     .timer-warning { font-weight:bold; color:#b45309; }
     .log-wrap { padding:18px; }
     .log-wrap table { background:#1f2937; color:white; }
+    .log-table {
+      width:100%;
+      table-layout:auto;
+    }
+    .log-table th, .log-table td {
+      padding:4px 6px;
+      font-size:11px;
+    }
+    .log-table th:nth-child(1), .log-table td:nth-child(1) { white-space:nowrap; width:140px; }
+    .log-table th:nth-child(2), .log-table td:nth-child(2) { white-space:nowrap; width:70px; text-align:center; }
+    .log-table th:nth-child(3), .log-table td:nth-child(3) { white-space:nowrap; }
+    .log-table th:nth-child(4), .log-table td:nth-child(4) { white-space:nowrap; width:80px; }
+    .log-table th:nth-child(5), .log-table td:nth-child(5) { white-space:normal; }
+    .log-table th:nth-child(6), .log-table td:nth-child(6),
+    .log-table th:nth-child(7), .log-table td:nth-child(7) { white-space:nowrap; width:70px; text-align:center; }
     .log-wrap th { border-color:#e2e8f0; }
     .log-wrap th, .log-wrap td { border-color:#374151; background:#1f2937; }
     .log-wrap th { background:#f8fafc; color:#111827; }
@@ -694,7 +709,7 @@
       container.innerHTML = "<div class='tiny' style='color:#d1d5db;'>No events recorded yet.</div>";
       return;
     }
-    let html = `<table class="student-table"><tr><th>Time</th><th>Period</th><th>Student</th><th>ID</th><th>Event</th><th>Minutes</th><th>Value</th></tr>`;
+    let html = `<table class="log-table"><tr><th>Time</th><th>Period</th><th>Student</th><th>ID</th><th>Event</th><th>Minutes</th><th>Value</th></tr>`;
     rows.forEach(row => {
       html += `<tr>
         <td>${row.time ? new Date(row.time).toLocaleString() : ""}</td>
