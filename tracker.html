@@ -43,6 +43,14 @@
       font-size:12px;
       line-height:1.2;
     }
+    .freeze-panel {
+      position: sticky;
+      top: 44px;
+      z-index: 12;
+      background:#eef2f7;
+      padding-top:6px;
+      padding-bottom:2px;
+    }
     body.touch-mode .controls button,
     body.touch-mode .tabs button,
     body.touch-mode .actions button,
@@ -225,6 +233,11 @@
     .row-warning td { background:#fffbeb; }
     .row-overdue td { background:#fef2f2; }
     .row-flagged td { background:#fff7ed; }
+    .row-pass-1 td { background:#faf5ff; }
+    .row-pass-2 td { background:#f3e8ff; }
+    .row-pass-3 td { background:#ede9fe; }
+    .row-pass-4 td { background:#ddd6fe; }
+    .row-pass-5 td { background:#c4b5fd; }
     .flag-badge {
       display:inline-block;
       margin-left:4px;
@@ -344,6 +357,7 @@
         <div id="livePassesContainer"></div>
       </div>
 
+      <div class="freeze-panel">
       <div class="card controls">
         <h3 style="margin:0 0 8px 0; font-size:16px;">Quick Controls</h3>
         <div class="inline-row">
@@ -366,12 +380,18 @@
         </div>
       </div>
 
+      </div>
+
       <div class="card" id="results" style="display:none;">
         <div class="tabs" id="tabs"></div>
         <div class="summary" id="periodSummary"></div>
+        </div>
+
+      <div class="card" id="resultsTableCard" style="display:none;">
         <div class="table-wrap">
           <div id="tableContainer"></div>
         </div>
+      </div>
       </div>
     </div>
   </div>
@@ -407,6 +427,7 @@
   const tabsEl = document.getElementById("tabs");
   const tableContainer = document.getElementById("tableContainer");
   const resultsDiv = document.getElementById("results");
+  const resultsTableCard = document.getElementById("resultsTableCard");
   const periodSummaryEl = document.getElementById("periodSummary");
   const addBtn = document.getElementById("addBtn");
   const sidebar = document.getElementById("masterLogSidebar");
@@ -901,9 +922,11 @@
     const firstPeriod = activePeriod && grouped[activePeriod] ? activePeriod : periods[0];
     if (firstPeriod) {
       resultsDiv.style.display = "block";
+      resultsTableCard.style.display = "block";
       renderTable(firstPeriod);
     } else {
       resultsDiv.style.display = "none";
+      resultsTableCard.style.display = "none";
       periodSummaryEl.innerHTML = "";
       tableContainer.innerHTML = "";
     }
@@ -974,7 +997,15 @@
       const overdueLive = isRestroomPassOverdue(s);
       const nearLimit = isRestroomPassNearLimit(s);
       const flags = getStudentFlags(s);
-      const rowClass = overdueLive ? "row-overdue" : nearLimit ? "row-warning" : flags.length ? "row-flagged" : "";
+      const passCount = getDisplayedRestroomUsedCount(s);
+      let rowClass = overdueLive ? "row-overdue" : nearLimit ? "row-warning" : flags.length ? "row-flagged" : "";
+      if (!overdueLive && !nearLimit) {
+        if (passCount >= 5) rowClass = "row-pass-5";
+        else if (passCount === 4) rowClass = "row-pass-4";
+        else if (passCount === 3) rowClass = "row-pass-3";
+        else if (passCount === 2) rowClass = "row-pass-2";
+        else if (passCount === 1) rowClass = "row-pass-1";
+      }
       html += `<tr class="${rowClass}">
         <td class="sticky-col-left-1">${s.studentId}</td>
         <td class="name-cell sticky-col-left-2 clip-cell">
