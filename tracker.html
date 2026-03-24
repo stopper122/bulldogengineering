@@ -21,10 +21,10 @@
       transition:transform 0.25s ease;
       position:fixed;
       right:0;
-      top:0;
-      height:100vh;
+      top:var(--sidebar-top, 0px);
+      height:calc(100vh - var(--sidebar-top, 0px));
       overflow:auto;
-      z-index:2500;
+      z-index:18;
     }
     .sidebar.open { transform:translateX(0); }
     .container { max-width:1180px; margin:0 auto; }
@@ -56,7 +56,7 @@
     .results-sticky {
       position: sticky;
       top: var(--results-top, 122px);
-      z-index: 11;
+      z-index: 13;
       background:#eef2f7;
       padding-bottom:8px;
       box-shadow: 0 6px 12px rgba(15,23,42,0.06);
@@ -329,11 +329,16 @@
       .sidebar {
         position:fixed;
         right:0;
-        top:0;
+        top:var(--sidebar-top, 0px);
         width:min(420px, 92vw);
-        z-index:2500;
+        height:calc(100vh - var(--sidebar-top, 0px));
+        z-index:18;
       }
       .compact-grid, .modal-grid { grid-template-columns:1fr; }
+      .student-table {
+        min-width: 980px;
+      }
+    }
       .student-table {
         min-width: 980px;
       }
@@ -501,6 +506,7 @@
     root.style.setProperty("--panel-toggle-top", `${topbarHeight}px`);
     root.style.setProperty("--freeze-top", `${topbarHeight + panelToggleHeight}px`);
     root.style.setProperty("--results-top", `${topbarHeight + panelToggleHeight + freezePanelHeight}px`);
+    root.style.setProperty("--sidebar-top", `${topbarHeight}px`);
   }
 
   async function loadSettings() {
