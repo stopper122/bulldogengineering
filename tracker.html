@@ -19,10 +19,12 @@
       border-left:1px solid #374151;
       transform:translateX(100%);
       transition:transform 0.25s ease;
-      position:sticky;
+      position:fixed;
+      right:0;
       top:0;
       height:100vh;
       overflow:auto;
+      z-index:2500;
     }
     .sidebar.open { transform:translateX(0); }
     .container { max-width:1180px; margin:0 auto; }
@@ -106,7 +108,8 @@
       top:0;
       background:#eef2f7;
       padding-bottom:8px;
-      z-index:10;
+      z-index:20;
+      box-shadow: 0 4px 10px rgba(15,23,42,0.06);
     }
     .toggle-btn { background:#111827; color:white; padding:7px 10px; border:none; border-radius:8px; font-size:12px; }
     .panel-toggle-row {
@@ -150,9 +153,9 @@
       table-layout: auto;
     }
     .student-table th:nth-child(1), .student-table td:nth-child(1) { width: 90px; }
-    .student-table th:nth-child(2), .student-table td:nth-child(2) { min-width: 250px; }
+    .student-table th:nth-child(2), .student-table td:nth-child(2) { width: 220px; max-width: 220px; }
     .student-table th:nth-child(3), .student-table td:nth-child(3) { width: 96px; text-align:center; }
-    .student-table th:nth-child(4), .student-table td:nth-child(4) { min-width: 220px; }
+    .student-table th:nth-child(4), .student-table td:nth-child(4) { width: 170px; max-width: 170px; }
     .student-table th:nth-child(5), .student-table td:nth-child(5),
     .student-table th:nth-child(6), .student-table td:nth-child(6),
     .student-table th:nth-child(7), .student-table td:nth-child(7) { width: 72px; text-align:center; }
@@ -162,6 +165,9 @@
       white-space: normal;
       overflow-wrap: anywhere;
       word-break: break-word;
+    }
+    .status-cell {
+      line-height: 1.2;
     }
     .name-cell strong { display:block; margin-bottom:2px; line-height:1.25; }
     .name-cell .tiny { display:block; line-height:1.25; }
@@ -465,7 +471,7 @@
   const addBtn = document.getElementById("addBtn");
   const sidebar = document.getElementById("masterLogSidebar");
   const modalOverlay = document.getElementById("studentModalOverlay");
-  const topbarEl = document.querySelector(".topbar");
+  const topbarEl = document.querySelector(".container > .topbar");
   const panelToggleEl = document.querySelector(".panel-toggle-row");
   const freezePanelEl = document.querySelector(".freeze-panel");
 
@@ -1099,7 +1105,7 @@
           <button class="btn-minus" onclick="adjustRestroomCount('${s._id}', -1)">➖</button>
           <button class="btn-plus" onclick="adjustRestroomCount('${s._id}', 1)">➕</button>
         </td>
-        <td class="clip-cell">${getRestroomStatusText(s)}${s.restroomActive ? `<br><span class="${overdueLive ? "timer-overdue" : nearLimit ? "timer-warning" : "timer-live"}">Live: ${elapsedText}</span>` : ""}</td>
+        <td class="clip-cell status-cell">${getRestroomStatusText(s)}${s.restroomActive ? `<br><span class="${overdueLive ? "timer-overdue" : nearLimit ? "timer-warning" : "timer-live"}">Live: ${elapsedText}</span>` : ""}</td>
         <td>${s.phoneCount || 0}</td>
         <td>${s.eatingCount || 0}</td>
         <td>${s.gamesCount || 0}</td>
