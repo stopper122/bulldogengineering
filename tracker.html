@@ -13,25 +13,66 @@
     .layout { display:flex; min-height:100vh; }
     .main { flex:1; padding:14px; overflow:visible; }
     .sidebar {
-      width:420px;
-      background:#111827;
-      color:white;
-      border-left:1px solid #374151;
-      transform:translateX(100%);
-      transition:transform 0.25s ease, width 0.25s ease;
-      position:fixed;
-      right:0;
+      width:100%;
+      background:transparent;
+      color:inherit;
+      border-left:none;
+      transform:none;
+      transition:none;
+      position:static;
+      right:auto;
+      top:auto;
+      height:auto;
+      overflow:visible;
+      z-index:auto;
+    }
+    .sidebar.open { transform:none; width:100%; }
+    .sidebar.open { transform:translateX(0); }
+    .container { max-width:1380px; margin:0 auto; }
+    .content-grid {
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) 360px;
+      gap:12px;
+      align-items:start;
+    }
+    .content-area { min-width:0; }
+    .rightpanels {
+      position:sticky;
       top:var(--sidebar-top, 0px);
       height:calc(100vh - var(--sidebar-top, 0px));
       overflow:auto;
-      z-index:18;
     }
-    .sidebar.open {
-      transform:translateX(0);
-      width:min(900px, calc(100vw - 24px));
+    .sidepanel-shell {
+      background:white;
+      border-radius:12px;
+      box-shadow:0 2px 10px rgba(15,23,42,0.08);
+      padding:10px;
     }
-    .sidebar.open { transform:translateX(0); }
-    .container { max-width:1180px; margin:0 auto; }
+    .sidepanel-tabs {
+      display:flex;
+      gap:8px;
+      margin-bottom:10px;
+      position:sticky;
+      top:0;
+      background:white;
+      z-index:2;
+      padding-bottom:8px;
+    }
+    .sidepanel-tab {
+      background:#e5e7eb;
+      color:#111827;
+      border:none;
+      border-radius:8px;
+      padding:8px 10px;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .sidepanel-tab.active {
+      background:#111827;
+      color:white;
+    }
+    .sidepanel-pane { display:none; }
+    .sidepanel-pane.active { display:block; }
     .card {
       background:white;
       padding:14px;
@@ -139,6 +180,7 @@
       z-index: 14;
       background:#eef2f7;
       padding-bottom:8px;
+      display:none;
     }
     .top-left-toggle {
       background:#111827;
@@ -347,18 +389,14 @@
     .detail-list { margin:0; padding-left:18px; }
     @media (max-width: 980px) {
       .layout { display:block; }
-      .sidebar {
-        position:fixed;
-        right:0;
-        top:var(--sidebar-top, 0px);
-        width:min(420px, 92vw);
-        height:calc(100vh - var(--sidebar-top, 0px));
-        z-index:18;
+      .content-grid { grid-template-columns:1fr; }
+      .rightpanels {
+        position:static;
+        height:auto;
+        overflow:visible;
       }
       .compact-grid, .modal-grid { grid-template-columns:1fr; }
-      .student-table {
-        min-width: 980px;
-      }
+      .student-table { min-width:980px; }
     }
       .student-table {
         min-width: 980px;
@@ -385,13 +423,9 @@
         <button class="toggle-btn" onclick="toggleMasterLog()">Show/Hide Master Log</button>
       </div>
 
-      <div class="panel-toggle-row">
-        <button class="top-left-toggle" onclick="toggleTopPanels()">Hide Top Panels</button>
-      </div>
-
       <div class="content-grid">
-        <aside class="leftpanels" id="topPanelsWrap">
-      <div class="compact-grid">
+        <div class="content-area">
+      <div class="compact-grid" style="display:none;">
         <div class="card">
           <h2 style="margin:0 0 8px 0; font-size:18px;">Upload CSV</h2>
           <div class="inline-row" id="controlsContent">
@@ -419,7 +453,7 @@
         <div id="livePassesContainer"></div>
       </div>
 
-      <div class="freeze-panel">
+      <div class="freeze-panel" style="display:none;">
       <div class="card controls">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <h3 style="margin:0; font-size:16px;">Quick Controls</h3>
@@ -446,8 +480,14 @@
       </div>
 
       </div>
-      </aside>
-        <div class="content-area">
+      </div>
+        <aside class="rightpanels" id="topPanelsWrap">
+          <div class="sidepanel-shell">
+            <div class="sidepanel-tabs">
+              <button class="sidepanel-tab active" id="controlsTabBtn" onclick="setSidebarTab('controls')">Controls</button>
+              <button class="sidepanel-tab" id="logTabBtn" onclick="setSidebarTab('log')">Master Log</button>
+            </div>
+            <div class="sidepanel-pane active" id="controlsPane">
 
       <div class="card results-sticky" id="results" style="display:none;">
         <div class="tabs" id="tabs"></div>
@@ -463,13 +503,16 @@
     </div>
   </div>
 
-  <aside class="sidebar" id="masterLogSidebar">
-    <div class="log-wrap">
+              </div>
+            <div class="sidepanel-pane" id="logPane">
+              <div class="log-wrap">
       <h3 style="margin-top:0;">Master Event Log</h3>
       <div class="tiny" style="color:#d1d5db; margin-bottom:10px;">Shows restroom starts/returns, manual pass changes, phone, eating, and games events.</div>
       <div id="masterLogContainer"></div>
-    </div>
-  </aside>
+                  </div>
+            </div>
+          </div>
+        </aside>
 </div>
 
 <script type="module">
@@ -497,10 +540,12 @@
   const resultsTableCard = document.getElementById("resultsTableCard");
   const periodSummaryEl = document.getElementById("periodSummary");
   const addBtn = document.getElementById("addBtn");
-  const sidebar = document.getElementById("masterLogSidebar");
+  const sidebar = document.getElementById("topPanelsWrap");
   const modalOverlay = document.getElementById("studentModalOverlay");
   const topbarEl = document.querySelector(".container > .topbar");
   const panelToggleEl = document.querySelector(".panel-toggle-row");
+  const controlsPaneEl = document.getElementById("controlsPane");
+  const logPaneEl = document.getElementById("logPane");
   const freezePanelEl = document.querySelector(".freeze-panel");
 
   let grouped = {};
@@ -515,7 +560,8 @@
   let soundAlertsEnabled = localStorage.getItem("studentTrackerSoundAlerts") === "true";
   let selectedStudentId = null;
   let controlsVisible = true;
-  let topPanelsVisible = false;
+  let topPanelsVisible = true;
+  let activeSidebarTab = "controls";
 
   function applySavedModes() {
     document.body.classList.toggle("touch-mode", touchMode);
@@ -529,7 +575,7 @@
     root.style.setProperty("--panel-toggle-top", `${topbarHeight}px`);
     root.style.setProperty("--freeze-top", `${topbarHeight + panelToggleHeight}px`);
     root.style.setProperty("--results-top", `${topbarHeight + panelToggleHeight + freezePanelHeight}px`);
-    root.style.setProperty("--sidebar-top", `${topbarHeight}px`);
+    root.style.setProperty("--sidebar-top", `${topbarHeight + 8}px`);
   }
 
   async function loadSettings() {
@@ -839,14 +885,27 @@
 
   window.toggleTopPanels = () => {
     topPanelsVisible = !topPanelsVisible;
-    const wrap = document.getElementById("topPanelsWrap");
     const btn = document.querySelector(".top-left-toggle");
     if (topPanelsVisible) {
-      wrap.style.display = "block";
+      controlsPaneEl.style.display = "block";
       btn.textContent = "Hide Top Panels";
+      setSidebarTab("controls");
     } else {
-      wrap.style.display = "none";
+      controlsPaneEl.style.display = "none";
       btn.textContent = "Show Top Panels";
+    }
+    updateStickyOffsets();
+  };
+
+  window.setSidebarTab = (tab) => {
+    activeSidebarTab = tab;
+    document.getElementById("controlsTabBtn").classList.toggle("active", tab === "controls");
+    document.getElementById("logTabBtn").classList.toggle("active", tab === "log");
+    controlsPaneEl.classList.toggle("active", tab === "controls");
+    logPaneEl.classList.toggle("active", tab === "log");
+    if (tab === "controls" && !topPanelsVisible) {
+      topPanelsVisible = true;
+      controlsPaneEl.style.display = "block";
     }
     updateStickyOffsets();
   };
@@ -866,7 +925,7 @@
   };
 
   window.toggleMasterLog = () => {
-    sidebar.classList.toggle("open");
+    setSidebarTab(activeSidebarTab === "log" ? "controls" : "log");
   };
 
   window.updateSearch = () => {
@@ -1277,9 +1336,8 @@
   };
 
   applySavedModes();
-  document.getElementById("topPanelsWrap").style.display = "none";
   const topPanelsBtn = document.querySelector(".top-left-toggle");
-  if (topPanelsBtn) topPanelsBtn.textContent = "Show Top Panels";
+  if (topPanelsBtn) topPanelsBtn.textContent = "Hide Top Panels";
   updateStickyOffsets();
   await loadSettings();
   loadFromFirebase();
