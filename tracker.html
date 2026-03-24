@@ -139,6 +139,31 @@
       background:#eef2f7;
       padding-bottom:8px;
     }
+    .left-drawer {
+      position: fixed;
+      left: 14px;
+      top: var(--left-drawer-top, 0px);
+      width: min(360px, calc(100vw - 28px));
+      max-height: calc(100vh - var(--left-drawer-top, 0px) - 14px);
+      overflow: auto;
+      z-index: 16;
+      transform: translateX(calc(-100% + 54px));
+      transition: transform 0.25s ease;
+      padding-right: 6px;
+    }
+    .left-drawer.open {
+      transform: translateX(0);
+    }
+    .left-drawer .freeze-panel,
+    .left-drawer .live-passes-card {
+      position: static;
+      top: auto;
+      z-index: auto;
+      box-shadow: none;
+    }
+    .left-drawer .card {
+      margin-bottom: 10px;
+    }
     .top-left-toggle {
       background:#111827;
       color:white;
@@ -354,6 +379,9 @@
         height:calc(100vh - var(--sidebar-top, 0px));
         z-index:18;
       }
+      .left-drawer {
+        width:min(320px, calc(100vw - 24px));
+      }
       .compact-grid, .modal-grid { grid-template-columns:1fr; }
       .student-table { min-width:980px; }
     }
@@ -379,10 +407,10 @@
       </div>
 
       <div class="panel-toggle-row">
-        <button class="top-left-toggle" onclick="toggleTopPanels()">Hide Top Panels</button>
+        <button class="top-left-toggle" onclick="toggleTopPanels()">Hide Left Panel</button>
       </div>
 
-      <div id="topPanelsWrap">
+      <aside id="topPanelsWrap" class="left-drawer open">
       <div class="compact-grid">
         <div class="card">
           <h2 style="margin:0 0 8px 0; font-size:18px;">Upload CSV</h2>
@@ -438,7 +466,7 @@
       </div>
 
       </div>
-      </div>
+      </aside>
 
       <div class="card results-sticky" id="results" style="display:none;">
         <div class="tabs" id="tabs"></div>
@@ -518,8 +546,9 @@
     const freezePanelHeight = freezePanelEl ? freezePanelEl.offsetHeight : 0;
     root.style.setProperty("--panel-toggle-top", `${topbarHeight}px`);
     root.style.setProperty("--freeze-top", `${topbarHeight + panelToggleHeight}px`);
-    root.style.setProperty("--results-top", `${topbarHeight + panelToggleHeight + freezePanelHeight}px`);
+    root.style.setProperty("--results-top", `${topbarHeight + panelToggleHeight}px`);
     root.style.setProperty("--sidebar-top", `${topbarHeight}px`);
+    root.style.setProperty("--left-drawer-top", `${topbarHeight + panelToggleHeight}px`);
   }
 
   async function loadSettings() {
@@ -829,13 +858,8 @@
     topPanelsVisible = !topPanelsVisible;
     const wrap = document.getElementById("topPanelsWrap");
     const btn = document.querySelector(".top-left-toggle");
-    if (topPanelsVisible) {
-      wrap.style.display = "block";
-      btn.textContent = "Hide Top Panels";
-    } else {
-      wrap.style.display = "none";
-      btn.textContent = "Show Top Panels";
-    }
+    wrap.classList.toggle("open", topPanelsVisible);
+    btn.textContent = topPanelsVisible ? "Hide Left Panel" : "Show Left Panel";
     updateStickyOffsets();
   };
 
