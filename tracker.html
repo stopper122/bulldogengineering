@@ -118,14 +118,13 @@
     }
     .student-table th:nth-child(1), .student-table td:nth-child(1) { width: 90px; }
     .student-table th:nth-child(2), .student-table td:nth-child(2) { width: 260px; }
-    .student-table th:nth-child(3), .student-table td:nth-child(3) { width: 90px; text-align:center; vertical-align:middle; }
-    .student-table th:nth-child(4), .student-table td:nth-child(4) { width: 96px; text-align:center; }
-    .student-table th:nth-child(5), .student-table td:nth-child(5) { width: 210px; }
+    .student-table th:nth-child(3), .student-table td:nth-child(3) { width: 96px; text-align:center; }
+    .student-table th:nth-child(4), .student-table td:nth-child(4) { width: 210px; }
+    .student-table th:nth-child(5), .student-table td:nth-child(5),
     .student-table th:nth-child(6), .student-table td:nth-child(6),
-    .student-table th:nth-child(7), .student-table td:nth-child(7),
-    .student-table th:nth-child(8), .student-table td:nth-child(8) { width: 72px; text-align:center; }
-    .student-table th:nth-child(9), .student-table td:nth-child(9) { width: 170px; }
-    .student-table th:nth-child(10), .student-table td:nth-child(10) { width: 150px; }
+    .student-table th:nth-child(7), .student-table td:nth-child(7) { width: 72px; text-align:center; }
+    .student-table th:nth-child(8), .student-table td:nth-child(8) { width: 170px; }
+    .student-table th:nth-child(9), .student-table td:nth-child(9) { width: 150px; }
     .clip-cell {
       white-space: normal;
       overflow-wrap: anywhere;
@@ -133,6 +132,26 @@
     }
     .name-cell strong { display:block; margin-bottom:2px; line-height:1.25; }
     .name-cell .tiny { display:block; line-height:1.25; }
+    .pass-dots {
+      display:flex;
+      flex-wrap:wrap;
+      gap:4px;
+      margin-top:4px;
+      align-items:center;
+    }
+    .pass-dot {
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      background:#8b5cf6;
+      display:inline-block;
+    }
+    .pass-extra {
+      font-size:10px;
+      color:#6b7280;
+      font-weight:700;
+      margin-left:2px;
+    }
     .name-button {
       all:unset;
       cursor:pointer;
@@ -469,6 +488,22 @@
     if (!student.restroomActive || !student.restroomStartTime) return "In class";
     const elapsed = getElapsedMinutes(student.restroomStartTime);
     return isRestroomPassOverdue(student) ? `Out ${elapsed} min - counts as used` : `Out ${elapsed} min`;
+  }
+
+  function renderPassDots(count) {
+    const total = Math.max(0, Number(count || 0));
+    const shown = Math.min(total, 8);
+    let html = '<div class="pass-dots" aria-label="Restroom passes used">';
+    for (let i = 0; i < shown; i += 1) {
+      html += '<span class="pass-dot"></span>';
+    }
+    if (total === 0) {
+      html += '<span class="tiny">No passes used</span>';
+    } else if (total > shown) {
+      html += `<span class="pass-extra">+${total - shown}</span>`;
+    }
+    html += '</div>';
+    return html;
   }
 
   function getStudentFlags(student) {
@@ -914,10 +949,9 @@
     renderTabs();
     renderSummary(period, students);
 
-    let html = `<table><tr>
+    let html = `<table class="student-table"><tr>
       <th class="sticky-col-left-1">ID</th>
       <th class="sticky-col-left-2">Name</th>
-      <th>Restroom Used</th>
       <th>Pass Adjust</th>
       <th>Restroom Status</th>
       <th>Phone</th>
@@ -941,9 +975,9 @@
           <button class="name-button" onclick="openStudentDetail('${s._id}')">
             <strong>${s.lastName}, ${s.firstName}${flags.map(flag => `<span class='flag-badge'>${flag}</span>`).join("")}</strong>
             <span class="tiny">${lastEventText}</span>
+            ${renderPassDots(getDisplayedRestroomUsedCount(s))}
           </button>
         </td>
-        <td><span class="count-badge">${getDisplayedRestroomUsedCount(s)}</span></td>
         <td class="tracking">
           <button class="btn-minus" onclick="adjustRestroomCount('${s._id}', -1)">➖</button>
           <button class="btn-plus" onclick="adjustRestroomCount('${s._id}', 1)">➕</button>
