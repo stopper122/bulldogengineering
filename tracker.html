@@ -45,7 +45,7 @@
     }
     .freeze-panel {
       position: sticky;
-      top: 44px;
+      top: var(--freeze-top, 44px);
       z-index: 12;
       background:#eef2f7;
       padding-top:6px;
@@ -53,7 +53,7 @@
     }
     .results-sticky {
       position: sticky;
-      top: 122px;
+      top: var(--results-top, 122px);
       z-index: 11;
       background:#eef2f7;
       padding-bottom:8px;
@@ -111,7 +111,7 @@
     .toggle-btn { background:#111827; color:white; padding:7px 10px; border:none; border-radius:8px; font-size:12px; }
     .panel-toggle-row {
       position: sticky;
-      top: 44px;
+      top: var(--panel-toggle-top, 44px);
       z-index: 14;
       background:#eef2f7;
       padding-bottom:8px;
@@ -331,9 +331,6 @@
       .student-table {
         min-width: 980px;
       }
-      .results-sticky {
-        top: 150px;
-      }
     }
   </style>
 </head>
@@ -468,6 +465,9 @@
   const addBtn = document.getElementById("addBtn");
   const sidebar = document.getElementById("masterLogSidebar");
   const modalOverlay = document.getElementById("studentModalOverlay");
+  const topbarEl = document.querySelector(".topbar");
+  const panelToggleEl = document.querySelector(".panel-toggle-row");
+  const freezePanelEl = document.querySelector(".freeze-panel");
 
   let grouped = {};
   let allDocs = [];
@@ -485,6 +485,16 @@
 
   function applySavedModes() {
     document.body.classList.toggle("touch-mode", touchMode);
+  }
+
+  function updateStickyOffsets() {
+    const root = document.documentElement;
+    const topbarHeight = topbarEl ? topbarEl.offsetHeight : 0;
+    const panelToggleHeight = panelToggleEl ? panelToggleEl.offsetHeight : 0;
+    const freezePanelHeight = freezePanelEl ? freezePanelEl.offsetHeight : 0;
+    root.style.setProperty("--panel-toggle-top", `${topbarHeight}px`);
+    root.style.setProperty("--freeze-top", `${topbarHeight + panelToggleHeight}px`);
+    root.style.setProperty("--results-top", `${topbarHeight + panelToggleHeight + freezePanelHeight}px`);
   }
 
   async function loadSettings() {
@@ -781,6 +791,8 @@
     touchMode = !touchMode;
     localStorage.setItem("studentTrackerTouchMode", String(touchMode));
     applySavedModes();
+  updateStickyOffsets();
+  window.addEventListener("resize", updateStickyOffsets);
   };
 
   window.toggleSoundAlerts = () => {
@@ -800,6 +812,7 @@
       wrap.style.display = "none";
       btn.textContent = "Show Top Panels";
     }
+    updateStickyOffsets();
   };
 
   window.toggleControls = () => {
@@ -813,6 +826,7 @@
       el.style.display = "none";
       btn.textContent = "Show";
     }
+    updateStickyOffsets();
   };
 
   window.toggleMasterLog = () => {
@@ -987,10 +1001,12 @@
     if (firstPeriod) {
       resultsDiv.style.display = "block";
       resultsTableCard.style.display = "block";
+      updateStickyOffsets();
       renderTable(firstPeriod);
     } else {
       resultsDiv.style.display = "none";
       resultsTableCard.style.display = "none";
+      updateStickyOffsets();
       periodSummaryEl.innerHTML = "";
       tableContainer.innerHTML = "";
     }
