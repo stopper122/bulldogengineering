@@ -82,7 +82,7 @@
     th, td { border:1px solid #e2e8f0; border-left:none; border-top:none; padding:6px; text-align:left; vertical-align:top; font-size:12px; background:white; }
     tr > *:first-child { border-left:1px solid #e2e8f0; }
     table tr:first-child > * { border-top:1px solid #e2e8f0; }
-    th { background:#f8fafc !important; position:sticky; top:var(--results-top, 0px); z-index:15; }
+    th { background:#f8fafc !important; position:sticky; top:calc(var(--results-top, 0px) + var(--results-height, 0px)); z-index:15; }
     .pill { display:inline-block; padding:3px 7px; border-radius:999px; font-size:11px; margin-right:5px; margin-bottom:5px; background:#eef2ff; }
     .tiny { font-size:11px; color:#64748b; }
     .danger { background:#dc2626; color:white; }
@@ -587,9 +587,11 @@
     const topbarHeight = topbarEl ? topbarEl.offsetHeight : 0;
     const panelToggleHeight = panelToggleEl ? panelToggleEl.offsetHeight : 0;
     const freezePanelHeight = freezePanelEl ? freezePanelEl.offsetHeight : 0;
+    const resultsHeight = resultsDiv && resultsDiv.style.display !== "none" ? resultsDiv.offsetHeight : 0;
     root.style.setProperty("--panel-toggle-top", `${topbarHeight}px`);
     root.style.setProperty("--freeze-top", `${topbarHeight + panelToggleHeight}px`);
     root.style.setProperty("--results-top", `${topbarHeight + panelToggleHeight}px`);
+    root.style.setProperty("--results-height", `${resultsHeight}px`);
     root.style.setProperty("--sidebar-top", `${topbarHeight}px`);
     root.style.setProperty("--left-drawer-top", `${topbarHeight + panelToggleHeight}px`);
     const drawer = document.getElementById("topPanelsWrap");
@@ -1148,6 +1150,7 @@
       <span class="pill">Eating: ${eating}</span>
       <span class="pill">Games: ${games}</span>
       <span class="pill">Sleep: ${sleep}</span>`;
+    updateStickyOffsets();
   }
 
   function renderTable(period) {
