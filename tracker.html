@@ -9,6 +9,7 @@
 
   <style>
     body { margin:0; font-family:Inter, Arial, sans-serif; background:#eef2f7; color:#0f172a; }
+    body.touch-mode { font-size:16px; }
     .layout { display:flex; min-height:100vh; }
     .main { flex:1; padding:14px; overflow:auto; }
     .sidebar {
@@ -32,7 +33,7 @@
       box-shadow:0 2px 10px rgba(15,23,42,0.08);
       margin-bottom:12px;
     }
-    .controls button, .tabs button, .actions button, .tracking button {
+    .controls button, .tabs button, .actions button, .tracking button, .modal-actions button {
       margin-right:4px;
       margin-bottom:4px;
       padding:6px 9px;
@@ -42,13 +43,25 @@
       font-size:12px;
       line-height:1.2;
     }
+    body.touch-mode .controls button,
+    body.touch-mode .tabs button,
+    body.touch-mode .actions button,
+    body.touch-mode .tracking button,
+    body.touch-mode .modal-actions button,
+    body.touch-mode .toggle-btn,
+    body.touch-mode input {
+      font-size:14px;
+      padding:10px 12px;
+    }
     .tabs button { background:#ddd; }
     .tabs button.active { background:#2563eb; color:white; }
     .tabs button.current { background:#16a34a; color:white; }
-    input { margin:3px 5px 3px 0; padding:6px 8px; border:1px solid #cbd5e1; border-radius:7px; font-size:13px; }
-    table { width:100%; border-collapse:collapse; margin-top:8px; background:white; }
-    th, td { border:1px solid #e2e8f0; padding:6px; text-align:left; vertical-align:top; font-size:12px; }
-    th { background:#f8fafc; position:sticky; top:0; z-index:1; }
+    input, select { margin:3px 5px 3px 0; padding:6px 8px; border:1px solid #cbd5e1; border-radius:7px; font-size:13px; }
+    table { width:100%; border-collapse:separate; border-spacing:0; margin-top:8px; background:white; }
+    th, td { border:1px solid #e2e8f0; border-left:none; border-top:none; padding:6px; text-align:left; vertical-align:top; font-size:12px; background:white; }
+    tr > *:first-child { border-left:1px solid #e2e8f0; }
+    table tr:first-child > * { border-top:1px solid #e2e8f0; }
+    th { background:#f8fafc; position:sticky; top:0; z-index:3; }
     .pill { display:inline-block; padding:3px 7px; border-radius:999px; font-size:11px; margin-right:5px; margin-bottom:5px; background:#eef2ff; }
     .tiny { font-size:11px; color:#64748b; }
     .danger { background:#dc2626; color:white; }
@@ -59,11 +72,13 @@
     .phone { background:#f59e0b; color:white; }
     .eating { background:#8b5cf6; color:white; }
     .games { background:#ef4444; color:white; }
+    .report { background:#334155; color:white; }
     .timer-live { font-weight:bold; color:#0f766e; }
     .timer-overdue { font-weight:bold; color:#b91c1c; }
+    .timer-warning { font-weight:bold; color:#b45309; }
     .log-wrap { padding:18px; }
     .log-wrap table { background:#1f2937; color:white; }
-    .log-wrap th, .log-wrap td { border-color:#374151; }
+    .log-wrap th, .log-wrap td { border-color:#374151; background:#1f2937; }
     .log-wrap th { background:#111827; }
     .topbar {
       display:flex;
@@ -95,8 +110,16 @@
       max-height:68vh;
       border:1px solid #e2e8f0;
       border-radius:10px;
+      background:white;
     }
     .name-cell strong { display:block; margin-bottom:2px; }
+    .name-button {
+      all:unset;
+      cursor:pointer;
+      display:block;
+      width:100%;
+    }
+    .name-button:hover strong { text-decoration:underline; }
     .count-badge {
       display:inline-flex;
       min-width:20px;
@@ -157,10 +180,83 @@
     }
     .toast.warn { border-left: 4px solid #f59e0b; }
     .toast.overdue { border-left: 4px solid #ef4444; }
+    .toast.success { border-left: 4px solid #10b981; }
+    .search-input { min-width:180px; }
+    .row-warning td { background:#fffbeb; }
+    .row-overdue td { background:#fef2f2; }
+    .row-flagged td { background:#fff7ed; }
+    .flag-badge {
+      display:inline-block;
+      margin-left:4px;
+      padding:1px 5px;
+      border-radius:999px;
+      font-size:10px;
+      background:#fef3c7;
+      color:#92400e;
+      font-weight:700;
+    }
+    .sticky-col-left-1 { position:sticky; left:0; z-index:2; }
+    .sticky-col-left-2 { position:sticky; left:76px; z-index:2; }
+    .sticky-col-right { position:sticky; right:0; z-index:2; }
+    th.sticky-col-left-1, th.sticky-col-left-2, th.sticky-col-right { z-index:4; }
+    .modal-overlay {
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,0.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:3000;
+      padding:16px;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal {
+      background:white;
+      width:min(920px, 100%);
+      max-height:90vh;
+      overflow:auto;
+      border-radius:14px;
+      box-shadow:0 20px 60px rgba(0,0,0,0.25);
+      padding:16px;
+    }
+    .modal-grid {
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:12px;
+    }
+    .modal-section {
+      border:1px solid #e2e8f0;
+      border-radius:10px;
+      padding:10px;
+      background:#fafcff;
+    }
+    .modal-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .detail-list { margin:0; padding-left:18px; }
+    @media (max-width: 980px) {
+      .layout { display:block; }
+      .sidebar {
+        position:fixed;
+        right:0;
+        top:0;
+        width:min(420px, 92vw);
+        z-index:2500;
+      }
+      .compact-grid, .modal-grid { grid-template-columns:1fr; }
+      .sticky-col-left-2 { left:68px; }
+    }
   </style>
 </head>
 <body>
 <div class="toast-container" id="toastContainer"></div>
+<div class="modal-overlay" id="studentModalOverlay">
+  <div class="modal">
+    <div class="topbar" style="position:static; background:white; padding-bottom:0; margin-bottom:12px;">
+      <h2 id="studentModalTitle" style="margin:0; font-size:20px;">Student Detail</h2>
+      <button class="toggle-btn" onclick="closeStudentDetail()">Close</button>
+    </div>
+    <div id="studentModalContent"></div>
+  </div>
+</div>
 <div class="layout">
   <div class="main">
     <div class="container">
@@ -202,6 +298,10 @@
         <div class="inline-row">
           <button onclick="setSort('first')">First</button>
           <button onclick="setSort('last')">Last</button>
+          <input id="searchInput" class="search-input" placeholder="Search name or ID" oninput="updateSearch()" />
+          <button onclick="clearSearch()">Clear Search</button>
+          <button onclick="toggleTouchMode()">Touch Mode</button>
+          <button onclick="toggleSoundAlerts()">Sound Alerts</button>
           <input id="currentPeriodInput" placeholder="Current period" style="width:110px;" />
           <button onclick="setCurrentPeriod()">Set Period</button>
           <input id="restroomLimitInput" type="number" min="1" value="6" style="width:80px;" />
@@ -259,6 +359,7 @@
   const periodSummaryEl = document.getElementById("periodSummary");
   const addBtn = document.getElementById("addBtn");
   const sidebar = document.getElementById("masterLogSidebar");
+  const modalOverlay = document.getElementById("studentModalOverlay");
 
   let grouped = {};
   let allDocs = [];
@@ -267,6 +368,14 @@
   let activePeriod = null;
   let restroomLimitMinutes = 6;
   let passNotificationState = {};
+  let searchQuery = "";
+  let touchMode = localStorage.getItem("studentTrackerTouchMode") === "true";
+  let soundAlertsEnabled = localStorage.getItem("studentTrackerSoundAlerts") === "true";
+  let selectedStudentId = null;
+
+  function applySavedModes() {
+    document.body.classList.toggle("touch-mode", touchMode);
+  }
 
   async function loadSettings() {
     const settingsRef = doc(db, "appSettings", "shared");
@@ -320,6 +429,12 @@
     return Boolean(student.restroomActive && student.restroomStartTime && getElapsedMs(student.restroomStartTime) > restroomLimitMinutes * 60000);
   }
 
+  function isRestroomPassNearLimit(student) {
+    if (!student.restroomActive || !student.restroomStartTime) return false;
+    const elapsedMs = getElapsedMs(student.restroomStartTime);
+    return elapsedMs >= Math.max(0, (restroomLimitMinutes - 1) * 60000) && elapsedMs < restroomLimitMinutes * 60000;
+  }
+
   function getDisplayedRestroomUsedCount(student) {
     return Number(student.restroomCount || 0) + (isRestroomPassOverdue(student) ? 1 : 0);
   }
@@ -328,6 +443,44 @@
     if (!student.restroomActive || !student.restroomStartTime) return "In class";
     const elapsed = getElapsedMinutes(student.restroomStartTime);
     return isRestroomPassOverdue(student) ? `Out ${elapsed} min - counts as used` : `Out ${elapsed} min`;
+  }
+
+  function getStudentFlags(student) {
+    const flags = [];
+    if (getDisplayedRestroomUsedCount(student) >= 3) flags.push("Restroom");
+    if ((student.phoneCount || 0) >= 2) flags.push("Phone");
+    return flags;
+  }
+
+  function studentMatchesSearch(student) {
+    if (!searchQuery) return true;
+    const haystack = `${student.firstName} ${student.lastName} ${student.studentId}`.toLowerCase();
+    return haystack.includes(searchQuery.toLowerCase());
+  }
+
+  function findDuplicateStudent(studentId, period, ignoreId = null) {
+    return allDocs.find(s => String(s.studentId).trim() === String(studentId).trim() && String(s.period).trim() === String(period).trim() && s._id !== ignoreId);
+  }
+
+  function playAlertTone(type = "warn") {
+    if (!soundAlertsEnabled) return;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = type === "overdue" ? 880 : 660;
+      gain.gain.value = 0.04;
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + (type === "overdue" ? 0.35 : 0.22));
+      oscillator.onended = () => ctx.close();
+    } catch (error) {
+      console.error("Sound alert failed", error);
+    }
   }
 
   function renderLivePasses() {
@@ -352,10 +505,11 @@
       html += `<div class="live-pass-item ${overdue ? "overdue" : ""}">
         <div class="live-pass-name">${student.lastName}, ${student.firstName}</div>
         <div class="live-pass-meta">Period ${student.period} · ID ${student.studentId}</div>
-        <div class="live-pass-status ${overdue ? "timer-overdue" : "timer-live"}">Out: ${formatDuration(elapsedMs)}</div>
+        <div class="live-pass-status ${overdue ? "timer-overdue" : isRestroomPassNearLimit(student) ? "timer-warning" : "timer-live"}">Out: ${formatDuration(elapsedMs)}</div>
         <div class="live-pass-meta">${overdue ? "Over limit - counts as used" : `Limit: ${restroomLimitMinutes} min`}</div>
         <div class="live-pass-actions">
           <button class="restroom" onclick="endRestroomPass('${student._id}')">⏹️</button>
+          <button class="report" onclick="openStudentDetail('${student._id}')">👁️</button>
         </div>
       </div>`;
     });
@@ -425,6 +579,7 @@
       : `${name} has gone over the restroom time limit.`;
 
     showToast(message, stage === "warning" ? "warn" : "overdue");
+    playAlertTone(stage === "warning" ? "warn" : "overdue");
 
     if ("Notification" in window && Notification.permission === "granted") {
       new Notification("Student Tracker", { body: message });
@@ -460,6 +615,29 @@
     passNotificationState = nextState;
   }
 
+  function exportCsv(filename, headers, rows) {
+    const escapeCsv = (value) => {
+      const str = String(value ?? "");
+      return '"' + str.replace(/"/g, '""') + '"';
+    };
+    const csvLines = [headers.join(",")];
+    rows.forEach(row => {
+      csvLines.push(row.map(escapeCsv).join(","));
+    });
+    const csvText = csvLines.join("\\n");
+    const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function safeFilename(text) {
+    return String(text || "student").replace(/[^a-z0-9_-]+/gi, "_");
+  }
+
   window.enableNotifications = async () => {
     if (!("Notification" in window)) {
       alert("This browser does not support notifications.");
@@ -467,14 +645,37 @@
     }
     const permission = await Notification.requestPermission();
     if (permission === "granted") {
-      showToast("Notifications enabled.", "warn");
+      showToast("Notifications enabled.", "success");
     } else {
       alert("Notifications were not enabled. You can still use the in-page alerts.");
     }
   };
 
+  window.toggleTouchMode = () => {
+    touchMode = !touchMode;
+    localStorage.setItem("studentTrackerTouchMode", String(touchMode));
+    applySavedModes();
+  };
+
+  window.toggleSoundAlerts = () => {
+    soundAlertsEnabled = !soundAlertsEnabled;
+    localStorage.setItem("studentTrackerSoundAlerts", String(soundAlertsEnabled));
+    showToast(soundAlertsEnabled ? "Sound alerts enabled." : "Sound alerts disabled.", "success");
+  };
+
   window.toggleMasterLog = () => {
     sidebar.classList.toggle("open");
+  };
+
+  window.updateSearch = () => {
+    searchQuery = document.getElementById("searchInput").value.trim();
+    if (activePeriod) renderTable(activePeriod);
+  };
+
+  window.clearSearch = () => {
+    searchQuery = "";
+    document.getElementById("searchInput").value = "";
+    if (activePeriod) renderTable(activePeriod);
   };
 
   window.exportData = () => {
@@ -489,36 +690,28 @@
   };
 
   window.exportMasterLogCsv = () => {
-    const rows = flattenMasterLog();
-    const headers = ["time", "period", "student", "studentId", "event", "minutes", "value"];
+    const rows = flattenMasterLog().map(row => [row.time, row.period, row.name, row.studentId, row.type, row.minutes, row.value]);
+    exportCsv("master-log.csv", ["time", "period", "student", "studentId", "event", "minutes", "value"], rows);
+  };
 
-    const escapeCsv = (value) => {
-      const str = String(value ?? "");
-      return '"' + str.replace(/"/g, '""') + '"';
-    };
-
-    const csvLines = [headers.join(",")];
-
-    rows.forEach(row => {
-      csvLines.push([
-        escapeCsv(row.time),
-        escapeCsv(row.period),
-        escapeCsv(row.name),
-        escapeCsv(row.studentId),
-        escapeCsv(row.type),
-        escapeCsv(row.minutes),
-        escapeCsv(row.value)
-      ].join(","));
+  window.exportStudentReport = (id) => {
+    const student = allDocs.find(s => s._id === id);
+    if (!student) return;
+    const name = `${student.lastName}_${student.firstName}_${student.studentId}`;
+    const headers = ["section", "field1", "field2", "field3", "field4"];
+    const rows = [
+      ["summary", "studentId", student.studentId, "period", student.period],
+      ["summary", "name", `${student.firstName} ${student.lastName}`, "restroomUsed", student.restroomCount],
+      ["summary", "phoneCount", student.phoneCount, "eatingCount", student.eatingCount],
+      ["summary", "gamesCount", student.gamesCount, "flags", getStudentFlags(student).join(" | ")]
+    ];
+    (student.restroomHistory || []).forEach(entry => {
+      rows.push(["restroomHistory", entry.startTime || "", entry.endTime || "", entry.minutes || "", entry.countedAsUsed ? "used" : "returned"]);
     });
-
-    const csvText = csvLines.join("\n");
-    const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "master-log.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    (student.behaviorLog || []).forEach(entry => {
+      rows.push(["behaviorLog", entry.time || "", entry.type || "", entry.minutes ?? "", entry.value ?? ""]);
+    });
+    exportCsv(`${safeFilename(name)}_report.csv`, headers, rows);
   };
 
   window.restoreData = async () => {
@@ -528,8 +721,14 @@
     const text = await file.text();
     const data = JSON.parse(text);
     if (!confirm("This will ADD students from backup. Continue?")) return;
+    let added = 0;
+    let skipped = 0;
     for (const raw of data) {
       const s = studentDefaults(raw);
+      if (findDuplicateStudent(s.studentId, s.period)) {
+        skipped += 1;
+        continue;
+      }
       await addDoc(collection(db, "students"), {
         studentId: s.studentId,
         firstName: s.firstName,
@@ -544,8 +743,9 @@
         restroomStartTime: s.restroomStartTime,
         restroomHistory: s.restroomHistory
       });
+      added += 1;
     }
-    alert("Restore complete");
+    alert(`Restore complete. Added: ${added}. Skipped duplicates: ${skipped}.`);
   };
 
   window.wipeAllData = async () => {
@@ -557,6 +757,59 @@
     }
     alert("All data wiped");
   };
+
+  function openStudentDetailContent(student) {
+    const flags = getStudentFlags(student);
+    const behaviorRows = [...(student.behaviorLog || [])].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+    const restroomRows = [...(student.restroomHistory || [])].sort((a, b) => new Date(b.endTime || b.startTime).getTime() - new Date(a.endTime || a.startTime).getTime());
+
+    document.getElementById("studentModalTitle").textContent = `${student.lastName}, ${student.firstName}`;
+    const content = document.getElementById("studentModalContent");
+    content.innerHTML = `
+      <div class="modal-grid">
+        <div class="modal-section">
+          <h3 style="margin-top:0;">Summary</h3>
+          <div class="pill">ID: ${student.studentId}</div>
+          <div class="pill">Period: ${student.period}</div>
+          <div class="pill">Restroom Used: ${student.restroomCount}</div>
+          <div class="pill">Phone: ${student.phoneCount}</div>
+          <div class="pill">Eating: ${student.eatingCount}</div>
+          <div class="pill">Games: ${student.gamesCount}</div>
+          <div class="pill">Flags: ${flags.length ? flags.join(", ") : "None"}</div>
+          <div class="modal-actions">
+            <button class="report" onclick="exportStudentReport('${student._id}')">Export Student Report</button>
+            <button class="neutral" onclick="closeStudentDetail()">Close</button>
+          </div>
+        </div>
+        <div class="modal-section">
+          <h3 style="margin-top:0;">Recent Behavior</h3>
+          ${behaviorRows.length ? `<table><tr><th>Time</th><th>Event</th><th>Minutes</th><th>Value</th></tr>${behaviorRows.map(entry => `<tr><td>${entry.time ? new Date(entry.time).toLocaleString() : ""}</td><td>${entry.type || ""}</td><td>${entry.minutes ?? ""}</td><td>${entry.value ?? ""}</td></tr>`).join("")}</table>` : `<div class="tiny">No behavior events yet.</div>`}
+        </div>
+        <div class="modal-section" style="grid-column:1 / -1;">
+          <h3 style="margin-top:0;">Restroom History</h3>
+          ${restroomRows.length ? `<table><tr><th>Start</th><th>End</th><th>Minutes</th><th>Status</th></tr>${restroomRows.map(entry => `<tr><td>${entry.startTime ? new Date(entry.startTime).toLocaleString() : ""}</td><td>${entry.endTime ? new Date(entry.endTime).toLocaleString() : ""}</td><td>${entry.minutes ?? ""}</td><td>${entry.countedAsUsed ? "Used" : "Returned"}</td></tr>`).join("")}</table>` : `<div class="tiny">No restroom history yet.</div>`}
+        </div>
+      </div>`;
+  }
+
+  window.openStudentDetail = (id) => {
+    const student = allDocs.find(s => s._id === id);
+    if (!student) return;
+    selectedStudentId = id;
+    openStudentDetailContent(student);
+    modalOverlay.classList.add("open");
+  };
+
+  window.closeStudentDetail = () => {
+    modalOverlay.classList.remove("open");
+    selectedStudentId = null;
+  };
+
+  modalOverlay.addEventListener("click", (event) => {
+    if (event.target === modalOverlay) {
+      closeStudentDetail();
+    }
+  });
 
   async function loadFromFirebase() {
     const snapshot = await getDocs(collection(db, "students"));
@@ -573,6 +826,10 @@
     renderLivePasses();
     checkPassNotifications();
     renderMasterLog();
+    if (selectedStudentId) {
+      const selected = allDocs.find(s => s._id === selectedStudentId);
+      if (selected) openStudentDetailContent(selected);
+    }
     const periods = Object.keys(grouped).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
     const firstPeriod = activePeriod && grouped[activePeriod] ? activePeriod : periods[0];
     if (firstPeriod) {
@@ -625,28 +882,47 @@
 
   function renderTable(period) {
     activePeriod = String(period);
-    let students = [...(grouped[period] || [])];
+    let students = [...(grouped[period] || [])].filter(studentMatchesSearch);
     if (sortMode === "first") students.sort((a, b) => (a.firstName || "").localeCompare(b.firstName || ""));
     if (sortMode === "last") students.sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
     renderTabs();
     renderSummary(period, students);
 
-    let html = `<table><tr><th>ID</th><th>Name</th><th>Restroom Used</th><th>Pass Adjust</th><th>Restroom Status</th><th>Phone</th><th>Eating</th><th>Games</th><th>Track</th><th>Actions</th></tr>`;
+    let html = `<table><tr>
+      <th class="sticky-col-left-1">ID</th>
+      <th class="sticky-col-left-2">Name</th>
+      <th>Restroom Used</th>
+      <th>Pass Adjust</th>
+      <th>Restroom Status</th>
+      <th>Phone</th>
+      <th>Eating</th>
+      <th>Games</th>
+      <th>Track</th>
+      <th class="sticky-col-right">Actions</th>
+    </tr>`;
     students.forEach(s => {
       const lastEvent = s.behaviorLog && s.behaviorLog.length ? s.behaviorLog[s.behaviorLog.length - 1] : null;
       const lastEventText = lastEvent ? `${lastEvent.type} (${new Date(lastEvent.time).toLocaleString()})` : "No events";
       const elapsedMs = s.restroomActive && s.restroomStartTime ? getElapsedMs(s.restroomStartTime) : 0;
       const elapsedText = s.restroomActive ? formatDuration(elapsedMs) : "";
       const overdueLive = isRestroomPassOverdue(s);
-      html += `<tr>
-        <td>${s.studentId}</td>
-        <td class="name-cell"><strong>${s.lastName}, ${s.firstName}</strong><span class="tiny">${lastEventText}</span></td>
+      const nearLimit = isRestroomPassNearLimit(s);
+      const flags = getStudentFlags(s);
+      const rowClass = overdueLive ? "row-overdue" : nearLimit ? "row-warning" : flags.length ? "row-flagged" : "";
+      html += `<tr class="${rowClass}">
+        <td class="sticky-col-left-1">${s.studentId}</td>
+        <td class="name-cell sticky-col-left-2">
+          <button class="name-button" onclick="openStudentDetail('${s._id}')">
+            <strong>${s.lastName}, ${s.firstName}${flags.map(flag => `<span class='flag-badge'>${flag}</span>`).join("")}</strong>
+            <span class="tiny">${lastEventText}</span>
+          </button>
+        </td>
         <td><span class="count-badge">${getDisplayedRestroomUsedCount(s)}</span></td>
         <td class="tracking">
           <button class="btn-minus" onclick="adjustRestroomCount('${s._id}', -1)">➖</button>
           <button class="btn-plus" onclick="adjustRestroomCount('${s._id}', 1)">➕</button>
         </td>
-        <td>${getRestroomStatusText(s)}${s.restroomActive ? `<br><span class="${overdueLive ? "timer-overdue" : "timer-live"}">Live: ${elapsedText}</span>` : ""}</td>
+        <td>${getRestroomStatusText(s)}${s.restroomActive ? `<br><span class="${overdueLive ? "timer-overdue" : nearLimit ? "timer-warning" : "timer-live"}">Live: ${elapsedText}</span>` : ""}</td>
         <td>${s.phoneCount || 0}</td>
         <td>${s.eatingCount || 0}</td>
         <td>${s.gamesCount || 0}</td>
@@ -656,7 +932,9 @@
           <button class="eating" onclick="recordEvent('${s._id}', 'eating')">🍔+</button>
           <button class="games" onclick="recordEvent('${s._id}', 'games')">🎮+</button>
         </td>
-        <td class="actions">
+        <td class="actions sticky-col-right">
+          <button class="report" onclick="openStudentDetail('${s._id}')">👁️</button>
+          <button class="report" onclick="exportStudentReport('${s._id}')">📄</button>
           <button class="neutral" onclick="editStudent('${s._id}')">✏️</button>
           <button class="danger" onclick="deleteStudent('${s._id}')">🗑️</button>
         </td>
@@ -688,6 +966,11 @@
     if (lastName === null) return;
     const period = prompt("Period:", student.period);
     if (period === null) return;
+    const duplicate = findDuplicateStudent(student.studentId, period, id);
+    if (duplicate) {
+      alert("Another student with that ID already exists in that period.");
+      return;
+    }
     await updateDoc(doc(db, "students", id), { firstName, lastName, period });
   };
 
@@ -762,6 +1045,10 @@
     const lastName = document.getElementById("newLast").value.trim();
     const period = document.getElementById("newPeriod").value.trim();
     if (!studentId || !period) return alert("Missing required fields");
+    if (findDuplicateStudent(studentId, period)) {
+      alert("That student ID already exists in this period.");
+      return;
+    }
     await addDoc(collection(db, "students"), {
       studentId, firstName, lastName, period,
       restroomCount: 0, phoneCount: 0, eatingCount: 0, gamesCount: 0,
@@ -773,6 +1060,7 @@
     document.getElementById("newPeriod").value = "";
   };
 
+  applySavedModes();
   await loadSettings();
   loadFromFirebase();
 
@@ -792,6 +1080,8 @@
       complete: async results => {
         try {
           statusEl.textContent = "Uploading...";
+          let added = 0;
+          let skipped = 0;
           for (const student of results.data) {
             const normalized = {};
             Object.keys(student).forEach(k => {
@@ -802,13 +1092,18 @@
             const firstName = (normalized["first name"] || "").trim();
             const lastName = (normalized["last name"] || "").trim();
             if (!studentId || !period) continue;
+            if (findDuplicateStudent(studentId, period)) {
+              skipped += 1;
+              continue;
+            }
             await addDoc(collection(db, "students"), {
               studentId, firstName, lastName, period,
               restroomCount: 0, phoneCount: 0, eatingCount: 0, gamesCount: 0,
               behaviorLog: [], restroomActive: false, restroomStartTime: null, restroomHistory: []
             });
+            added += 1;
           }
-          statusEl.textContent = "Upload complete";
+          statusEl.textContent = `Upload complete. Added: ${added}. Skipped duplicates: ${skipped}.`;
           fileInput.value = "";
         } catch (err) {
           console.error(err);
