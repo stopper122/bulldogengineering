@@ -370,8 +370,8 @@
     }
     th.sticky-col-left-1, th.sticky-col-left-2, th.sticky-col-right {
       position: sticky;
-      top: var(--results-top, 0px);
-      z-index: 5;
+      top: calc(var(--results-top, 0px) + var(--results-height, 0px));
+      z-index: 15;
       background: #f8fafc !important;
     }
     .modal-overlay {
