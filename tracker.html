@@ -76,6 +76,7 @@
     }
     .tabs button { background:#ddd; }
     .tabs button.active { background:#2563eb; color:white; }
+    .sort-btn.active-sort { background:#2563eb; color:white; }
     .tabs button.current { background:#16a34a; color:white; }
     input, select { margin:3px 5px 3px 0; padding:6px 8px; border:1px solid #cbd5e1; border-radius:7px; font-size:13px; }
     table { width:100%; border-collapse:separate; border-spacing:0; margin-top:8px; background:white; }
@@ -369,8 +370,10 @@
     .toast.overdue { border-left: 4px solid #ef4444; }
     .toast.success { border-left: 4px solid #10b981; }
     .search-input { min-width:180px; }
-    .row-warning td { background:#fffbeb; }
-    .row-overdue td { background:#fef2f2; }
+    .row-warning td { background:#fff7ed; }
+    .row-overdue td { background:#fee2e2; }
+    .row-active-pass td { background:#dcfce7; }
+    .row-overdue td { background:#fee2e2; }
     .row-flagged td { background:#fff7ed; }
     .row-pass-1 td { background:#faf5ff; }
     .row-pass-2 td { background:#f3e8ff; }
@@ -475,7 +478,7 @@
         <button class="toggle-btn" onclick="toggleMasterLog()">Show/Hide Master Log</button>
       </div>
 
-      <button id="leftDrawerHandle" class="drawer-handle" onclick="toggleTopPanels()">Show Panel</button>
+      <button id="leftDrawerHandle" class="drawer-handle" onclick="toggleTopPanels()">⚙️ Controls</button>
 
       <div class="panel-toggle-row">
         <button class="top-left-toggle" onclick="toggleTopPanels()">Hide Left Panel</button>
@@ -495,8 +498,8 @@
           <button class="toggle-btn" onclick="toggleControls()">Hide</button>
         </div>
         <div class="inline-row" id="controlsContent">
-          <button onclick="setSort('first')">First</button>
-          <button onclick="setSort('last')">Last</button>
+          <button id="sortFirstBtn" class="sort-btn" onclick="setSort('first')">First</button>
+          <button id="sortLastBtn" class="sort-btn" onclick="setSort('last')">Last</button>
           <input id="searchInput" class="search-input" placeholder="Search name or ID" oninput="updateSearch()" />
           <button onclick="clearSearch()">Clear Search</button>
           <button onclick="toggleTouchMode()">Touch Mode</button>
@@ -713,6 +716,13 @@
     return html;
   }
 
+  function updateSortButtons() {
+    const firstBtn = document.getElementById("sortFirstBtn");
+    const lastBtn = document.getElementById("sortLastBtn");
+    if (firstBtn) firstBtn.classList.toggle("active-sort", sortMode === "first");
+    if (lastBtn) lastBtn.classList.toggle("active-sort", sortMode === "last");
+  }
+
   function getStudentFlags(student) {
     const flags = [];
     if (getDisplayedRestroomUsedCount(student) >= 3) flags.push("Restroom");
@@ -923,6 +933,7 @@
     touchMode = !touchMode;
     localStorage.setItem("studentTrackerTouchMode", String(touchMode));
     applySavedModes();
+  updateSortButtons();
   };
 
   window.toggleSoundAlerts = () => {
@@ -1211,7 +1222,7 @@
       const nearLimit = isRestroomPassNearLimit(s);
       const flags = getStudentFlags(s);
       const passCount = getDisplayedRestroomUsedCount(s);
-      let rowClass = overdueLive ? "row-overdue" : nearLimit ? "row-warning" : flags.length ? "row-flagged" : "";
+      let rowClass = overdueLive ? "row-overdue" : s.restroomActive ? "row-active-pass" : nearLimit ? "row-warning" : flags.length ? "row-flagged" : "";
       if (!overdueLive && !nearLimit) {
         if (passCount >= 5) rowClass = "row-pass-5";
         else if (passCount === 4) rowClass = "row-pass-4";
@@ -1257,6 +1268,7 @@
 
   window.setSort = mode => {
     sortMode = mode;
+    updateSortButtons();
     if (activePeriod) renderTable(activePeriod);
   };
 
