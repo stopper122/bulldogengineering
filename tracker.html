@@ -158,9 +158,6 @@
       transition: transform 0.25s ease;
       padding-right: 6px;
     }
-      transition: transform 0.25s ease;
-      padding-right: 6px;
-    }
     .left-drawer.open {
       transform: translateX(0);
     }
@@ -484,7 +481,7 @@
         <button class="top-left-toggle" onclick="toggleTopPanels()">Hide Left Panel</button>
       </div>
 
-      <aside id="topPanelsWrap" class="left-drawer open">
+      <aside id="topPanelsWrap" class="left-drawer open" aria-label="Controls panel">
       <div class="card live-passes-card" id="livePassesCard" style="display:none;">
         <h3 style="margin-top:0;">Students Currently Out</h3>
         <div class="tiny">Active restroom passes stay visible here while you scroll.</div>
