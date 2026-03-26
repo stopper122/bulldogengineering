@@ -609,8 +609,65 @@
   let controlsVisible = true;
   let topPanelsVisible = true;
 
+  // 🔧 EDIT THIS to match your bell schedule by weekday.
+  // Day keys: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  // Format inside each day: { period: "#", start: "HH:MM", end: "HH:MM" }
+  const weeklyPeriodSchedule = {
+    1: [
+      { period: "2", start: "09:31", end: "10:25" },
+      { period: "3", start: "10:47", end: "11:48" },
+      { period: "4", start: "11:55", end: "12:49" },
+      { period: "6", start: "14:32", end: "15:26" }
+    ],
+    2: [
+      { period: "2", start: "09:31", end: "10:25" },
+      { period: "3", start: "10:47", end: "11:48" },
+      { period: "4", start: "11:55", end: "12:49" },
+      { period: "6", start: "14:32", end: "15:26" }
+    ],
+    3: [
+      { period: "3", start: "10:47", end: "12:49" }
+    ],
+    4: [
+      { period: "2", start: "08:30", end: "10:25" },
+      { period: "4", start: "10:47", end: "12:49" },
+      { period: "6", start: "13:31", end: "15:26" }
+    ],
+    5: [
+      { period: "2", start: "09:26", end: "10:15" },
+      { period: "3", start: "10:37", end: "11:33" },
+      { period: "4", start: "11:40", end: "12:29" },
+      { period: "6", start: "14:07", end: "14:56" }
+    ]
+  };
+
   function applySavedModes() {
     document.body.classList.toggle("touch-mode", touchMode);
+  }
+
+  function timeStringToMinutes(timeStr) {
+    const [hours, minutes] = String(timeStr).split(":").map(Number);
+    return (hours * 60) + minutes;
+  }
+
+  function getDefaultPeriodFromTime(now = new Date()) {
+    const currentMinutes = (now.getHours() * 60) + now.getMinutes();
+    const daySchedule = weeklyPeriodSchedule[now.getDay()] || [];
+    const match = daySchedule.find(item => {
+      const startMinutes = timeStringToMinutes(item.start);
+      const endMinutes = timeStringToMinutes(item.end);
+      return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+    });
+    return match ? String(match.period) : null;
+  }
+
+  function applyDefaultPeriodFromTime() {
+    const detectedPeriod = getDefaultPeriodFromTime();
+    if (!detectedPeriod) return;
+    currentPeriod = detectedPeriod;
+    activePeriod = detectedPeriod;
+    const input = document.getElementById("currentPeriodInput");
+    if (input) input.value = detectedPeriod;
   }
 
   function updateStickyOffsets() {
@@ -1387,6 +1444,7 @@
   updateStickyOffsets();
   window.addEventListener("resize", updateStickyOffsets);
   await loadSettings();
+  applyDefaultPeriodFromTime();
   loadFromFirebase();
 
   setInterval(() => {
