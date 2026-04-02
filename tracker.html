@@ -1426,7 +1426,7 @@
     const data = snap.data() || {};
     restroomLimitMinutes = Number(data.restroomLimitMinutes || 6);
     document.getElementById("restroomLimitInput").value = restroomLimitMinutes;
-    if (activePeriod) renderTable(activePeriod);
+    if (activePeriod) renderActiveView(activePeriod);
   });
 
   function renderTabs() {
@@ -1436,7 +1436,7 @@
       btn.textContent = "Period " + period;
       if (String(period) === String(currentPeriod)) btn.classList.add("current");
       if (String(period) === String(activePeriod)) btn.classList.add("active");
-      btn.onclick = () => renderTable(period);
+      btn.onclick = () => renderActiveView(period);
       tabsEl.appendChild(btn);
     });
   }
@@ -1720,7 +1720,7 @@
   setInterval(() => {
     checkPassNotifications();
     renderLivePasses();
-    if (activePeriod) renderTable(activePeriod);
+    if (activePeriod) renderActiveView(activePeriod);
   }, 1000);
 
   fileInput.addEventListener("change", e => {
