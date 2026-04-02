@@ -209,6 +209,9 @@
     .left-drawer #controlsContent #searchInput {
       grid-column: 1 / -1;
     }
+    .left-drawer #controlsContent .full-span {
+      grid-column: 1 / -1;
+    }
     .top-left-toggle {
       background:#111827;
       color:white;
@@ -256,6 +259,70 @@
       border: none;
       border-radius: 0;
       background: transparent;
+    }
+    .view-toggle-btn.active-view {
+      background:#2563eb;
+      color:white;
+    }
+    .seating-wrap {
+      margin-top:8px;
+    }
+    .seating-grid {
+      display:grid;
+      grid-template-columns:repeat(6, minmax(120px, 1fr));
+      gap:10px;
+      align-items:stretch;
+    }
+    .seat-card {
+      background:white;
+      border:1px solid #dbe4f0;
+      border-radius:12px;
+      padding:10px;
+      min-height:94px;
+      box-shadow:0 1px 4px rgba(15,23,42,0.05);
+    }
+    .seat-card.empty {
+      background:#f8fafc;
+      border-style:dashed;
+      color:#94a3b8;
+    }
+    .seat-card.active-pass {
+      background:#dcfce7;
+      border-color:#86efac;
+    }
+    .seat-card.near-limit {
+      background:#fff7ed;
+      border-color:#fdba74;
+    }
+    .seat-card.overdue {
+      background:#fee2e2;
+      border-color:#fca5a5;
+    }
+    .seat-card.flagged {
+      background:#fff7ed;
+      border-color:#fcd34d;
+    }
+    .seat-number {
+      font-size:11px;
+      color:#64748b;
+      margin-bottom:6px;
+      font-weight:700;
+    }
+    .seat-name {
+      font-weight:700;
+      line-height:1.2;
+      margin-bottom:4px;
+    }
+    .seat-meta {
+      font-size:11px;
+      color:#64748b;
+      line-height:1.2;
+    }
+    .seat-actions {
+      margin-top:8px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:4px;
     }
     .student-table {
       width: 100%;
@@ -586,6 +653,9 @@
         font-size:10px;
         padding:4px;
       }
+      .seating-grid {
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+      }
     }
   </style>
 </head>
@@ -630,6 +700,8 @@
         <div class="inline-row" id="controlsContent">
           <button id="sortFirstBtn" class="sort-btn" onclick="setSort('first')">First</button>
           <button id="sortLastBtn" class="sort-btn" onclick="setSort('last')">Last</button>
+          <button id="viewTableBtn" class="view-toggle-btn full-span" onclick="setViewMode('table')">Table View</button>
+          <button id="viewSeatingBtn" class="view-toggle-btn full-span" onclick="setViewMode('seating')">Seating Chart</button>
           <input id="searchInput" class="search-input" placeholder="Search name or ID" oninput="updateSearch()" />
           <button onclick="clearSearch()">Clear Search</button>
           <button onclick="toggleTouchMode()">Touch Mode</button>
@@ -738,6 +810,7 @@
   let selectedStudentId = null;
   let controlsVisible = true;
   let topPanelsVisible = true;
+  let viewMode = "table";
 
   // 🔧 EDIT THIS to match your bell schedule by weekday.
   // Day keys: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
@@ -908,6 +981,13 @@
     const lastBtn = document.getElementById("sortLastBtn");
     if (firstBtn) firstBtn.classList.toggle("active-sort", sortMode === "first");
     if (lastBtn) lastBtn.classList.toggle("active-sort", sortMode === "last");
+  }
+
+  function updateViewButtons() {
+    const tableBtn = document.getElementById("viewTableBtn");
+    const seatingBtn = document.getElementById("viewSeatingBtn");
+    if (tableBtn) tableBtn.classList.toggle("active-view", viewMode === "table");
+    if (seatingBtn) seatingBtn.classList.toggle("active-view", viewMode === "seating");
   }
 
   function getStudentFlags(student) {
@@ -1160,13 +1240,13 @@
 
   window.updateSearch = () => {
     searchQuery = document.getElementById("searchInput").value.trim();
-    if (activePeriod) renderTable(activePeriod);
+    if (activePeriod) renderActiveView(activePeriod);
   };
 
   window.clearSearch = () => {
     searchQuery = "";
     document.getElementById("searchInput").value = "";
-    if (activePeriod) renderTable(activePeriod);
+    if (activePeriod) renderActiveView(activePeriod);
   };
 
   window.exportData = () => {
@@ -1330,7 +1410,7 @@
       resultsDiv.style.display = "block";
       resultsTableCard.style.display = "block";
       updateStickyOffsets();
-      renderTable(firstPeriod);
+      renderActiveView(firstPeriod);
     } else {
       resultsDiv.style.display = "none";
       resultsTableCard.style.display = "none";
@@ -1361,6 +1441,60 @@
     });
   }
 
+  function getSortedStudentsForPeriod(period) {
+    let students = [...(grouped[period] || [])].filter(studentMatchesSearch);
+    if (sortMode === "first") students.sort((a, b) => (a.firstName || "").localeCompare(b.firstName || ""));
+    if (sortMode === "last") students.sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
+    return students;
+  }
+
+  function getSeatCardClass(student) {
+    if (!student) return "seat-card empty";
+    if (isRestroomPassOverdue(student)) return "seat-card overdue";
+    if (student.restroomActive) return "seat-card active-pass";
+    if (isRestroomPassNearLimit(student)) return "seat-card near-limit";
+    if (getStudentFlags(student).length) return "seat-card flagged";
+    return "seat-card";
+  }
+
+  function renderSeatingChart(period) {
+    const students = getSortedStudentsForPeriod(period);
+    const seats = Array.from({ length: 24 }, (_, index) => students[index] || null);
+    let html = '<div class="seating-wrap"><div class="seating-grid">';
+    seats.forEach((student, index) => {
+      if (!student) {
+        html += `<div class="seat-card empty"><div class="seat-number">Seat ${index + 1}</div><div class="seat-meta">Empty</div></div>`;
+        return;
+      }
+      const overdue = isRestroomPassOverdue(student);
+      const nearLimit = isRestroomPassNearLimit(student);
+      const elapsedText = student.restroomActive && student.restroomStartTime ? formatDuration(getElapsedMs(student.restroomStartTime)) : "";
+      html += `<div class="${getSeatCardClass(student)}">
+        <div class="seat-number">Seat ${index + 1}</div>
+        <div class="seat-name">${student.lastName}, ${student.firstName}</div>
+        <div class="seat-meta">ID ${student.studentId}</div>
+        <div class="seat-meta">${student.restroomActive ? `Out: ${elapsedText}` : `Passes: ${getDisplayedRestroomUsedCount(student)}`}</div>
+        <div class="seat-meta">${student.restroomActive ? (overdue ? 'Overdue' : nearLimit ? 'Near limit' : 'Active pass') : `Phone ${student.phoneCount || 0} · Sleep ${student.sleepCount || 0}`}</div>
+        <div class="seat-actions">
+          ${student.restroomActive ? `<button class="restroom" onclick="endRestroomPass('${student._id}')">⏹️</button>` : `<button class="restroom" onclick="startRestroomPass('${student._id}')">🚻</button>`}
+          <button class="phone" onclick="recordEvent('${student._id}', 'phone')">📱+</button>
+          <button class="sleep" onclick="recordEvent('${student._id}', 'sleep')">😴</button>
+          <button class="report" onclick="openStudentDetail('${student._id}')">👁️</button>
+        </div>
+      </div>`;
+    });
+    html += '</div></div>';
+    tableContainer.innerHTML = html;
+  }
+
+  function renderActiveView(period) {
+    if (viewMode === "seating") {
+      renderSeatingChart(period);
+    } else {
+      renderTable(period);
+    }
+  }
+
   function renderSummary(period, students) {
     const restroom = students.reduce((sum, s) => sum + getDisplayedRestroomUsedCount(s), 0);
     const restroomOut = students.filter(s => s.restroomActive).length;
@@ -1383,9 +1517,7 @@
 
   function renderTable(period) {
     activePeriod = String(period);
-    let students = [...(grouped[period] || [])].filter(studentMatchesSearch);
-    if (sortMode === "first") students.sort((a, b) => (a.firstName || "").localeCompare(b.firstName || ""));
-    if (sortMode === "last") students.sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
+    let students = getSortedStudentsForPeriod(period);
     renderTabs();
     renderSummary(period, students);
 
@@ -1456,7 +1588,13 @@
   window.setSort = mode => {
     sortMode = mode;
     updateSortButtons();
-    if (activePeriod) renderTable(activePeriod);
+    if (activePeriod) renderActiveView(activePeriod);
+  };
+
+  window.setViewMode = (mode) => {
+    viewMode = mode;
+    updateViewButtons();
+    if (activePeriod) renderActiveView(activePeriod);
   };
 
   window.setCurrentPeriod = () => {
@@ -1571,6 +1709,8 @@
   };
 
   applySavedModes();
+  updateSortButtons();
+  updateViewButtons();
   updateStickyOffsets();
   window.addEventListener("resize", updateStickyOffsets);
   await loadSettings();
