@@ -280,6 +280,11 @@
       padding:10px;
       min-height:94px;
       box-shadow:0 1px 4px rgba(15,23,42,0.05);
+      cursor:pointer;
+    }
+    .seat-card.selected-move {
+      outline:3px solid #2563eb;
+      box-shadow:0 0 0 3px rgba(37,99,235,0.15);
     }
     .seat-card.empty {
       background:#f8fafc;
@@ -323,6 +328,12 @@
       display:flex;
       flex-wrap:wrap;
       gap:4px;
+    }
+    .seat-helper {
+      margin-top:6px;
+      font-size:11px;
+      color:#1d4ed8;
+      font-weight:600;
     }
     .student-table {
       width: 100%;
@@ -810,7 +821,8 @@
   let selectedStudentId = null;
   let controlsVisible = true;
   let topPanelsVisible = true;
-  let viewMode = "table";
+  let viewMode = "seating";
+  let movingSeatStudentId = null;
 
   // 🔧 EDIT THIS to match your bell schedule by weekday.
   // Day keys: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
@@ -908,6 +920,7 @@
   function studentDefaults(student) {
     return {
       studentId: student.studentId || "",
+      seatPosition: Number(student.seatPosition || 0) || null,
       firstName: student.firstName || "",
       lastName: student.lastName || "",
       period: student.period || "",
@@ -1448,6 +1461,61 @@
     return students;
   }
 
+  function getSeatLayout(period) {
+    const students = getSortedStudentsForPeriod(period);
+    const seats = Array.from({ length: 24 }, (_, index) => ({ seatNumber: index + 1, student: null }));
+    const placedIds = new Set();
+
+    students.forEach(student => {
+      const seatNumber = Number(student.seatPosition || 0);
+      if (seatNumber >= 1 && seatNumber <= 24 && !seats[seatNumber - 1].student) {
+        seats[seatNumber - 1].student = student;
+        placedIds.add(student._id);
+      }
+    });
+
+    const unplaced = students.filter(student => !placedIds.has(student._id));
+    seats.forEach(seat => {
+      if (!seat.student && unplaced.length) {
+        seat.student = unplaced.shift();
+      }
+    });
+
+    return seats;
+  }
+
+  async function setStudentSeat(studentId, seatNumber) {
+    await updateDoc(doc(db, "students", studentId), {
+      seatPosition: seatNumber
+    });
+  }
+
+  async function moveStudentToSeat(targetSeatNumber) {
+    if (!activePeriod || !movingSeatStudentId) return;
+    const seats = getSeatLayout(activePeriod);
+    const movingSeat = seats.find(seat => seat.student && seat.student._id === movingSeatStudentId);
+    const targetSeat = seats.find(seat => seat.seatNumber === targetSeatNumber);
+    if (!movingSeat || !targetSeat) return;
+
+    const updates = [];
+    updates.push(setStudentSeat(movingSeatStudentId, targetSeatNumber));
+    if (targetSeat.student && targetSeat.student._id !== movingSeatStudentId) {
+      updates.push(setStudentSeat(targetSeat.student._id, movingSeat.seatNumber));
+    }
+    await Promise.all(updates);
+    movingSeatStudentId = null;
+  }
+
+  window.toggleSeatMove = (studentId) => {
+    movingSeatStudentId = movingSeatStudentId === studentId ? null : studentId;
+    if (activePeriod && viewMode === "seating") renderSeatingChart(activePeriod);
+  };
+
+  window.handleSeatClick = async (seatNumber) => {
+    if (!movingSeatStudentId) return;
+    await moveStudentToSeat(seatNumber);
+  };
+
   function getSeatCardClass(student) {
     if (!student) return "seat-card empty";
     if (isRestroomPassOverdue(student)) return "seat-card overdue";
@@ -1458,29 +1526,36 @@
   }
 
   function renderSeatingChart(period) {
+    activePeriod = String(period);
     const students = getSortedStudentsForPeriod(period);
-    const seats = Array.from({ length: 24 }, (_, index) => students[index] || null);
+    renderTabs();
+    renderSummary(period, students);
+    const seats = getSeatLayout(period);
     let html = '<div class="seating-wrap"><div class="seating-grid">';
-    seats.forEach((student, index) => {
+    seats.forEach((seat) => {
+      const student = seat.student;
       if (!student) {
-        html += `<div class="seat-card empty"><div class="seat-number">Seat ${index + 1}</div><div class="seat-meta">Empty</div></div>`;
+        html += `<div class="seat-card empty" onclick="handleSeatClick(${seat.seatNumber})"><div class="seat-number">Seat ${seat.seatNumber}</div><div class="seat-meta">Empty</div>${movingSeatStudentId ? `<div class="seat-helper">Tap to move here</div>` : ``}</div>`;
         return;
       }
       const overdue = isRestroomPassOverdue(student);
       const nearLimit = isRestroomPassNearLimit(student);
       const elapsedText = student.restroomActive && student.restroomStartTime ? formatDuration(getElapsedMs(student.restroomStartTime)) : "";
-      html += `<div class="${getSeatCardClass(student)}">
-        <div class="seat-number">Seat ${index + 1}</div>
+      const isMoving = movingSeatStudentId === student._id;
+      html += `<div class="${getSeatCardClass(student)} ${isMoving ? "selected-move" : ""}" onclick="handleSeatClick(${seat.seatNumber})">
+        <div class="seat-number">Seat ${seat.seatNumber}</div>
         <div class="seat-name">${student.lastName}, ${student.firstName}</div>
         <div class="seat-meta">ID ${student.studentId}</div>
         <div class="seat-meta">${student.restroomActive ? `Out: ${elapsedText}` : `Passes: ${getDisplayedRestroomUsedCount(student)}`}</div>
         <div class="seat-meta">${student.restroomActive ? (overdue ? 'Overdue' : nearLimit ? 'Near limit' : 'Active pass') : `Phone ${student.phoneCount || 0} · Sleep ${student.sleepCount || 0}`}</div>
         <div class="seat-actions">
-          ${student.restroomActive ? `<button class="restroom" onclick="endRestroomPass('${student._id}')">⏹️</button>` : `<button class="restroom" onclick="startRestroomPass('${student._id}')">🚻</button>`}
-          <button class="phone" onclick="recordEvent('${student._id}', 'phone')">📱+</button>
-          <button class="sleep" onclick="recordEvent('${student._id}', 'sleep')">😴</button>
-          <button class="report" onclick="openStudentDetail('${student._id}')">👁️</button>
+          ${student.restroomActive ? `<button class="restroom" onclick="event.stopPropagation(); endRestroomPass('${student._id}')">⏹️</button>` : `<button class="restroom" onclick="event.stopPropagation(); startRestroomPass('${student._id}')">🚻</button>`}
+          <button class="phone" onclick="event.stopPropagation(); recordEvent('${student._id}', 'phone')">📱+</button>
+          <button class="sleep" onclick="event.stopPropagation(); recordEvent('${student._id}', 'sleep')">😴</button>
+          <button class="report" onclick="event.stopPropagation(); openStudentDetail('${student._id}')">👁️</button>
+          <button class="neutral" onclick="event.stopPropagation(); toggleSeatMove('${student._id}')">${isMoving ? 'Cancel' : 'Move'}</button>
         </div>
+        ${isMoving ? `<div class="seat-helper">Tap another seat to move or swap.</div>` : ``}
       </div>`;
     });
     html += '</div></div>';
