@@ -1,373 +1,340 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Timer, RotateCcw, Trophy, Skull, Zap, ChevronUp, ChevronDown, CheckCircle2, Trash2, ShieldCheck, Target, AlertTriangle, Star } from 'lucide-react';
-
-const App = () => {
-  const [timeLeft, setTimeLeft] = useState(120);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [matchPhase, setMatchPhase] = useState('AUTO'); // 'AUTO' or 'TELEOP'
-
-  const initialScoreState = {
-    // Items on Home Base (Manual Section 5)
-    yellowCubesBase: 0,
-    greenCubesBase: 0,
-    ringsBase: 0,
-    plushiesUprightBase: 0,
-    plushiesTippedBase: 0,
-    ballsBase: 0,
-    rockerBasesBase: 0,
-    
-    // Items in General Zone (Floor)
-    yellowCubesZone: 0,
-    greenCubesZone: 0,
-    ringsZone: 0,
-    plushiesUprightZone: 0,
-    plushiesTippedZone: 0,
-    ballsZone: 0,
-
-    // Sabotage & Penalties (Manual Section 7)
-    scrapZone: 0,
-    scrapBase: 0,
-    hazardPenaltiesRecieved: 0, // -15 per instance
-    
-    // States & Missions (Manual Section 6)
-    hasPickleBall: false,
-    activeStacks: [], // Array of heights [2, 3, 4]
-    hasUltimateSummit: false,
-    autoWinner: false,
-    autoScouts: 0, // 0: None, 1: Neutral (10), 2: Invasive (25)
-  };
-
-  const [redAlliance, setRedAlliance] = useState({ ...initialScoreState });
-  const [blueAlliance, setBlueAlliance] = useState({ ...initialScoreState });
-
-  // Timer Logic
-  useEffect(() => {
-    let timer;
-    if (isTimerRunning && timeLeft > 0) {
-      timer = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev === 91) setMatchPhase('TELEOP');
-          return prev - 1;
-        });
-      }, 1000);
-    } else if (timeLeft === 0) {
-      setIsTimerRunning(false);
-    }
-    return () => clearInterval(timer);
-  }, [isTimerRunning, timeLeft]);
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
-
-  const resetMatch = () => {
-    setIsTimerRunning(false);
-    setTimeLeft(120);
-    setMatchPhase('AUTO');
-    setRedAlliance({ ...initialScoreState });
-    setBlueAlliance({ ...initialScoreState });
-  };
-
-  const calculateScore = useCallback((alliance, phase) => {
-    let total = 0;
-
-    // --- 1. BASE ITEM VALUES (Manual Section 5) ---
-    // Home Base Values
-    let baseOnTileValue = 0;
-    baseOnTileValue += alliance.yellowCubesBase * 10;
-    baseOnTileValue += alliance.greenCubesBase * 10;
-    baseOnTileValue += alliance.ringsBase * 10;
-    baseOnTileValue += alliance.plushiesUprightBase * 30;
-    baseOnTileValue += alliance.plushiesTippedBase * 15;
-    baseOnTileValue += alliance.ballsBase * 20;
-    baseOnTileValue += alliance.rockerBasesBase * 10; // Rocker base same as cubes if not in summit
-
-    // Zone Floor Values (Only count in Teleop)
-    let zoneFloorValue = 0;
-    if (phase === 'TELEOP') {
-      zoneFloorValue += (alliance.yellowCubesZone + alliance.greenCubesZone + alliance.ringsZone) * 2;
-      zoneFloorValue += alliance.plushiesUprightZone * 10;
-      zoneFloorValue += alliance.plushiesTippedZone * 5;
-      zoneFloorValue += alliance.ballsZone * 5;
-    }
-
-    // --- 2. MULTIPLIERS (Manual Section 5) ---
-    // Stacks multiply total points of items in that stack. 
-    // Logic: Calculate average value of an item on base to estimate stack worth
-    const totalItemsOnBase = 
-      alliance.yellowCubesBase + alliance.greenCubesBase + alliance.ringsBase + 
-      alliance.plushiesUprightBase + alliance.plushiesTippedBase + alliance.ballsBase + alliance.rockerBasesBase;
-    
-    const avgItemValue = totalItemsOnBase > 0 ? baseOnTileValue / totalItemsOnBase : 0;
-
-    let multiplierBonus = 0;
-    alliance.activeStacks.forEach(height => {
-      let multiplier = 1;
-      if (height === 2) multiplier = 3; 
-      else if (height === 3) multiplier = 4;
-      else if (height >= 4) multiplier = 5;
-      
-      // Bonus = (Value of stack * Multiplier) - (Value of stack already in base total)
-      const stackValue = avgItemValue * height;
-      multiplierBonus += (stackValue * multiplier) - stackValue;
-    });
-
-    let homeBaseSubtotal = baseOnTileValue + multiplierBonus;
-
-    // --- 3. AUTONOMOUS MISSIONS (Manual Section 6) ---
-    if (phase === 'AUTO') {
-      // The Home Run: 2x Item Value for single Cube/Ring
-      // (This is effectively already in the multiplier logic if we double the subtotal)
-      total += homeBaseSubtotal * 2;
-
-      // VIP Retrieval: Pickle Ball on Base (100)
-      if (alliance.hasPickleBall) total += 100;
-
-      // Tech Specialist: Rocker or Tennis Ball on Base (50 each)
-      total += (alliance.ballsBase + alliance.rockerBasesBase) * 50;
-
-      // Scouts
-      if (alliance.autoScouts === 1) total += 10;
-      if (alliance.autoScouts === 2) total += 25;
-    } else {
-      total += homeBaseSubtotal + zoneFloorValue;
-    }
-
-    // --- 4. BONUSES & PENALTIES ---
-    if (alliance.hasUltimateSummit) total += 100;
-    if (alliance.autoWinner) total += 50;
-
-    // Scrap Penalties (Manual Section 7)
-    // Ignored if Pickle Ball is held (Neutralizer)
-    if (!alliance.hasPickleBall || phase === 'AUTO') {
-      total -= (alliance.scrapZone * 2);
-      total -= (alliance.scrapBase * 10);
-    }
-    
-    // Hazard Stacking (Always applied)
-    total -= (alliance.hazardPenaltiesRecieved * 15);
-
-    return Math.round(Math.max(0, total));
-  }, []);
-
-  const updateVal = (setAlliance, field, delta) => {
-    setAlliance(prev => ({ ...prev, [field]: Math.max(0, prev[field] + delta) }));
-  };
-
-  const ScoreCounter = ({ label, value, onUp, onDown, color = "slate" }) => (
-    <div className="flex items-center justify-between p-2 bg-white rounded-lg shadow-sm border border-slate-200">
-      <span className="text-[10px] font-bold text-slate-600 uppercase truncate pr-1">{label}</span>
-      <div className="flex items-center gap-2">
-        <button onClick={onDown} className="p-1 hover:bg-slate-100 rounded text-slate-400"><ChevronDown className="w-4 h-4" /></button>
-        <span className="text-sm font-black w-4 text-center tabular-nums">{value}</span>
-        <button onClick={onUp} className="p-1 hover:bg-slate-100 rounded text-slate-900"><ChevronUp className="w-4 h-4" /></button>
-      </div>
-    </div>
-  );
-
-  const AlliancePanel = ({ alliance, setAlliance, teamColor, name }) => {
-    const isRed = teamColor === 'red';
-    const accentColor = isRed ? 'bg-red-600' : 'bg-blue-700';
-    const bgColor = isRed ? 'bg-red-50' : 'bg-blue-50';
-    const borderColor = isRed ? 'border-red-200' : 'border-blue-200';
-
-    return (
-      <div className={`flex-1 flex flex-col rounded-2xl border-2 ${borderColor} ${bgColor} overflow-hidden shadow-md`}>
-        {/* Header */}
-        <div className={`${accentColor} p-4 text-white shrink-0`}>
-          <div className="flex justify-between items-start">
-            <div>
-              <h2 className="text-lg font-black uppercase italic tracking-tighter">{name}</h2>
-              <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Live Points</p>
-            </div>
-            <div className="text-4xl font-black tabular-nums">{calculateScore(alliance, matchPhase)}</div>
-          </div>
-        </div>
-
-        {/* Scoring Content */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar">
-          {/* HOME BASE SECTION */}
-          <section className="space-y-2">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1.5">
-              <Target className="w-3.5 h-3.5 text-orange-500" /> Home Base (Multipliers Apply)
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <ScoreCounter label="Y/G Cube" value={alliance.yellowCubesBase + alliance.greenCubesBase} onUp={() => updateVal(setAlliance, 'yellowCubesBase', 1)} onDown={() => updateVal(setAlliance, 'yellowCubesBase', -1)} />
-              <ScoreCounter label="Ring" value={alliance.ringsBase} onUp={() => updateVal(setAlliance, 'ringsBase', 1)} onDown={() => updateVal(setAlliance, 'ringsBase', -1)} />
-              <ScoreCounter label="Rocker" value={alliance.rockerBasesBase} onUp={() => updateVal(setAlliance, 'rockerBasesBase', 1)} onDown={() => updateVal(setAlliance, 'rockerBasesBase', -1)} />
-              <ScoreCounter label="Summit Ball" value={alliance.ballsBase} onUp={() => updateVal(setAlliance, 'ballsBase', 1)} onDown={() => updateVal(setAlliance, 'ballsBase', -1)} />
-              <ScoreCounter label="Plush Up" value={alliance.plushiesUprightBase} onUp={() => updateVal(setAlliance, 'plushiesUprightBase', 1)} onDown={() => updateVal(setAlliance, 'plushiesUprightBase', -1)} />
-              <ScoreCounter label="Plush Tip" value={alliance.plushiesTippedBase} onUp={() => updateVal(setAlliance, 'plushiesTippedBase', 1)} onDown={() => updateVal(setAlliance, 'plushiesTippedBase', -1)} />
-            </div>
-
-            {/* Stacks */}
-            <div className="p-3 bg-white/60 rounded-xl border border-dashed border-slate-300 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-[9px] font-black text-slate-400 uppercase">Multiplier Stacks</span>
-                <div className="flex gap-1">
-                  {[2, 3, 4].map(h => (
-                    <button key={h} onClick={() => setAlliance(p => ({...p, activeStacks: [...p.activeStacks, h]}))} className="px-2 py-1 bg-slate-800 text-white text-[9px] font-black rounded hover:bg-black">+ {h}T</button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {alliance.activeStacks.map((s, i) => (
-                  <div key={i} className="bg-slate-200 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1.5 shadow-sm">
-                    {s} Tiers <Trash2 className="w-3 h-3 text-red-500 cursor-pointer" onClick={() => setAlliance(p => ({...p, activeStacks: p.activeStacks.filter((_, idx) => idx !== i)}))} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* ZONE FLOOR SECTION */}
-          <section className={`space-y-2 transition-opacity ${matchPhase === 'AUTO' ? 'opacity-30' : 'opacity-100'}`}>
-            <h3 className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-blue-500" /> Zone Floor (Teleop Only)
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <ScoreCounter label="Standard" value={alliance.yellowCubesZone + alliance.greenCubesZone + alliance.ringsZone} onUp={() => updateVal(setAlliance, 'yellowCubesZone', 1)} onDown={() => updateVal(setAlliance, 'yellowCubesZone', -1)} />
-              <ScoreCounter label="Ball" value={alliance.ballsZone} onUp={() => updateVal(setAlliance, 'ballsZone', 1)} onDown={() => updateVal(setAlliance, 'ballsZone', -1)} />
-              <ScoreCounter label="Plush Up" value={alliance.plushiesUprightZone} onUp={() => updateVal(setAlliance, 'plushiesUprightZone', 1)} onDown={() => updateVal(setAlliance, 'plushiesUprightZone', -1)} />
-              <ScoreCounter label="Scrap" value={alliance.scrapZone} onUp={() => updateVal(setAlliance, 'scrapZone', 1)} onDown={() => updateVal(setAlliance, 'scrapZone', -1)} color="red" />
-            </div>
-          </section>
-
-          {/* MISSIONS & BONUSES */}
-          <section className="pt-4 border-t border-slate-200 space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <button 
-                onClick={() => setAlliance(p => ({ ...p, autoWinner: !p.autoWinner }))}
-                className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${alliance.autoWinner ? 'bg-amber-500 border-amber-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400'}`}
-              >
-                <Trophy className="w-5 h-5 mb-1" />
-                <span className="text-[9px] font-black uppercase">Auto Winner</span>
-              </button>
-              <button 
-                onClick={() => setAlliance(p => ({ ...p, hasUltimateSummit: !p.hasUltimateSummit }))}
-                className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${alliance.hasUltimateSummit ? 'bg-purple-600 border-purple-700 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400'}`}
-              >
-                <Star className="w-5 h-5 mb-1" />
-                <span className="text-[9px] font-black uppercase">Ultimate (+100)</span>
-              </button>
-            </div>
-
-            <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
-              <p className="text-[9px] font-black text-slate-400 uppercase text-center">Special Items</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button 
-                  onClick={() => setAlliance(p => ({ ...p, hasPickleBall: !p.hasPickleBall }))}
-                  className={`py-2 rounded-lg text-[10px] font-bold border ${alliance.hasPickleBall ? 'bg-purple-100 border-purple-400 text-purple-800' : 'bg-slate-50 border-slate-200 text-slate-400'}`}
-                >
-                  Pickle Ball
-                </button>
-                <div className="flex gap-1">
-                  {[0, 1, 2].map(v => (
-                    <button 
-                      key={v}
-                      onClick={() => setAlliance(p => ({ ...p, autoScouts: v }))}
-                      className={`flex-1 py-1 rounded text-[8px] font-black border transition-all ${alliance.autoScouts === v ? 'bg-blue-600 text-white border-blue-700' : 'bg-slate-50 text-slate-400'}`}
-                    >
-                      {v === 0 ? 'X' : v === 1 ? 'N' : 'I'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <ScoreCounter label="Hazard Penalty" value={alliance.hazardPenaltiesRecieved} onUp={() => updateVal(setAlliance, 'hazardPenaltiesRecieved', 1)} onDown={() => updateVal(setAlliance, 'hazardPenaltiesRecieved', -1)} color="red" />
-          </section>
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div className="flex flex-col h-screen max-h-screen bg-slate-200 font-sans text-slate-900 overflow-hidden">
-      {/* Header */}
-      <header className="bg-slate-900 p-4 shadow-xl flex items-center justify-between shrink-0 z-50">
-        <div className="flex items-center gap-4">
-          <div className="bg-white/10 p-2 rounded-lg">
-            <Target className="text-blue-400 w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-white font-black italic text-xl leading-none uppercase tracking-tighter">Stacker's Summit</h1>
-            <span className="text-blue-400 text-[10px] font-bold tracking-[0.3em] uppercase opacity-70">Official Scorer</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-6">
-          <div className={`px-4 py-2 rounded-full font-black text-xs tracking-widest transition-all ${matchPhase === 'AUTO' ? 'bg-amber-500 text-amber-950 animate-pulse' : 'bg-blue-600 text-white'}`}>
-            {matchPhase}
-          </div>
-          <div className="text-white text-4xl font-mono font-black tabular-nums tracking-tighter drop-shadow-md">
-            {formatTime(timeLeft)}
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => setIsTimerRunning(!isTimerRunning)} className={`p-3 rounded-full shadow-lg transition-transform active:scale-90 ${isTimerRunning ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`}>
-              {isTimerRunning ? <Skull /> : <Timer />}
-            </button>
-            <button onClick={resetMatch} className="p-3 bg-slate-700 text-white rounded-full hover:bg-slate-600 shadow-lg active:rotate-180 transition-all">
-              <RotateCcw />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <main className="flex-1 flex p-3 gap-3 overflow-hidden relative">
-        <AlliancePanel 
-          alliance={redAlliance} 
-          setAlliance={setRedAlliance} 
-          teamColor="red" 
-          name="Red Alliance" 
-        />
-        <AlliancePanel 
-          alliance={blueAlliance} 
-          setAlliance={setBlueAlliance} 
-          teamColor="blue" 
-          name="Blue Alliance" 
-        />
-
-        {/* Start Overlay */}
-        {timeLeft === 120 && !isTimerRunning && (
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8">
-            <div className="bg-white p-8 rounded-[2rem] shadow-2xl text-center max-w-md border border-white/20">
-              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Target className="w-10 h-10 text-blue-600" />
-              </div>
-              <h3 className="text-3xl font-black text-slate-900 mb-2 italic uppercase">Match Ready</h3>
-              <p className="text-slate-500 text-sm font-bold mb-8 uppercase tracking-wide">
-                Press START to begin the 30-second Autonomous Mission phase.
-              </p>
-              <button 
-                onClick={() => setIsTimerRunning(true)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-widest text-lg"
-              >
-                Begin Match
-              </button>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-slate-900 border-t border-white/5 p-2 flex justify-center gap-8 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] shrink-0">
-        <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> VEX IQ LEGAL</div>
-        <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> MANUAL V1.0 SYNC</div>
-        <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500" /> MULTIPLIERS ACTIVE</div>
-      </footer>
-
-      <style dangerouslySetInnerHTML={{ __html: `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stacker's Summit Scorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
-      `}} />
-    </div>
-  );
-};
+        .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    </style>
+</head>
+<body class="bg-slate-200 h-screen flex flex-col overflow-hidden">
 
-export default App;
+    <!-- Header -->
+    <header class="bg-slate-900 p-4 shadow-xl flex items-center justify-between shrink-0 z-50">
+        <div class="flex items-center gap-4">
+            <div class="bg-blue-500/20 p-2 rounded-lg text-blue-400">
+                <i data-lucide="target"></i>
+            </div>
+            <div>
+                <h1 class="text-white font-black italic text-xl leading-none uppercase tracking-tighter">Stacker's Summit</h1>
+                <span class="text-blue-400 text-[10px] font-bold tracking-[0.3em] uppercase opacity-70">Official Scorer</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-6">
+            <div id="phase-badge" class="px-4 py-2 rounded-full font-black text-xs tracking-widest bg-amber-500 text-amber-950 pulse">
+                AUTO
+            </div>
+            <div id="timer-display" class="text-white text-4xl font-mono font-black tabular-nums tracking-tighter">
+                2:00
+            </div>
+            <div class="flex gap-2">
+                <button onclick="toggleTimer()" id="timer-btn" class="p-3 bg-green-500 text-white rounded-full shadow-lg active:scale-95 transition-all">
+                    <i data-lucide="play"></i>
+                </button>
+                <button onclick="resetMatch()" class="p-3 bg-slate-700 text-white rounded-full hover:bg-slate-600 shadow-lg active:rotate-180 transition-all">
+                    <i data-lucide="rotate-ccw"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex p-3 gap-3 overflow-hidden relative">
+        <!-- Red Alliance -->
+        <div class="flex-1 flex flex-col rounded-2xl border-2 border-red-200 bg-red-50 overflow-hidden shadow-md">
+            <div class="bg-red-600 p-4 text-white flex justify-between items-start">
+                <div>
+                    <h2 class="text-lg font-black uppercase italic tracking-tighter">Red Alliance</h2>
+                    <p class="text-[10px] font-bold opacity-80 uppercase tracking-widest">Live Points</p>
+                </div>
+                <div id="red-total" class="text-4xl font-black tabular-nums">0</div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar" id="red-controls">
+                <!-- Content generated by JS -->
+            </div>
+        </div>
+
+        <!-- Blue Alliance -->
+        <div class="flex-1 flex flex-col rounded-2xl border-2 border-blue-200 bg-blue-50 overflow-hidden shadow-md">
+            <div class="bg-blue-700 p-4 text-white flex justify-between items-start">
+                <div>
+                    <h2 class="text-lg font-black uppercase italic tracking-tighter">Blue Alliance</h2>
+                    <p class="text-[10px] font-bold opacity-80 uppercase tracking-widest">Live Points</p>
+                </div>
+                <div id="blue-total" class="text-4xl font-black tabular-nums">0</div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar" id="blue-controls">
+                <!-- Content generated by JS -->
+            </div>
+        </div>
+
+        <!-- Start Overlay -->
+        <div id="overlay" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8">
+            <div class="bg-white p-8 rounded-[2rem] shadow-2xl text-center max-w-md border border-white/20">
+                <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <i data-lucide="trophy" class="w-10 h-10 text-blue-600"></i>
+                </div>
+                <h3 class="text-3xl font-black text-slate-900 mb-2 italic uppercase">Match Ready</h3>
+                <p class="text-slate-500 text-sm font-bold mb-8 uppercase tracking-wide">Ready for 30s Autonomous?</p>
+                <button onclick="toggleTimer()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-widest text-lg">
+                    Begin Match
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 border-t border-white/5 p-2 flex justify-center gap-8 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] shrink-0">
+        <div class="flex items-center gap-2"><i data-lucide="shield-check" class="w-3 h-3 text-green-500"></i> VEX IQ SYNC</div>
+        <div id="status-text">MANUAL V1.0 STABLE</div>
+    </footer>
+
+    <script>
+        // State Management
+        let timeLeft = 120;
+        let isRunning = false;
+        let phase = 'AUTO';
+        let timerInterval;
+
+        const initialState = () => ({
+            yellowBase: 0, greenBase: 0, ringBase: 0, plushUpBase: 0, plushTipBase: 0, ballBase: 0, rockerBase: 0,
+            yellowZone: 0, greenZone: 0, ringZone: 0, plushUpZone: 0, plushTipZone: 0, ballZone: 0,
+            scrapZone: 0, scrapBase: 0, hazard: 0,
+            pickle: false, stacks: [], ultimate: false, autoWinner: false, scout: 0
+        });
+
+        let red = initialState();
+        let blue = initialState();
+
+        // UI Generation
+        function renderControls(alliance, side) {
+            const container = document.getElementById(`${side}-controls`);
+            const isAuto = phase === 'AUTO';
+            
+            container.innerHTML = `
+                <!-- Base Section -->
+                <section class="space-y-2">
+                    <h3 class="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1.5">
+                        <i data-lucide="target" class="w-3.5 h-3.5 text-orange-500"></i> Home Base (Multipliers Apply)
+                    </h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        ${renderCounter('Y/G Cube', alliance.yellowBase + alliance.greenBase, side, 'yellowBase')}
+                        ${renderCounter('Ring', alliance.ringBase, side, 'ringBase')}
+                        ${renderCounter('Rocker', alliance.rockerBase, side, 'rockerBase')}
+                        ${renderCounter('Summit Ball', alliance.ballBase, side, 'ballBase')}
+                        ${renderCounter('Plush Up', alliance.plushUpBase, side, 'plushUpBase')}
+                        ${renderCounter('Plush Tip', alliance.plushTipBase, side, 'plushTipBase')}
+                    </div>
+                    
+                    <div class="p-3 bg-white/60 rounded-xl border border-dashed border-slate-300 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[9px] font-black text-slate-400 uppercase">Stacks</span>
+                            <div class="flex gap-1">
+                                [2, 3, 4].map(h => 
+                                <button onclick="addStack('${side}', ${2})" class="px-2 py-1 bg-slate-800 text-white text-[9px] font-black rounded hover:bg-black">+2T</button>
+                                <button onclick="addStack('${side}', ${3})" class="px-2 py-1 bg-slate-800 text-white text-[9px] font-black rounded hover:bg-black">+3T</button>
+                                <button onclick="addStack('${side}', ${4})" class="px-2 py-1 bg-slate-800 text-white text-[9px] font-black rounded hover:bg-black">+4T</button>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-1">
+                            ${alliance.stacks.map((s, i) => `
+                                <div class="bg-slate-200 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1.5 shadow-sm">
+                                    ${s} Tiers <i data-lucide="trash-2" class="w-3 h-3 text-red-500 cursor-pointer" onclick="removeStack('${side}', ${i})"></i>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Zone Section -->
+                <section class="space-y-2 ${isAuto ? 'opacity-30' : ''}">
+                    <h3 class="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1.5">
+                        <i data-lucide="zap" class="w-3.5 h-3.5 text-blue-500"></i> Zone Floor
+                    </h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        ${renderCounter('Standard', alliance.yellowZone + alliance.greenZone, side, 'yellowZone')}
+                        ${renderCounter('Ball', alliance.ballZone, side, 'ballZone')}
+                        ${renderCounter('Plush Up', alliance.plushUpZone, side, 'plushUpZone')}
+                        ${renderCounter('Scrap', alliance.scrapZone, side, 'scrapZone')}
+                    </div>
+                </section>
+
+                <!-- Bonuses -->
+                <section class="pt-4 border-t border-slate-200 space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="toggleBool('${side}', 'autoWinner')" class="flex flex-col items-center p-3 rounded-xl border-2 ${alliance.autoWinner ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-400 border-slate-200'}">
+                            <i data-lucide="trophy" class="w-5 h-5 mb-1"></i><span class="text-[9px] font-black uppercase">Auto Win</span>
+                        </button>
+                        <button onclick="toggleBool('${side}', 'ultimate')" class="flex flex-col items-center p-3 rounded-xl border-2 ${alliance.ultimate ? 'bg-purple-600 text-white border-purple-700' : 'bg-white text-slate-400 border-slate-200'}">
+                            <i data-lucide="star" class="w-5 h-5 mb-1"></i><span class="text-[9px] font-black uppercase">Ultimate</span>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="toggleBool('${side}', 'pickle')" class="p-2 rounded-lg text-[10px] font-bold border ${alliance.pickle ? 'bg-purple-100 border-purple-400 text-purple-800' : 'bg-slate-50 border-slate-200 text-slate-400'}">Pickle Ball</button>
+                        <div class="flex gap-1">
+                            ${[0, 1, 2].map(v => `<button onclick="setScout('${side}', ${v})" class="flex-1 py-1 rounded text-[8px] font-black border ${alliance.scout === v ? 'bg-blue-600 text-white border-blue-700' : 'bg-slate-50 text-slate-400'}">${v === 0 ? 'X' : v === 1 ? 'N' : 'I'}</button>`).join('')}
+                        </div>
+                    </div>
+                    ${renderCounter('Hazard Pen', alliance.hazard, side, 'hazard')}
+                </section>
+            `;
+            lucide.createIcons();
+        }
+
+        function renderCounter(label, val, side, key) {
+            return `
+                <div class="flex items-center justify-between p-2 bg-white rounded-lg shadow-sm border border-slate-200">
+                    <span class="text-[10px] font-bold text-slate-600 uppercase truncate">${label}</span>
+                    <div class="flex items-center gap-2">
+                        <button onclick="changeVal('${side}', '${key}', -1)" class="p-1 hover:bg-slate-100 rounded text-slate-400"><i data-lucide="chevron-down" class="w-4 h-4"></i></button>
+                        <span class="text-sm font-black w-4 text-center tabular-nums">${val}</span>
+                        <button onclick="changeVal('${side}', '${key}', 1)" class="p-1 hover:bg-slate-100 rounded text-slate-900"><i data-lucide="chevron-up" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Logic
+        function calculate(alliance) {
+            let total = 0;
+            const itemsOnBase = alliance.yellowBase + alliance.greenBase + alliance.ringBase + alliance.plushUpBase + alliance.plushTipBase + alliance.ballBase + alliance.rockerBase;
+            
+            let baseVal = 0;
+            baseVal += (alliance.yellowBase + alliance.greenBase + alliance.ringBase) * 10;
+            baseVal += alliance.plushUpBase * 30;
+            baseVal += alliance.plushTipBase * 15;
+            baseVal += (alliance.ballBase + alliance.rockerBase) * 20;
+
+            const avgItem = itemsOnBase > 0 ? baseVal / itemsOnBase : 0;
+            let multBonus = 0;
+            alliance.stacks.forEach(h => {
+                let m = (h === 2) ? 3 : (h === 3) ? 4 : 5;
+                multBonus += (avgItem * h * m) - (avgItem * h);
+            });
+
+            let baseSub = baseVal + multBonus;
+
+            if (phase === 'AUTO') {
+                total += baseSub * 2;
+                if (alliance.pickle) total += 100;
+                total += (alliance.ballBase + alliance.rockerBase) * 50;
+                total += alliance.scout === 1 ? 10 : alliance.scout === 2 ? 25 : 0;
+            } else {
+                total += baseSub;
+                total += (alliance.yellowZone + alliance.greenZone + alliance.ringZone) * 2;
+                total += alliance.plushUpZone * 10;
+                total += alliance.plushTipZone * 5;
+                total += alliance.ballZone * 5;
+            }
+
+            if (alliance.ultimate) total += 100;
+            if (alliance.autoWinner) total += 50;
+
+            if (!alliance.pickle || phase === 'AUTO') {
+                total -= (alliance.scrapZone * 2);
+                total -= (alliance.scrapBase * 10);
+            }
+            total -= (alliance.hazard * 15);
+
+            return Math.max(0, Math.round(total));
+        }
+
+        function update() {
+            document.getElementById('red-total').innerText = calculate(red);
+            document.getElementById('blue-total').innerText = calculate(blue);
+            renderControls(red, 'red');
+            renderControls(blue, 'blue');
+        }
+
+        // Event Handlers
+        window.changeVal = (side, key, delta) => {
+            const obj = side === 'red' ? red : blue;
+            obj[key] = Math.max(0, obj[key] + delta);
+            update();
+        };
+
+        window.toggleBool = (side, key) => {
+            const obj = side === 'red' ? red : blue;
+            obj[key] = !obj[key];
+            update();
+        };
+
+        window.setScout = (side, val) => {
+            const obj = side === 'red' ? red : blue;
+            obj.scout = val;
+            update();
+        };
+
+        window.addStack = (side, h) => {
+            const obj = side === 'red' ? red : blue;
+            obj.stacks.push(h);
+            update();
+        };
+
+        window.removeStack = (side, i) => {
+            const obj = side === 'red' ? red : blue;
+            obj.stacks.splice(i, 1);
+            update();
+        };
+
+        window.toggleTimer = () => {
+            isRunning = !isRunning;
+            document.getElementById('timer-btn').innerHTML = isRunning ? `<i data-lucide="pause"></i>` : `<i data-lucide="play"></i>`;
+            document.getElementById('overlay').classList.toggle('hidden', true);
+            lucide.createIcons();
+            
+            if (isRunning) {
+                timerInterval = setInterval(() => {
+                    timeLeft--;
+                    if (timeLeft <= 90) {
+                        phase = 'TELEOP';
+                        document.getElementById('phase-badge').className = "px-4 py-2 rounded-full font-black text-xs tracking-widest bg-blue-600 text-white";
+                        document.getElementById('phase-badge').innerText = "TELEOP";
+                    }
+                    if (timeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        isRunning = false;
+                        document.getElementById('timer-btn').classList.add('opacity-50');
+                    }
+                    const m = Math.floor(timeLeft / 60);
+                    const s = timeLeft % 60;
+                    document.getElementById('timer-display').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+                    update();
+                }, 1000);
+            } else {
+                clearInterval(timerInterval);
+            }
+        };
+
+        window.resetMatch = () => {
+            clearInterval(timerInterval);
+            timeLeft = 120;
+            isRunning = false;
+            phase = 'AUTO';
+            red = initialState();
+            blue = initialState();
+            document.getElementById('timer-display').innerText = "2:00";
+            document.getElementById('phase-badge').className = "px-4 py-2 rounded-full font-black text-xs tracking-widest bg-amber-500 text-amber-950 pulse";
+            document.getElementById('phase-badge').innerText = "AUTO";
+            document.getElementById('overlay').classList.remove('hidden');
+            update();
+        };
+
+        // Init
+        window.onload = () => {
+            update();
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>
