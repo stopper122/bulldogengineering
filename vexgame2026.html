@@ -114,9 +114,6 @@ const App = () => {
     // --- 4. Special Rule Bonuses ---
     if (alliance.hasUltimateSummit) total += 100;
     
-    // VIP Retrieval (Pickle Ball on Home Base during Auto)
-    // Note: User can toggle this via buttons, here we assume it's calculated at end of phase
-    
     // --- 5. Auto Specific Logic ---
     if (phase === 'AUTO') {
       // Rule: Home Run - Any single cube/ring on Base = 2x Value
@@ -163,11 +160,11 @@ const App = () => {
 
   const ScoreCounter = ({ label, value, onUp, onDown, small = false, color = "slate" }) => (
     <div className={`flex items-center justify-between ${small ? 'p-1' : 'p-2'} bg-white rounded-lg shadow-sm border border-slate-100`}>
-      <span className={`${small ? 'text-[9px]' : 'text-[10px]'} font-bold text-${color}-600 uppercase truncate pr-1`}>{label}</span>
-      <div className="flex items-center gap-2">
-        <button onClick={onDown} className="p-0.5 hover:bg-slate-100 rounded-full transition-colors"><ChevronDown className="w-4 h-4 text-slate-400" /></button>
-        <span className={`${small ? 'text-sm' : 'text-base'} font-black w-5 text-center`}>{value}</span>
-        <button onClick={onUp} className="p-0.5 hover:bg-slate-100 rounded-full transition-colors"><ChevronUp className="w-4 h-4 text-slate-600" /></button>
+      <span className={`${small ? 'text-[8px]' : 'text-[9px]'} font-bold text-${color}-600 uppercase truncate pr-1`}>{label}</span>
+      <div className="flex items-center gap-1.5">
+        <button onClick={onDown} className="p-0.5 hover:bg-slate-100 rounded-full transition-colors"><ChevronDown className="w-3.5 h-3.5 text-slate-400" /></button>
+        <span className={`${small ? 'text-xs' : 'text-sm'} font-black w-4 text-center tabular-nums`}>{value}</span>
+        <button onClick={onUp} className="p-0.5 hover:bg-slate-100 rounded-full transition-colors"><ChevronUp className="w-3.5 h-3.5 text-slate-600" /></button>
       </div>
     </div>
   );
@@ -178,45 +175,45 @@ const App = () => {
     const borderColor = isRed ? 'border-red-200' : 'border-blue-200';
 
     return (
-      <div className={`flex-1 flex flex-col rounded-2xl border-2 ${borderColor} ${isRed ? 'bg-red-50' : 'bg-blue-50'} overflow-hidden shadow-sm`}>
+      <div className={`flex-1 min-w-0 flex flex-col rounded-2xl border-2 ${borderColor} ${isRed ? 'bg-red-50' : 'bg-blue-50'} overflow-hidden shadow-sm`}>
         {/* Alliance Header */}
-        <div className={`${accentColor} p-3 text-white flex justify-between items-center`}>
+        <div className={`${accentColor} p-3 text-white flex justify-between items-center shrink-0`}>
           <div>
-            <h2 className="text-lg font-black uppercase italic tracking-tighter leading-none">{name}</h2>
-            <span className="text-[10px] font-bold opacity-80 uppercase">Total Score</span>
+            <h2 className="text-base font-black uppercase italic tracking-tighter leading-none">{name}</h2>
+            <span className="text-[9px] font-bold opacity-80 uppercase">Total Score</span>
           </div>
-          <div className="text-4xl font-black tabular-nums drop-shadow-sm">{calculateScore(alliance, matchPhase)}</div>
+          <div className="text-3xl font-black tabular-nums drop-shadow-sm">{calculateScore(alliance, matchPhase)}</div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2 space-y-3">
+        <div className="flex-1 overflow-y-auto p-2 space-y-3 custom-scrollbar">
           {/* HOME BASE: Multipliers & Stacks */}
           <section className="bg-white/50 p-2 rounded-xl border border-white/80 shadow-inner">
-            <h3 className="text-[9px] font-black text-slate-500 mb-1 tracking-widest uppercase flex items-center gap-1">
-              <Target className="w-3 h-3 text-orange-500" /> Home Base (24"x24" Tile)
+            <h3 className="text-[9px] font-black text-slate-500 mb-1.5 tracking-widest uppercase flex items-center gap-1">
+              <Target className="w-3 h-3 text-orange-500" /> Home Base (24"x24")
             </h3>
             <div className="grid grid-cols-2 gap-1.5">
-              <ScoreCounter label="Y Cube (10)" value={alliance.yellowCubesBase} onUp={() => updateVal(setAlliance, 'yellowCubesBase', 1)} onDown={() => updateVal(setAlliance, 'yellowCubesBase', -1)} />
-              <ScoreCounter label="G Cube (10)" value={alliance.greenCubesBase} onUp={() => updateVal(setAlliance, 'greenCubesBase', 1)} onDown={() => updateVal(setAlliance, 'greenCubesBase', -1)} />
-              <ScoreCounter label="Ring (10)" value={alliance.ringsBase} onUp={() => updateVal(setAlliance, 'ringsBase', 1)} onDown={() => updateVal(setAlliance, 'ringsBase', -1)} />
-              <ScoreCounter label="Ball+Base (20)" value={alliance.ballsBase} onUp={() => updateVal(setAlliance, 'ballsBase', 1)} onDown={() => updateVal(setAlliance, 'ballsBase', -1)} />
-              <ScoreCounter label="Plush Up (30)" value={alliance.plushiesUprightBase} onUp={() => updateVal(setAlliance, 'plushiesUprightBase', 1)} onDown={() => updateVal(setAlliance, 'plushiesUprightBase', -1)} />
-              <ScoreCounter label="Plush Tip (15)" value={alliance.plushiesTippedBase} onUp={() => updateVal(setAlliance, 'plushiesTippedBase', 1)} onDown={() => updateVal(setAlliance, 'plushiesTippedBase', -1)} />
+              <ScoreCounter label="Y Cube" value={alliance.yellowCubesBase} onUp={() => updateVal(setAlliance, 'yellowCubesBase', 1)} onDown={() => updateVal(setAlliance, 'yellowCubesBase', -1)} />
+              <ScoreCounter label="G Cube" value={alliance.greenCubesBase} onUp={() => updateVal(setAlliance, 'greenCubesBase', 1)} onDown={() => updateVal(setAlliance, 'greenCubesBase', -1)} />
+              <ScoreCounter label="Ring" value={alliance.ringsBase} onUp={() => updateVal(setAlliance, 'ringsBase', 1)} onDown={() => updateVal(setAlliance, 'ringsBase', -1)} />
+              <ScoreCounter label="Ball+Base" value={alliance.ballsBase} onUp={() => updateVal(setAlliance, 'ballsBase', 1)} onDown={() => updateVal(setAlliance, 'ballsBase', -1)} />
+              <ScoreCounter label="Plush Up" value={alliance.plushiesUprightBase} onUp={() => updateVal(setAlliance, 'plushiesUprightBase', 1)} onDown={() => updateVal(setAlliance, 'plushiesUprightBase', -1)} />
+              <ScoreCounter label="Plush Tip" value={alliance.plushiesTippedBase} onUp={() => updateVal(setAlliance, 'plushiesTippedBase', 1)} onDown={() => updateVal(setAlliance, 'plushiesTippedBase', -1)} />
             </div>
 
             {/* Stacking Multiplier Controls */}
             <div className="mt-2 bg-slate-900/5 p-2 rounded-lg border border-dashed border-slate-300">
-              <span className="text-[8px] font-black text-slate-400 block mb-1 uppercase text-center">Active Multiplier Stacks</span>
+              <span className="text-[8px] font-black text-slate-400 block mb-1.5 uppercase text-center">Active Multiplier Stacks</span>
               <div className="flex gap-1 mb-2">
                 {[2, 3, 4].map(h => (
-                  <button key={h} onClick={() => addStack(setAlliance, h)} className="flex-1 py-1 rounded-md text-[9px] font-black bg-white hover:bg-slate-50 border border-slate-200 shadow-sm">
+                  <button key={h} onClick={() => addStack(setAlliance, h)} className="flex-1 py-1 rounded-md text-[8px] font-black bg-white hover:bg-slate-50 border border-slate-200 shadow-sm transition-transform active:scale-95">
                     + {h}-TIER
                   </button>
                 ))}
               </div>
               <div className="flex flex-wrap gap-1 min-h-[24px]">
                 {alliance.activeStacks.map((s, i) => (
-                  <div key={i} className={`${accentColor} text-white px-2 py-0.5 rounded flex items-center gap-2 text-[9px] font-bold shadow-sm`}>
-                    {s} Tiers <Trash2 className="w-3 h-3 cursor-pointer opacity-70 hover:opacity-100" onClick={() => removeStack(setAlliance, i)} />
+                  <div key={i} className={`${accentColor} text-white px-2 py-0.5 rounded flex items-center gap-1.5 text-[8px] font-bold shadow-sm`}>
+                    {s} Tiers <Trash2 className="w-2.5 h-2.5 cursor-pointer opacity-70 hover:opacity-100" onClick={() => removeStack(setAlliance, i)} />
                   </div>
                 ))}
               </div>
@@ -224,11 +221,11 @@ const App = () => {
           </section>
 
           {/* TELEOP ZONE SCORING */}
-          <section className={`p-1 transition-opacity ${matchPhase === 'AUTO' ? 'opacity-40 grayscale' : 'opacity-100'}`}>
+          <section className={`p-1 transition-opacity ${matchPhase === 'AUTO' ? 'opacity-40 grayscale pointer-events-none' : 'opacity-100'}`}>
             <h3 className="text-[9px] font-black text-slate-400 mb-1 tracking-widest uppercase flex items-center gap-1">
               <Zap className="w-3 h-3" /> Zone Floor (Standard)
             </h3>
-            <div className="grid grid-cols-3 gap-1">
+            <div className="grid grid-cols-2 gap-1.5">
               <ScoreCounter small label="Cubes" value={alliance.yellowCubesZone + alliance.greenCubesZone} onUp={() => updateVal(setAlliance, 'yellowCubesZone', 1)} onDown={() => updateVal(setAlliance, 'yellowCubesZone', -1)} />
               <ScoreCounter small label="Ring" value={alliance.ringsZone} onUp={() => updateVal(setAlliance, 'ringsZone', 1)} onDown={() => updateVal(setAlliance, 'ringsZone', -1)} />
               <ScoreCounter small label="Ball" value={alliance.ballsZone} onUp={() => updateVal(setAlliance, 'ballsZone', 1)} onDown={() => updateVal(setAlliance, 'ballsZone', -1)} />
@@ -243,15 +240,15 @@ const App = () => {
             <div className="grid grid-cols-2 gap-2">
               <button 
                 onClick={() => setAlliance(p => ({ ...p, autoWinner: !p.autoWinner }))} 
-                className={`p-2 rounded-lg text-[9px] font-black border flex items-center justify-center gap-1 transition-all ${alliance.autoWinner ? 'bg-amber-500 border-amber-600 text-white shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}
+                className={`p-2 rounded-lg text-[9px] font-black border flex items-center justify-center gap-1 transition-all active:scale-95 ${alliance.autoWinner ? 'bg-amber-500 border-amber-600 text-white shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}
               >
-                <Trophy className="w-3 h-3" /> AUTO WINNER (+50)
+                <Trophy className="w-3 h-3" /> AUTO WIN (+50)
               </button>
               <button 
                 onClick={() => setAlliance(p => ({ ...p, hasPickleBall: !p.hasPickleBall }))} 
-                className={`p-2 rounded-lg text-[9px] font-black border flex items-center justify-center gap-1 transition-all ${alliance.hasPickleBall ? 'bg-purple-600 border-purple-700 text-white shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}
+                className={`p-2 rounded-lg text-[9px] font-black border flex items-center justify-center gap-1 transition-all active:scale-95 ${alliance.hasPickleBall ? 'bg-purple-600 border-purple-700 text-white shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}
               >
-                <ShieldCheck className="w-3 h-3" /> NEUTRALIZER (PICKLE)
+                <ShieldCheck className="w-3 h-3" /> PICKLE BALL
               </button>
             </div>
 
@@ -263,18 +260,18 @@ const App = () => {
                   onClick={() => setAlliance(p => ({ ...p, autoScouts: val }))}
                   className={`flex-1 py-1 rounded text-[8px] font-black uppercase transition-all ${alliance.autoScouts === val ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
                 >
-                  {val === 0 ? 'No Scout' : val === 1 ? 'Neutral (10)' : 'Invasive (25)'}
+                  {val === 0 ? 'No Scout' : val === 1 ? 'Neut (10)' : 'Inv (25)'}
                 </button>
               ))}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <ScoreCounter small label="Hazard Recieved" value={alliance.hazardPenaltiesRecieved} onUp={() => updateVal(setAlliance, 'hazardPenaltiesRecieved', 1)} onDown={() => updateVal(setAlliance, 'hazardPenaltiesRecieved', -1)} color="red" />
+              <ScoreCounter small label="Hazard Pen." value={alliance.hazardPenaltiesRecieved} onUp={() => updateVal(setAlliance, 'hazardPenaltiesRecieved', 1)} onDown={() => updateVal(setAlliance, 'hazardPenaltiesRecieved', -1)} color="red" />
               <button 
                 onClick={() => setAlliance(p => ({ ...p, hasUltimateSummit: !p.hasUltimateSummit }))} 
-                className={`p-2 rounded-lg text-[9px] font-black border-2 flex items-center justify-center gap-1 transition-all ${alliance.hasUltimateSummit ? 'bg-yellow-400 border-yellow-500 text-yellow-900 shadow-md' : 'bg-white text-slate-300 border-slate-200'}`}
+                className={`p-2 rounded-lg text-[9px] font-black border-2 flex items-center justify-center gap-1 transition-all active:scale-95 ${alliance.hasUltimateSummit ? 'bg-yellow-400 border-yellow-500 text-yellow-900 shadow-md' : 'bg-white border-slate-200 text-slate-300'}`}
               >
-                ULTIMATE SUMMIT? (+100)
+                SUMMIT? (+100)
               </button>
             </div>
           </section>
@@ -284,46 +281,44 @@ const App = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-100 font-sans text-slate-900 overflow-hidden">
+    <div className="flex flex-col h-screen max-h-screen bg-slate-100 font-sans text-slate-900 overflow-hidden">
       {/* Universal Game Header */}
-      <header className="bg-slate-900 p-3 shadow-2xl flex items-center justify-between px-6 z-30 border-b border-white/10">
-        <div className="flex items-center gap-4">
+      <header className="bg-slate-900 p-3 shadow-2xl flex items-center justify-between px-4 sm:px-6 z-30 border-b border-white/10 shrink-0">
+        <div className="flex items-center gap-3 sm:gap-4">
           <div className="flex flex-col">
-            <h1 className="text-white font-black italic text-lg leading-tight tracking-tighter">STACKER'S SUMMIT</h1>
-            <span className="text-blue-400 text-[9px] font-bold tracking-[0.2em] uppercase">Student Game Engine</span>
+            <h1 className="text-white font-black italic text-sm sm:text-lg leading-tight tracking-tighter uppercase">STACKER'S SUMMIT</h1>
+            <span className="text-blue-400 text-[8px] sm:text-[9px] font-bold tracking-[0.2em] uppercase">VEX Engine v3.1</span>
           </div>
-          <div className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest flex items-center gap-2 shadow-inner transition-colors duration-500 ${matchPhase === 'AUTO' ? 'bg-amber-500 text-amber-950 animate-pulse' : 'bg-blue-600 text-blue-50'}`}>
-            <AlertTriangle className={`w-3 h-3 ${matchPhase === 'AUTO' ? 'block' : 'hidden'}`} />
-            {matchPhase} PHASE
+          <div className={`px-2 sm:px-3 py-1 rounded-full text-[8px] sm:text-[10px] font-black tracking-widest flex items-center gap-1 sm:gap-2 shadow-inner transition-colors duration-500 ${matchPhase === 'AUTO' ? 'bg-amber-500 text-amber-950 animate-pulse' : 'bg-blue-600 text-blue-50'}`}>
+            <AlertTriangle className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${matchPhase === 'AUTO' ? 'block' : 'hidden'}`} />
+            {matchPhase}
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="flex flex-col items-center">
-            <div className="text-white text-3xl font-mono font-black tabular-nums tracking-tighter drop-shadow-lg">
-              {formatTime(timeLeft)}
-            </div>
+        <div className="flex items-center gap-3 sm:gap-6">
+          <div className="text-white text-xl sm:text-3xl font-mono font-black tabular-nums tracking-tighter drop-shadow-lg">
+            {formatTime(timeLeft)}
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 sm:gap-2">
             <button 
               onClick={() => setIsTimerRunning(!isTimerRunning)}
-              className={`p-2.5 rounded-full transition-all shadow-lg hover:scale-105 active:scale-95 ${isTimerRunning ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-green-500 hover:bg-green-600 text-white'}`}
+              className={`p-1.5 sm:p-2.5 rounded-full transition-all shadow-lg hover:scale-105 active:scale-95 ${isTimerRunning ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-green-500 hover:bg-green-600 text-white'}`}
             >
-              {isTimerRunning ? <Skull className="w-5 h-5" /> : <Timer className="w-5 h-5" />}
+              {isTimerRunning ? <Skull className="w-4 h-4 sm:w-5 sm:h-5" /> : <Timer className="w-4 h-4 sm:w-5 sm:h-5" />}
             </button>
             <button 
               onClick={resetMatch}
-              className="p-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-full transition-all shadow-lg active:rotate-180"
+              className="p-1.5 sm:p-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-full transition-all shadow-lg active:rotate-180"
             >
-              <RotateCcw className="w-5 h-5" />
+              <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Scoreboard Container */}
-      <main className="flex-1 flex p-2 gap-2 overflow-hidden relative">
+      <main className="flex-1 flex p-1.5 sm:p-2 gap-1.5 sm:gap-2 overflow-hidden relative">
         <AlliancePanel 
           alliance={redAlliance} 
           setAlliance={setRedAlliance} 
@@ -338,21 +333,47 @@ const App = () => {
           name="Blue Alliance" 
         />
 
-        {/* Floating Rule Quick-Ref (Optional UI Overlay) */}
-        {timeLeft > 115 && (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-2xl border border-slate-200 text-center max-w-sm pointer-events-none animate-out fade-out duration-1000 delay-3000">
-            <h3 className="text-xl font-black italic mb-2">AUTO PHASE ACTIVE</h3>
-            <p className="text-sm text-slate-600">Home Base points are <strong>DOUBLED</strong>. Floor points are <strong>DISABLED</strong>.</p>
+        {/* Start Overlay */}
+        {timeLeft > 118 && !isTimerRunning && (
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] z-40 flex items-center justify-center p-6">
+            <div className="bg-white p-6 rounded-3xl shadow-2xl text-center max-w-sm border border-slate-200">
+              <h3 className="text-2xl font-black italic mb-2 tracking-tighter text-slate-800 uppercase">Ready for Summit?</h3>
+              <p className="text-xs text-slate-500 mb-4 leading-relaxed font-bold uppercase tracking-wide">
+                Auto Phase will begin immediately. Only Home Base items score in the first 30 seconds.
+              </p>
+              <button 
+                onClick={() => setIsTimerRunning(true)}
+                className="w-full bg-green-500 hover:bg-green-600 text-white font-black py-3 rounded-xl shadow-lg transition-transform active:scale-95 uppercase tracking-widest text-sm"
+              >
+                Start Match
+              </button>
+            </div>
           </div>
         )}
       </main>
 
       {/* Footer Status */}
-      <footer className="bg-white border-t border-slate-200 p-1.5 flex justify-center gap-6 text-[9px] font-black text-slate-400 uppercase tracking-widest z-10">
-        <div className="flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-green-500" /> VEX IQ COMPATIBLE</div>
-        <div className="flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-green-500" /> MULTIPLIER ENGINE V3.1</div>
-        <div className="flex items-center gap-1.5 text-slate-500"><Target className="w-3 h-3" /> 24"x24" HOME BASE AREA</div>
+      <footer className="bg-white border-t border-slate-200 p-1 flex justify-center gap-4 sm:gap-6 text-[8px] font-black text-slate-400 uppercase tracking-widest z-10 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0"><CheckCircle2 className="w-2.5 h-2.5 text-green-500" /> ENGINE V3</div>
+        <div className="flex items-center gap-1.5 shrink-0"><CheckCircle2 className="w-2.5 h-2.5 text-green-500" /> STACK MULTIPLIER ACTIVE</div>
+        <div className="flex items-center gap-1.5 text-slate-500 shrink-0"><Target className="w-2.5 h-2.5" /> 24" TILE BASE</div>
       </footer>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+      `}} />
     </div>
   );
 };
