@@ -2,166 +2,116 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Summit Climb Scorer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        
-        body {
-            font-family: 'Inter', sans-serif;
-            touch-action: manipulation;
-            background-color: #f8fafc;
-        }
-
         .no-select {
             -webkit-user-select: none;
             user-select: none;
         }
-
-        /* Optimization for Tablet aspect ratios */
-        .grid-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .stepper-btn {
-            transition: transform 0.1s active;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        .stepper-btn:active {
-            transform: scale(0.95);
-        }
-
-        /* Modal styling for Import */
         #import-modal {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(15, 23, 42, 0.6);
+            background: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(4px);
-            z-index: 100;
+            z-index: 50;
             align-items: center;
             justify-content: center;
         }
     </style>
 </head>
-<body class="p-4 md:p-8">
-    <div id="app" class="max-w-5xl mx-auto">
-        <!-- Header -->
-        <header class="flex flex-col sm:flex-row justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div class="text-center sm:text-left mb-4 sm:mb-0">
-                <h1 class="text-3xl font-bold text-slate-900 leading-tight">Summit Climb</h1>
-                <p class="text-slate-500 font-medium">Match Scorer • S6 Lite Optimized</p>
-            </div>
-            <div class="bg-indigo-600 text-white px-8 py-4 rounded-2xl text-center min-w-[160px]">
-                <div class="text-xs uppercase tracking-widest font-bold opacity-80">Total Score</div>
-                <div id="total-score" class="text-4xl font-black">0</div>
-            </div>
-        </header>
+<body class="bg-gray-100 min-h-screen p-4 flex flex-col items-center">
 
-        <div class="grid-container">
-            <!-- Autonomous Section -->
-            <section class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-                <h2 class="text-xl font-bold mb-6 flex items-center text-indigo-700">
-                    <span class="mr-2">🤖</span> Autonomous
-                </h2>
-                
-                <div class="space-y-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="font-bold text-slate-800">Auto High</p>
-                            <p class="text-xs text-slate-500">15 pts each</p>
-                        </div>
-                        <div class="flex items-center space-x-4">
-                            <button onclick="changeValue('autoHigh', -1)" class="stepper-btn w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl font-bold text-slate-600">-</button>
-                            <span id="autoHigh-val" class="text-xl font-bold w-6 text-center">0</span>
-                            <button onclick="changeValue('autoHigh', 1)" class="stepper-btn w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center text-2xl font-bold text-indigo-600">+</button>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center justify-between border-t pt-4">
-                        <div>
-                            <p class="font-bold text-slate-800">Auto Low</p>
-                            <p class="text-xs text-slate-500">8 pts each</p>
-                        </div>
-                        <div class="flex items-center space-x-4">
-                            <button onclick="changeValue('autoLow', -1)" class="stepper-btn w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl font-bold text-slate-600">-</button>
-                            <span id="autoLow-val" class="text-xl font-bold w-6 text-center">0</span>
-                            <button onclick="changeValue('autoLow', 1)" class="stepper-btn w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center text-2xl font-bold text-indigo-600">+</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Teleop Section -->
-            <section class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-                <h2 class="text-xl font-bold mb-6 flex items-center text-emerald-700">
-                    <span class="mr-2">🕹️</span> Teleop & Endgame
-                </h2>
-                
-                <div class="space-y-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="font-bold text-slate-800">Standard Score</p>
-                            <p class="text-xs text-slate-500">5 pts each</p>
-                        </div>
-                        <div class="flex items-center space-x-4">
-                            <button onclick="changeValue('teleop', -1)" class="stepper-btn w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl font-bold text-slate-600">-</button>
-                            <span id="teleop-val" class="text-xl font-bold w-6 text-center">0</span>
-                            <button onclick="changeValue('teleop', 1)" class="stepper-btn w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-2xl font-bold text-emerald-600">+</button>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center justify-between border-t pt-4">
-                        <div>
-                            <p class="font-bold text-slate-800">Summit Bonus</p>
-                            <p class="text-xs text-slate-500">25 pts</p>
-                        </div>
-                        <button id="summit-btn" onclick="toggleValue('summit')" class="w-24 h-12 rounded-xl font-bold transition-all bg-slate-100 text-slate-400">OFF</button>
-                    </div>
-
-                    <div class="flex items-center justify-between border-t pt-4">
-                        <div>
-                            <p class="font-bold text-slate-800 italic">ULTIMATE</p>
-                            <p class="text-xs text-slate-500">100 pts bonus</p>
-                        </div>
-                        <button id="ultimate-btn" onclick="toggleValue('ultimate')" class="w-24 h-12 rounded-xl font-bold transition-all bg-slate-100 text-slate-400">OFF</button>
-                    </div>
-                </div>
-            </section>
+    <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-6 space-y-6">
+        <div class="text-center">
+            <h1 class="text-2xl font-bold text-gray-800">Summit Climb</h1>
+            <div class="text-5xl font-black text-blue-600 mt-2" id="total-score">0</div>
+            <p class="text-gray-500 uppercase text-xs tracking-widest font-bold mt-1">Total Points</p>
         </div>
 
-        <!-- Action Bar -->
-        <footer class="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <button onclick="resetData()" class="py-5 rounded-2xl bg-white border-2 border-rose-100 text-rose-600 font-bold text-lg hover:bg-rose-50 transition-colors">
-                Reset
-            </button>
-            <button onclick="showImportModal()" class="py-5 rounded-2xl bg-white border-2 border-slate-200 text-slate-600 font-bold text-lg hover:bg-slate-50 transition-colors">
-                Import Data
-            </button>
-            <button onclick="exportData()" class="py-5 rounded-2xl bg-slate-900 text-white font-bold text-lg shadow-lg hover:bg-slate-800 transition-transform active:scale-[0.98]">
-                Export Report
-            </button>
-        </footer>
+        <!-- Scoring Sections -->
+        <div class="space-y-4">
+            <!-- Auto High -->
+            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div>
+                    <div class="font-bold text-gray-700">Auto High</div>
+                    <div class="text-xs text-gray-400">15 pts each</div>
+                </div>
+                <div class="flex items-center space-x-4 no-select">
+                    <button onclick="changeValue('autoHigh', -1)" class="w-10 h-10 rounded-full bg-white border border-gray-300 flex items-center justify-center text-xl font-bold active:bg-gray-200">-</button>
+                    <span id="autoHigh-val" class="text-xl font-bold w-6 text-center">0</span>
+                    <button onclick="changeValue('autoHigh', 1)" class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-bold active:bg-blue-700">+</button>
+                </div>
+            </div>
 
-        <!-- Toast Notification Area -->
-        <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-800 text-white rounded-full opacity-0 pointer-events-none transition-opacity duration-300 font-medium text-sm shadow-xl z-[200]">
-            Copied to clipboard!
+            <!-- Auto Low -->
+            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div>
+                    <div class="font-bold text-gray-700">Auto Low</div>
+                    <div class="text-xs text-gray-400">8 pts each</div>
+                </div>
+                <div class="flex items-center space-x-4 no-select">
+                    <button onclick="changeValue('autoLow', -1)" class="w-10 h-10 rounded-full bg-white border border-gray-300 flex items-center justify-center text-xl font-bold active:bg-gray-200">-</button>
+                    <span id="autoLow-val" class="text-xl font-bold w-6 text-center">0</span>
+                    <button onclick="changeValue('autoLow', 1)" class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-bold active:bg-blue-700">+</button>
+                </div>
+            </div>
+
+            <!-- Teleop -->
+            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div>
+                    <div class="font-bold text-gray-700">Standard</div>
+                    <div class="text-xs text-gray-400">5 pts each</div>
+                </div>
+                <div class="flex items-center space-x-4 no-select">
+                    <button onclick="changeValue('teleop', -1)" class="w-10 h-10 rounded-full bg-white border border-gray-300 flex items-center justify-center text-xl font-bold active:bg-gray-200">-</button>
+                    <span id="teleop-val" class="text-xl font-bold w-6 text-center">0</span>
+                    <button onclick="changeValue('teleop', 1)" class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-bold active:bg-blue-700">+</button>
+                </div>
+            </div>
+
+            <!-- Summit Toggle -->
+            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div>
+                    <div class="font-bold text-gray-700">Summit Bonus</div>
+                    <div class="text-xs text-gray-400">25 pts</div>
+                </div>
+                <button id="summit-btn" onclick="toggleValue('summit')" class="px-6 py-2 rounded-full font-bold text-sm transition-colors bg-gray-300 text-gray-600">OFF</button>
+            </div>
+
+            <!-- Ultimate Toggle -->
+            <div class="flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700">
+                <div>
+                    <div class="font-bold text-white italic">ULTIMATE</div>
+                    <div class="text-xs text-blue-400">100 pts bonus</div>
+                </div>
+                <button id="ultimate-btn" onclick="toggleValue('ultimate')" class="px-6 py-2 rounded-full font-bold text-sm transition-colors bg-gray-700 text-gray-400">OFF</button>
+            </div>
         </div>
 
-        <!-- Import Modal -->
-        <div id="import-modal">
-            <div class="bg-white p-6 rounded-3xl shadow-2xl max-w-lg w-full mx-4 border border-slate-200">
-                <h3 class="text-xl font-bold text-slate-900 mb-2">Restore from Export</h3>
-                <p class="text-sm text-slate-500 mb-4">Paste the text from a previous "Match Report" below to restore the counts.</p>
-                <textarea id="import-text" class="w-full h-48 p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Paste report here..."></textarea>
-                <div class="flex gap-3 mt-6">
-                    <button onclick="hideImportModal()" class="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold">Cancel</button>
-                    <button onclick="handleImport()" class="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold">Restore State</button>
-                </div>
+        <!-- Action Buttons -->
+        <div class="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+            <button onclick="resetData()" class="py-3 px-4 bg-red-50 text-red-600 font-bold rounded-lg active:bg-red-100">Reset</button>
+            <button onclick="exportData()" class="py-3 px-4 bg-blue-600 text-white font-bold rounded-lg active:bg-blue-700">Copy Report</button>
+            <button onclick="showImportModal()" class="col-span-2 py-2 text-gray-500 text-sm font-medium">Restore from Export</button>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-10 bg-black text-white px-6 py-3 rounded-full opacity-0 transition-opacity pointer-events-none text-sm">
+        Report copied!
+    </div>
+
+    <!-- Import Modal -->
+    <div id="import-modal">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-80 max-w-[90vw]">
+            <h3 class="font-bold text-lg mb-2 text-gray-800">Restore Data</h3>
+            <p class="text-xs text-gray-500 mb-4">Paste the exported report text below:</p>
+            <textarea id="import-text" class="w-full h-32 p-3 text-xs border border-gray-200 rounded bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Paste here..."></textarea>
+            <div class="flex space-x-2 mt-4">
+                <button onclick="hideImportModal()" class="flex-1 py-2 text-gray-500 font-bold">Cancel</button>
+                <button onclick="handleImport()" class="flex-1 py-2 bg-blue-600 text-white font-bold rounded">Import</button>
             </div>
         </div>
     </div>
@@ -184,21 +134,18 @@
         };
 
         function updateUI() {
-            // Numbers
             document.getElementById('autoHigh-val').textContent = state.autoHigh;
             document.getElementById('autoLow-val').textContent = state.autoLow;
             document.getElementById('teleop-val').textContent = state.teleop;
 
-            // Toggles
-            const summitBtn = document.getElementById('summit-btn');
-            summitBtn.textContent = state.summit ? 'ON' : 'OFF';
-            summitBtn.className = `w-24 h-12 rounded-xl font-bold transition-all ${state.summit ? 'bg-emerald-500 text-white shadow-md' : 'bg-slate-100 text-slate-400'}`;
+            const sBtn = document.getElementById('summit-btn');
+            sBtn.textContent = state.summit ? 'ON' : 'OFF';
+            sBtn.className = `px-6 py-2 rounded-full font-bold text-sm transition-colors ${state.summit ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`;
 
-            const ultimateBtn = document.getElementById('ultimate-btn');
-            ultimateBtn.textContent = state.ultimate ? 'ON' : 'OFF';
-            ultimateBtn.className = `w-24 h-12 rounded-xl font-bold transition-all ${state.ultimate ? 'bg-indigo-600 text-white shadow-lg border-2 border-indigo-400 scale-105' : 'bg-slate-100 text-slate-400'}`;
+            const uBtn = document.getElementById('ultimate-btn');
+            uBtn.textContent = state.ultimate ? 'ON' : 'OFF';
+            uBtn.className = `px-6 py-2 rounded-full font-bold text-sm transition-colors ${state.ultimate ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-400'}`;
 
-            // Total
             const total = (state.autoHigh * config.autoHigh) + 
                           (state.autoLow * config.autoLow) + 
                           (state.teleop * config.teleop) + 
@@ -211,13 +158,11 @@
         function changeValue(key, delta) {
             state[key] = Math.max(0, state[key] + delta);
             updateUI();
-            if (window.navigator.vibrate) window.navigator.vibrate(10);
         }
 
         function toggleValue(key) {
             state[key] = !state[key];
             updateUI();
-            if (window.navigator.vibrate) window.navigator.vibrate(20);
         }
 
         function resetData() {
@@ -230,31 +175,23 @@
         }
 
         function exportData() {
-            const date = new Date().toLocaleString();
-            const total = document.getElementById('total-score').textContent;
-            
-            const breakdown = [
-                `SUMMIT CLIMB MATCH REPORT`,
-                `Timestamp: ${date}`,
-                `--------------------------`,
-                `AUTO HIGH:   ${state.autoHigh} x ${config.autoHigh} = ${state.autoHigh * config.autoHigh} pts`,
-                `AUTO LOW:    ${state.autoLow} x ${config.autoLow} = ${state.autoLow * config.autoLow} pts`,
-                `TELEOP:      ${state.teleop} x ${config.teleop} = ${state.teleop * config.teleop} pts`,
-                `SUMMIT:      ${state.summit ? 'YES' : 'NO'} (${config.summit} pts)`,
-                `ULTIMATE:    ${state.ultimate ? 'YES' : 'NO'} (${config.ultimate} pts)`,
-                `--------------------------`,
-                `TOTAL SCORE: ${total} pts`
+            const report = [
+                `AUTO HIGH: ${state.autoHigh}`,
+                `AUTO LOW: ${state.autoLow}`,
+                `TELEOP: ${state.teleop}`,
+                `SUMMIT: ${state.summit ? 'YES' : 'NO'}`,
+                `ULTIMATE: ${state.ultimate ? 'YES' : 'NO'}`,
+                `TOTAL: ${document.getElementById('total-score').textContent}`
             ].join('\n');
 
-            // Copy to clipboard
-            const textArea = document.createElement("textarea");
-            textArea.value = breakdown;
-            document.body.appendChild(textArea);
-            textArea.select();
+            const el = document.createElement('textarea');
+            el.value = report;
+            document.body.appendChild(el);
+            el.select();
             document.execCommand('copy');
-            document.body.removeChild(textArea);
+            document.body.removeChild(el);
 
-            showToast('Copied report to clipboard!');
+            showToast("Report copied to clipboard!");
         }
 
         function showImportModal() {
@@ -268,40 +205,32 @@
 
         function handleImport() {
             const text = document.getElementById('import-text').value;
-            if (!text) return;
+            if(!text) return;
 
-            try {
-                // Regex patterns to find numbers or YES/NO values
-                const matchAutoHigh = text.match(/AUTO HIGH:\s+(\d+)/);
-                const matchAutoLow = text.match(/AUTO LOW:\s+(\d+)/);
-                const matchTeleop = text.match(/TELEOP:\s+(\d+)/);
-                const matchSummit = text.match(/SUMMIT:\s+(YES|NO)/);
-                const matchUltimate = text.match(/ULTIMATE:\s+(YES|NO)/);
+            const ah = text.match(/AUTO HIGH: (\d+)/);
+            const al = text.match(/AUTO LOW: (\d+)/);
+            const te = text.match(/TELEOP: (\d+)/);
+            const su = text.match(/SUMMIT: (YES|NO)/);
+            const ul = text.match(/ULTIMATE: (YES|NO)/);
 
-                if (matchAutoHigh) state.autoHigh = parseInt(matchAutoHigh[1]);
-                if (matchAutoLow) state.autoLow = parseInt(matchAutoLow[1]);
-                if (matchTeleop) state.teleop = parseInt(matchTeleop[1]);
-                if (matchSummit) state.summit = matchSummit[1] === 'YES';
-                if (matchUltimate) state.ultimate = matchUltimate[1] === 'YES';
+            if(ah) state.autoHigh = parseInt(ah[1]);
+            if(al) state.autoLow = parseInt(al[1]);
+            if(te) state.teleop = parseInt(te[1]);
+            if(su) state.summit = su[1] === 'YES';
+            if(ul) state.ultimate = ul[1] === 'YES';
 
-                updateUI();
-                hideImportModal();
-                showToast('Data restored successfully!');
-            } catch (e) {
-                showToast('Error: Invalid report format.');
-            }
+            updateUI();
+            hideImportModal();
+            showToast("Data restored!");
         }
 
         function showToast(msg) {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.style.opacity = '1';
-            setTimeout(() => {
-                toast.style.opacity = '0';
-            }, 2000);
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.opacity = '1';
+            setTimeout(() => t.style.opacity = '0', 2000);
         }
 
-        // Initialize UI
         updateUI();
     </script>
 </body>
