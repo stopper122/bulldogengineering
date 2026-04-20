@@ -17,12 +17,20 @@
         
         /* Game Element Colors */
         .text-game-yellow { color: #facc15; } /* Yellow Cubes */
-        .text-game-ring { color: #3b82f6; }   /* Blue Rings */
         .text-game-rocker { color: #22c55e; } /* Green Rocker Bases */
         .text-game-tennis { color: #bef264; } /* Tennis Ball (Summit) */
         .text-game-pickle { color: #16a34a; } /* Pickle Ball (Neutralizer) */
-        .text-game-botguy { color: #f97316; } /* Botguy Orange */
+        .text-game-botguy { color: #ef4444; } /* RED Botguy per request */
         .text-game-scrap { color: #64748b; }  /* Grey Pom-poms */
+
+        /* Custom Bullseye Ring Icon */
+        .bullseye-icon {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #facc15 20%, #ef4444 21%, #ef4444 50%, #3b82f6 51%, #3b82f6 100%);
+        }
     </style>
 </head>
 <body class="bg-slate-200 h-screen flex flex-col overflow-hidden">
@@ -129,17 +137,11 @@
         let matchLog = [];
 
         const initialState = () => ({
-            // Base States
             yellowBase: 0, ringBase: 0, botguyUpBase: 0, botguyTipBase: 0, ballBase: 0, rockerBase: 0,
             scout: 0, autoStacks: [],
-            
-            // Zones
             yellowZone: 0, ringZone: 0, botguyUpZone: 0, botguyTipZone: 0, ballZone: 0,
             scrapZone: 0, scrapBase: 0, hazard: 0,
-            
-            // Flags
             pickle: false, ultimate: false, autoWinner: false,
-            
             autoLockedScore: 0
         });
 
@@ -202,7 +204,7 @@
                     
                     <div class="grid grid-cols-2 gap-2 ${phase !== 'AUTO' ? 'pointer-events-none opacity-60' : ''}">
                         ${renderCounter('Cubes (Base)', 'box', alliance.yellowBase, side, 'yellowBase', 'text-game-yellow')}
-                        ${renderCounter('Rings (Base)', 'circle', alliance.ringBase, side, 'ringBase', 'text-game-ring')}
+                        ${renderCounter('Rings (Base)', 'bullseye', alliance.ringBase, side, 'ringBase')}
                         ${renderCounter('Rocker (Base)', 'layers', alliance.rockerBase, side, 'rockerBase', 'text-game-rocker')}
                         ${renderCounter('Summit Ball', 'circle', alliance.ballBase, side, 'ballBase', 'text-game-tennis')}
                         ${renderCounter('Botguy Up', 'bot', alliance.botguyUpBase, side, 'botguyUpBase', 'text-game-botguy')}
@@ -236,7 +238,7 @@
                     </h3>
                     <div class="grid grid-cols-2 gap-2">
                         ${renderCounter('Cubes (Zone)', 'square', alliance.yellowZone, side, 'yellowZone', 'text-game-yellow')}
-                        ${renderCounter('Ball (Zone)', 'circle', alliance.ballZone, side, 'ballZone', 'text-game-tennis')}
+                        ${renderCounter('Rings (Zone)', 'bullseye', alliance.ringZone, side, 'ringZone')}
                         ${renderCounter('Botguy (Zone)', 'smile', alliance.botguyUpZone, side, 'botguyUpZone', 'text-game-botguy')}
                         ${renderCounter('Scrap (Zone)', 'trash-2', alliance.scrapZone, side, 'scrapZone', 'text-game-scrap')}
                     </div>
@@ -262,10 +264,15 @@
         }
 
         function renderCounter(label, icon, val, side, key, iconColorClass = 'text-slate-400') {
+            let iconHtml = `<i data-lucide="${icon}" class="w-3 h-3 ${iconColorClass} shrink-0 fill-current"></i>`;
+            if (icon === 'bullseye') {
+                iconHtml = `<span class="bullseye-icon shrink-0"></span>`;
+            }
+
             return `
                 <div class="flex items-center justify-between p-2 bg-white rounded-lg shadow-sm border border-slate-200">
                     <div class="flex items-center gap-2 overflow-hidden">
-                        <i data-lucide="${icon}" class="w-3 h-3 ${iconColorClass} shrink-0 fill-current"></i>
+                        ${iconHtml}
                         <span class="text-[9px] font-bold text-slate-500 uppercase truncate">${label}</span>
                     </div>
                     <div class="flex items-center gap-1.5">
