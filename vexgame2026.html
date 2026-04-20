@@ -212,7 +212,9 @@
                     </div>
 
                     <div class="flex gap-1 ${phase !== 'AUTO' ? 'pointer-events-none opacity-60' : ''}">
-                        ${[0, 1, 2].map(v => `<button onclick="setScout('${side}', ${v})" class="flex-1 py-1.5 rounded text-[8px] font-black border flex items-center justify-center ${alliance.scout === v ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-400 border-slate-200'}">${v === 0 ? 'NO SCOUT' : v === 1 ? 'NZ' : 'OZ'}</button>`).join('')}
+                        <button onclick="setScout('${side}', 0)" class="flex-1 py-1.5 rounded text-[9px] font-black border flex items-center justify-center ${alliance.scout === 0 ? 'bg-slate-200 text-slate-900 border-slate-300' : 'bg-white text-slate-400 border-slate-200'}">NONE</button>
+                        <button onclick="setScout('${side}', 1)" class="flex-[2] py-1.5 rounded text-[9px] font-black border flex items-center justify-center ${alliance.scout === 1 ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-400 border-slate-200'}">NEUTRAL ZONE</button>
+                        <button onclick="setScout('${side}', 2)" class="flex-[2] py-1.5 rounded text-[9px] font-black border flex items-center justify-center ${alliance.scout === 2 ? 'bg-red-500 text-white border-red-600' : 'bg-white text-slate-400 border-slate-200'}">OPPONENT ZONE</button>
                     </div>
 
                     <div class="p-2 bg-slate-900/5 rounded-xl border border-dashed border-slate-300 ${phase !== 'AUTO' ? 'pointer-events-none opacity-60' : ''}">
