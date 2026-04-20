@@ -120,55 +120,70 @@
         let matchLog = [];
 
         const initialState = () => ({
+            // Auto Specific State
             yellowBase: 0, ringBase: 0, botguyUpBase: 0, botguyTipBase: 0, ballBase: 0, rockerBase: 0,
+            scout: 0, autoStacks: [],
+            
+            // Teleop Specific State
             yellowZone: 0, ringZone: 0, botguyUpZone: 0, botguyTipZone: 0, ballZone: 0,
             scrapZone: 0, scrapBase: 0, hazard: 0,
-            pickle: false, stacks: [], ultimate: false, autoWinner: false, scout: 0,
+            pickle: false, ultimate: false, autoWinner: false,
+            
+            // Internal Score Lock
             autoLockedScore: 0
         });
 
         let red = initialState();
         let blue = initialState();
 
-        function calculate(alliance) {
+        function calculateAuto(alliance) {
             let total = 0;
-            
-            // 1. BASE CALCULATION
+            // Base values on Home Base during Auto
             let baseScore = (alliance.yellowBase + alliance.ringBase) * 10;
             baseScore += (alliance.ballBase + alliance.rockerBase) * 20;
             baseScore += (alliance.botguyUpBase * 30) + (alliance.botguyTipBase * 15);
 
-            // STACK MULTIPLIERS
+            // Stacks in Auto (2x Multiplier on Final Stack Value)
             let stackBonus = 0;
-            if (alliance.stacks.length > 0) {
+            if (alliance.autoStacks.length > 0) {
                 const itemCount = alliance.yellowBase + alliance.ringBase + alliance.ballBase + alliance.rockerBase + alliance.botguyUpBase + alliance.botguyTipBase;
                 const avgVal = itemCount > 0 ? baseScore / itemCount : 0;
-                alliance.stacks.forEach(h => {
+                alliance.autoStacks.forEach(h => {
                     let mult = h === 2 ? 3 : h === 3 ? 4 : 5;
-                    stackBonus += (avgVal * h * mult) - (avgVal * h);
+                    // Multiplier logic + the 2x Auto multiplier
+                    stackBonus += (avgVal * h * mult * 2) - (avgVal * h); 
                 });
             }
-            
-            let finalBase = baseScore + stackBonus;
 
-            // 2. PHASE SPECIFIC LOGIC
+            // Normal items on base are 2x during auto
+            total += (baseScore * 2) + stackBonus;
+            
+            // Missions
+            total += (alliance.ballBase + alliance.rockerBase) * 50;
+            total += alliance.scout === 1 ? 10 : alliance.scout === 2 ? 25 : 0;
+
+            return Math.max(0, Math.round(total));
+        }
+
+        function calculate(alliance) {
+            let total = alliance.autoLockedScore;
+
+            // If we are currently in Auto, show the calculated auto score
             if (phase === 'AUTO') {
-                total += (finalBase * 2);
-                if (alliance.pickle) total += 100;
-                total += (alliance.ballBase + alliance.rockerBase) * 50;
-                total += alliance.scout === 1 ? 10 : alliance.scout === 2 ? 25 : 0;
-            } else {
-                total += finalBase; 
-                total += alliance.autoLockedScore;
-                
-                total += (alliance.yellowZone + alliance.ringZone) * 2;
-                total += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
-                total += (alliance.ballZone * 5);
+                return calculateAuto(alliance);
             }
 
+            // Teleop Scoring
+            total += (alliance.yellowZone + alliance.ringZone) * 2;
+            total += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
+            total += (alliance.ballZone * 5);
+
+            // End of Match Bonuses
             if (alliance.ultimate) total += 100;
             if (alliance.autoWinner) total += 50;
+            if (alliance.pickle) total += 100; // Pickle Ball retrieval bonus
 
+            // Penalties (Pickle ball neutralizes scrap)
             if (!alliance.pickle) {
                 total -= (alliance.scrapZone * 2);
                 total -= (alliance.scrapBase * 10);
@@ -188,7 +203,7 @@
                         ${phase === 'AUTO' ? '<span class="text-amber-600 animate-pulse">ACTIVE</span>' : '<i data-lucide="lock" class="w-3 h-3 opacity-30"></i>'}
                     </h3>
                     
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-2 gap-2 ${phase !== 'AUTO' ? 'pointer-events-none opacity-60' : ''}">
                         ${renderCounter('Cubes (Base)', 'box', alliance.yellowBase, side, 'yellowBase')}
                         ${renderCounter('Rings (Base)', 'circle', alliance.ringBase, side, 'ringBase')}
                         ${renderCounter('Rocker (Base)', 'layers', alliance.rockerBase, side, 'rockerBase')}
@@ -197,16 +212,11 @@
                         ${renderCounter('Botguy Tip', 'trending-down', alliance.botguyTipBase, side, 'botguyTipBase')}
                     </div>
 
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="toggleBool('${side}', 'pickle')" class="p-2 rounded-lg text-[10px] font-bold border flex items-center justify-center gap-2 ${alliance.pickle ? 'bg-green-500 border-green-600 text-white' : 'bg-white border-slate-200 text-slate-400'}">
-                            <i data-lucide="database" class="w-3 h-3"></i> Pickle Ball
-                        </button>
-                        <div class="flex gap-1">
-                            ${[0, 1, 2].map(v => `<button onclick="setScout('${side}', ${v})" class="flex-1 py-1 rounded text-[8px] font-black border flex items-center justify-center ${alliance.scout === v ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-400 border-slate-200'}">${v === 0 ? 'X' : v === 1 ? '<i data-lucide="user"></i>' : '<i data-lucide="users"></i>'}</button>`).join('')}
-                        </div>
+                    <div class="flex gap-1 ${phase !== 'AUTO' ? 'pointer-events-none opacity-60' : ''}">
+                        ${[0, 1, 2].map(v => `<button onclick="setScout('${side}', ${v})" class="flex-1 py-1.5 rounded text-[8px] font-black border flex items-center justify-center ${alliance.scout === v ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-400 border-slate-200'}">${v === 0 ? 'NO SCOUT' : v === 1 ? '<i data-lucide="user" class="mr-1 w-3 h-3"></i> NZ' : '<i data-lucide="users" class="mr-1 w-3 h-3"></i> OZ'}</button>`).join('')}
                     </div>
 
-                    <div class="p-2 bg-slate-900/5 rounded-xl border border-dashed border-slate-300">
+                    <div class="p-2 bg-slate-900/5 rounded-xl border border-dashed border-slate-300 ${phase !== 'AUTO' ? 'pointer-events-none opacity-60' : ''}">
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-[9px] font-black text-slate-400 uppercase flex items-center gap-1">
                                 <i data-lucide="align-justify" class="w-3 h-3"></i> Auto Stacks
@@ -218,7 +228,7 @@
                             </div>
                         </div>
                         <div class="flex flex-wrap gap-1">
-                            ${alliance.stacks.map((s, i) => `<div class="bg-white px-2 py-1 rounded text-[10px] font-bold border flex items-center gap-1">${s}T <i data-lucide="x" class="w-3 h-3 text-red-500 cursor-pointer" onclick="removeStack('${side}', ${i})"></i></div>`).join('')}
+                            ${alliance.autoStacks.map((s, i) => `<div class="bg-white px-2 py-1 rounded text-[10px] font-bold border flex items-center gap-1">${s}T <i data-lucide="x" class="w-3 h-3 text-red-500 cursor-pointer" onclick="removeStack('${side}', ${i})"></i></div>`).join('')}
                         </div>
                     </div>
                 </div>
@@ -236,12 +246,15 @@
                         ${renderCounter('Scrap (Zone)', 'trash-2', alliance.scrapZone, side, 'scrapZone')}
                     </div>
                     
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-3 gap-2">
                          <button onclick="toggleBool('${side}', 'autoWinner')" class="flex flex-col items-center p-2 rounded-xl border-2 ${alliance.autoWinner ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-400 border-slate-200'}">
-                            <i data-lucide="award" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black uppercase">Auto Winner</span>
+                            <i data-lucide="award" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black uppercase">Auto Win</span>
                         </button>
                         <button onclick="toggleBool('${side}', 'ultimate')" class="flex flex-col items-center p-2 rounded-xl border-2 ${alliance.ultimate ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-400 border-slate-200'}">
                             <i data-lucide="zap" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black uppercase">Ultimate</span>
+                        </button>
+                        <button onclick="toggleBool('${side}', 'pickle')" class="flex flex-col items-center p-2 rounded-xl border-2 ${alliance.pickle ? 'bg-green-500 text-white border-green-600' : 'bg-white text-slate-400 border-slate-200'}">
+                            <i data-lucide="database" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black uppercase">Neutralizer</span>
                         </button>
                     </div>
 
@@ -296,13 +309,13 @@
 
         window.addStack = (side, h) => {
             const obj = side === 'red' ? red : blue;
-            obj.stacks.push(h);
+            obj.autoStacks.push(h);
             update();
         };
 
         window.removeStack = (side, i) => {
             const obj = side === 'red' ? red : blue;
-            obj.stacks.splice(i, 1);
+            obj.autoStacks.splice(i, 1);
             update();
         };
 
@@ -316,8 +329,9 @@
                 timerInterval = setInterval(() => {
                     timeLeft--;
                     if (timeLeft === 90) {
-                        red.autoLockedScore = calculate(red);
-                        blue.autoLockedScore = calculate(blue);
+                        // LOCK AUTO SCORES
+                        red.autoLockedScore = calculateAuto(red);
+                        blue.autoLockedScore = calculateAuto(blue);
                         
                         phase = 'TELEOP';
                         document.getElementById('phase-badge').className = "px-4 py-2 rounded-full font-black text-xs tracking-widest bg-blue-600 text-white";
@@ -354,11 +368,13 @@
 
         window.saveMatch = () => {
             const matchNum = document.getElementById('match-number').value;
+            const rScore = calculate(red);
+            const bScore = calculate(blue);
             matchLog.unshift({
                 match: matchNum,
-                redScore: calculate(red),
-                blueScore: calculate(blue),
-                winner: calculate(red) > calculate(blue) ? 'RED' : calculate(red) < calculate(blue) ? 'BLUE' : 'DRAW'
+                redScore: rScore,
+                blueScore: bScore,
+                winner: rScore > bScore ? 'RED' : rScore < bScore ? 'BLUE' : 'DRAW'
             });
             renderLog();
             document.getElementById('match-number').value = parseInt(matchNum) + 1;
