@@ -34,6 +34,18 @@
         .stepper-btn:active {
             transform: scale(0.95);
         }
+
+        /* Modal styling for Import */
+        #import-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -123,18 +135,34 @@
         </div>
 
         <!-- Action Bar -->
-        <footer class="mt-8 flex flex-col sm:flex-row gap-4">
-            <button onclick="resetData()" class="flex-1 py-5 rounded-2xl bg-white border-2 border-rose-100 text-rose-600 font-bold text-lg hover:bg-rose-50 transition-colors">
-                Reset Scorer
+        <footer class="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <button onclick="resetData()" class="py-5 rounded-2xl bg-white border-2 border-rose-100 text-rose-600 font-bold text-lg hover:bg-rose-50 transition-colors">
+                Reset
             </button>
-            <button onclick="exportData()" class="flex-[2] py-5 rounded-2xl bg-slate-900 text-white font-bold text-lg shadow-lg hover:bg-slate-800 transition-transform active:scale-[0.98]">
-                Export Detailed Breakdown
+            <button onclick="showImportModal()" class="py-5 rounded-2xl bg-white border-2 border-slate-200 text-slate-600 font-bold text-lg hover:bg-slate-50 transition-colors">
+                Import Data
+            </button>
+            <button onclick="exportData()" class="py-5 rounded-2xl bg-slate-900 text-white font-bold text-lg shadow-lg hover:bg-slate-800 transition-transform active:scale-[0.98]">
+                Export Report
             </button>
         </footer>
 
         <!-- Toast Notification Area -->
-        <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-800 text-white rounded-full opacity-0 pointer-events-none transition-opacity duration-300 font-medium text-sm shadow-xl">
+        <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-800 text-white rounded-full opacity-0 pointer-events-none transition-opacity duration-300 font-medium text-sm shadow-xl z-[200]">
             Copied to clipboard!
+        </div>
+
+        <!-- Import Modal -->
+        <div id="import-modal">
+            <div class="bg-white p-6 rounded-3xl shadow-2xl max-w-lg w-full mx-4 border border-slate-200">
+                <h3 class="text-xl font-bold text-slate-900 mb-2">Restore from Export</h3>
+                <p class="text-sm text-slate-500 mb-4">Paste the text from a previous "Match Report" below to restore the counts.</p>
+                <textarea id="import-text" class="w-full h-48 p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Paste report here..."></textarea>
+                <div class="flex gap-3 mt-6">
+                    <button onclick="hideImportModal()" class="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold">Cancel</button>
+                    <button onclick="handleImport()" class="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold">Restore State</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -212,8 +240,8 @@
                 `AUTO HIGH:   ${state.autoHigh} x ${config.autoHigh} = ${state.autoHigh * config.autoHigh} pts`,
                 `AUTO LOW:    ${state.autoLow} x ${config.autoLow} = ${state.autoLow * config.autoLow} pts`,
                 `TELEOP:      ${state.teleop} x ${config.teleop} = ${state.teleop * config.teleop} pts`,
-                `SUMMIT:      ${state.summit ? 'YES (' + config.summit + ' pts)' : 'NO'}`,
-                `ULTIMATE:    ${state.ultimate ? 'YES (' + config.ultimate + ' pts)' : 'NO'}`,
+                `SUMMIT:      ${state.summit ? 'YES' : 'NO'} (${config.summit} pts)`,
+                `ULTIMATE:    ${state.ultimate ? 'YES' : 'NO'} (${config.ultimate} pts)`,
                 `--------------------------`,
                 `TOTAL SCORE: ${total} pts`
             ].join('\n');
@@ -226,8 +254,47 @@
             document.execCommand('copy');
             document.body.removeChild(textArea);
 
-            // Show Toast
+            showToast('Copied report to clipboard!');
+        }
+
+        function showImportModal() {
+            document.getElementById('import-modal').style.display = 'flex';
+        }
+
+        function hideImportModal() {
+            document.getElementById('import-modal').style.display = 'none';
+            document.getElementById('import-text').value = '';
+        }
+
+        function handleImport() {
+            const text = document.getElementById('import-text').value;
+            if (!text) return;
+
+            try {
+                // Regex patterns to find numbers or YES/NO values
+                const matchAutoHigh = text.match(/AUTO HIGH:\s+(\d+)/);
+                const matchAutoLow = text.match(/AUTO LOW:\s+(\d+)/);
+                const matchTeleop = text.match(/TELEOP:\s+(\d+)/);
+                const matchSummit = text.match(/SUMMIT:\s+(YES|NO)/);
+                const matchUltimate = text.match(/ULTIMATE:\s+(YES|NO)/);
+
+                if (matchAutoHigh) state.autoHigh = parseInt(matchAutoHigh[1]);
+                if (matchAutoLow) state.autoLow = parseInt(matchAutoLow[1]);
+                if (matchTeleop) state.teleop = parseInt(matchTeleop[1]);
+                if (matchSummit) state.summit = matchSummit[1] === 'YES';
+                if (matchUltimate) state.ultimate = matchUltimate[1] === 'YES';
+
+                updateUI();
+                hideImportModal();
+                showToast('Data restored successfully!');
+            } catch (e) {
+                showToast('Error: Invalid report format.');
+            }
+        }
+
+        function showToast(msg) {
             const toast = document.getElementById('toast');
+            toast.textContent = msg;
             toast.style.opacity = '1';
             setTimeout(() => {
                 toast.style.opacity = '0';
