@@ -141,16 +141,17 @@
             // Teleop Zone Scoring (Team Zone)
             yellowZone: 0, 
             ringZone: 0, 
-            stackedZone: 0, // Ball on Rocker (5 pts)
+            stackedZone: 0, 
             botguyUpZone: 0,  
             botguyTipZone: 0, 
             
             // Teleop Base Scoring (Home Base)
             yellowBaseTele: 0, 
             ringBaseTele: 0, 
-            stackedBaseTele: 0, // Ball on Rocker (20 pts)
+            stackedBaseTele: 0, 
             botguyUpBaseTele: 0,  
             botguyTipBaseTele: 0, 
+            homeBaseMultiplier: 1, // 1 (None), 3, 4, or 5
             
             // End Game Bonuses
             summitBonus: false,       
@@ -164,7 +165,6 @@
         function calculateAuto(alliance) {
             let total = 0;
             const stackMult = alliance.autoStackBonus ? 2 : 1;
-            // Rule: Cubes/Rings are 20, Ball/Rocker are 50
             total += ((alliance.yellowBase + alliance.ringBase) * 20) * stackMult;
             total += ((alliance.ballBase + alliance.rockerBase) * 50) * stackMult;
             total += (alliance.pickleballBase * 100);
@@ -177,7 +177,6 @@
             const currentAuto = calculateAuto(alliance);
             const opponentAuto = calculateAuto(opponent);
             
-            // Auto winner bonus
             let autoWinnerPoints = 0;
             if (currentAuto > opponentAuto) autoWinnerPoints = 50;
 
@@ -186,21 +185,25 @@
             if (phase === 'TELEOP') {
                 total += autoWinnerPoints;
 
-                const mult = (alliance.ultimateNeutral || alliance.ultimateHome) ? 5 : 1;
+                // Overall Ultimate Bonus (x5)
+                const ultMult = (alliance.ultimateNeutral || alliance.ultimateHome) ? 5 : 1;
 
                 // Teleop Team Zone
                 let teamZonePoints = 0;
                 teamZonePoints += (alliance.yellowZone + alliance.ringZone) * 2;
-                teamZonePoints += (alliance.stackedZone * 5); // Ball on Rocker
+                teamZonePoints += (alliance.stackedZone * 5);
                 teamZonePoints += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
-                total += teamZonePoints * mult;
+                total += teamZonePoints * ultMult;
 
-                // Teleop Home Base
+                // Teleop Home Base (Has specific 3x, 4x, 5x multipliers)
                 let basePoints = 0;
+                const homeMult = alliance.homeBaseMultiplier || 1;
                 basePoints += (alliance.yellowBaseTele + alliance.ringBaseTele) * 10;
-                basePoints += (alliance.stackedBaseTele * 20); // Ball on Rocker
+                basePoints += (alliance.stackedBaseTele * 20);
                 basePoints += (alliance.botguyUpBaseTele * 30) + (alliance.botguyTipBaseTele * 15);
-                total += basePoints * mult;
+                
+                // Combine home base tier multiplier with ultimate multiplier
+                total += (basePoints * homeMult) * ultMult;
 
                 if (alliance.summitBonus) total += 100;
                 if (alliance.ultimateNeutral) total += 350;
@@ -221,7 +224,7 @@
             const isAutoWinner = currentAutoScore > opponentAutoScore && phase === 'TELEOP';
             
             container.innerHTML = `
-                <!-- AUTO (ALWAYS VISIBLE) -->
+                <!-- AUTO -->
                 <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${isStackActive ? 'auto-stack-glow' : ''}">
                     <h3 class="text-[10px] font-black text-amber-600 uppercase flex items-center justify-between">
                         <span>Autonomous Phase</span>
@@ -254,7 +257,6 @@
                     </button>
                 </div>
 
-                <!-- AUTO WINNER BADGE (ONLY IN TELEOP) -->
                 ${isAutoWinner ? `
                 <div class="bg-slate-900 border-2 border-slate-900 p-2 rounded-xl flex items-center justify-center gap-2">
                     <i data-lucide="award" class="w-4 h-4 text-amber-400 fill-current"></i>
@@ -275,8 +277,21 @@
                 </div>
 
                 <!-- TELEOP: HOME BASE -->
-                <div class="space-y-3 p-3 bg-white rounded-xl border-2 border-blue-100 shadow-sm ${phase === 'AUTO' ? 'opacity-40 grayscale pointer-events-none' : ''} ${isUltActive ? 'multiplier-glow' : ''}">
-                    <h3 class="text-[10px] font-black text-indigo-600 uppercase">Home Base ${isUltActive ? '(x5)' : ''}</h3>
+                <div class="space-y-3 p-3 bg-white rounded-xl border-2 border-blue-100 shadow-sm ${phase === 'AUTO' ? 'opacity-40 grayscale pointer-events-none' : ''} ${isUltActive || alliance.homeBaseMultiplier > 1 ? 'multiplier-glow' : ''}">
+                    <h3 class="text-[10px] font-black text-indigo-600 uppercase flex justify-between">
+                        <span>Home Base</span>
+                        <span class="text-indigo-800">${alliance.homeBaseMultiplier > 1 ? 'Current Mult: x' + alliance.homeBaseMultiplier : ''}</span>
+                    </h3>
+
+                    <!-- Multiplier Selection -->
+                    <div class="flex gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+                        ${[1, 3, 4, 5].map(m => `
+                            <button onclick="setMultiplier('${side}', ${m})" class="flex-1 py-1.5 rounded-lg border-2 font-black text-[10px] transition-all ${alliance.homeBaseMultiplier === m ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm scale-105' : 'bg-slate-50 text-slate-400 border-slate-100'}">
+                                ${m === 1 ? 'OFF' : 'x' + m}
+                            </button>
+                        `).join('')}
+                    </div>
+
                     <div class="grid grid-cols-2 gap-2">
                         ${renderCounter('Cubes (10)', 'box', alliance.yellowBaseTele, side, 'yellowBaseTele', 'text-game-yellow')}
                         ${renderCounter('Rings (10)', 'bullseye', alliance.ringBaseTele, side, 'ringBaseTele')}
@@ -346,6 +361,12 @@
         window.changeVal = (side, key, delta) => {
             const obj = side === 'red' ? red : blue;
             obj[key] = Math.max(0, obj[key] + delta);
+            update();
+        };
+
+        window.setMultiplier = (side, val) => {
+            const obj = side === 'red' ? red : blue;
+            obj.homeBaseMultiplier = val;
             update();
         };
 
