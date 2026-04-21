@@ -39,6 +39,10 @@
             box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
             border-color: rgba(234, 179, 8, 1);
         }
+        .auto-stack-glow {
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.6);
+        }
     </style>
 </head>
 <body class="bg-slate-200 h-screen flex flex-col overflow-hidden">
@@ -50,7 +54,7 @@
             </div>
             <div>
                 <h1 class="text-white font-black italic text-lg leading-none uppercase tracking-tighter">Stacker's Summit</h1>
-                <span class="text-blue-400 text-[9px] font-bold tracking-[0.3em] uppercase opacity-70">Pickleball Auto Active</span>
+                <span class="text-blue-400 text-[9px] font-bold tracking-[0.3em] uppercase opacity-70">Auto Bonus Logic Updated</span>
             </div>
         </div>
 
@@ -124,27 +128,32 @@
         let matchLog = [];
 
         const initialState = () => ({
-            // Auto scoring
+            // Auto scoring (Strictly Home Base)
             yellowBase: 0, 
             ringBase: 0, 
             botguyUpBase: 0, 
             botguyTipBase: 0, 
             ballBase: 0, 
             rockerBase: 0,
-            pickleballBase: 0, // 100 points
+            pickleballBase: 0, 
+            autoStackBonus: false, // New 2x Multiplier for stacks
             autoWinner: false,
             autoLockedScore: 0,
             
             // Teleop Zone Scoring (Neutral Zone)
-            yellowZone: 0, ringZone: 0, ballZone: 0, rockerZone: 0, botguyUpZone: 0, botguyTipZone: 0,
+            yellowZone: 0, ringZone: 0, ballZone: 0, rockerZone: 0, 
+            botguyUpZone: 0,  // 10 pts
+            botguyTipZone: 0, // 5 pts
             
             // Teleop Base Scoring (Home Base)
-            yellowBaseTele: 0, ringBaseTele: 0, ballBaseTele: 0, rockerBaseTele: 0, botguyUpBaseTele: 0, botguyTipBaseTele: 0,
+            yellowBaseTele: 0, ringBaseTele: 0, ballBaseTele: 0, rockerBaseTele: 0, 
+            botguyUpBaseTele: 0,  // 30 pts
+            botguyTipBaseTele: 0, // 15 pts
             
             // End Game Bonuses
-            summitBonus: false,       // 100 pts
-            ultimateNeutral: false,   // 350 pts
-            ultimateHome: false       // 450 pts
+            summitBonus: false,       
+            ultimateNeutral: false,   
+            ultimateHome: false       
         });
 
         let red = initialState();
@@ -152,10 +161,19 @@
 
         function calculateAuto(alliance) {
             let total = 0;
-            total += (alliance.yellowBase + alliance.ringBase) * 10;
-            total += (alliance.ballBase + alliance.rockerBase) * 20;
+            const stackMult = alliance.autoStackBonus ? 2 : 1;
+
+            // Cubes & Rings = 20 pts in Auto
+            total += ((alliance.yellowBase + alliance.ringBase) * 20) * stackMult;
+            // Rockers & Balls = 20 pts in Auto
+            total += ((alliance.ballBase + alliance.rockerBase) * 20) * stackMult;
+            
+            // Botguy in Home Base: 30 Up / 15 Tipped (Independent of stack multiplier)
             total += (alliance.botguyUpBase * 30) + (alliance.botguyTipBase * 15);
+            
+            // Pickleball = 100 (Independent of stack multiplier)
             total += (alliance.pickleballBase * 100);
+            
             return total;
         }
 
@@ -168,15 +186,15 @@
             // Teleop Neutral Zone
             let neutralPoints = 0;
             neutralPoints += (alliance.yellowZone + alliance.ringZone) * 2;
-            neutralPoints += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
             neutralPoints += (alliance.ballZone + alliance.rockerZone) * 5;
+            neutralPoints += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
             total += neutralPoints * mult;
 
             // Teleop Home Base
             let basePoints = 0;
             basePoints += (alliance.yellowBaseTele + alliance.ringBaseTele) * 10;
-            basePoints += (alliance.botguyUpBaseTele * 30) + (alliance.botguyTipBaseTele * 15);
             basePoints += (alliance.ballBaseTele + alliance.rockerBaseTele) * 20;
+            basePoints += (alliance.botguyUpBaseTele * 30) + (alliance.botguyTipBaseTele * 15);
             total += basePoints * mult;
 
             // Bonuses
@@ -191,24 +209,34 @@
         function renderControls(alliance, side) {
             const container = document.getElementById(`${side}-controls`);
             const isUltActive = alliance.ultimateNeutral || alliance.ultimateHome;
+            const isStackActive = alliance.autoStackBonus;
             
             container.innerHTML = `
                 <!-- AUTO -->
-                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${phase !== 'AUTO' ? 'hidden' : ''}">
+                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${phase !== 'AUTO' ? 'hidden' : ''} ${isStackActive ? 'auto-stack-glow' : ''}">
                     <h3 class="text-[10px] font-black text-slate-500 uppercase flex items-center justify-between">
                         <span>Autonomous Phase</span>
+                        ${isStackActive ? '<span class="text-blue-500">2X Stack Active</span>' : ''}
                     </h3>
                     <div class="grid grid-cols-2 gap-2">
-                        ${renderCounter('Cubes', 'box', alliance.yellowBase, side, 'yellowBase', 'text-game-yellow')}
-                        ${renderCounter('Rings', 'bullseye', alliance.ringBase, side, 'ringBase')}
+                        ${renderCounter('Cubes (20)', 'box', alliance.yellowBase, side, 'yellowBase', 'text-game-yellow')}
+                        ${renderCounter('Rings (20)', 'bullseye', alliance.ringBase, side, 'ringBase')}
                         ${renderCounter('Rocker', 'layers', alliance.rockerBase, side, 'rockerBase', 'text-game-rocker')}
                         ${renderCounter('Ball', 'circle', alliance.ballBase, side, 'ballBase', 'text-game-tennis')}
                         ${renderCounter('Bot Up', 'bot', alliance.botguyUpBase, side, 'botguyUpBase', 'text-game-botguy')}
                         ${renderCounter('Pickle', 'star', alliance.pickleballBase, side, 'pickleballBase', 'text-game-pickle')}
                     </div>
+                    
+                    <button onclick="toggleBool('${side}', 'autoStackBonus')" class="w-full flex items-center justify-between px-3 py-2 rounded-lg border-2 ${isStackActive ? 'bg-blue-500 text-white border-blue-600' : 'bg-slate-50 text-slate-400 border-slate-200'} transition-all active:scale-95">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="layers" class="w-4 h-4"></i>
+                            <span class="text-[9px] font-black uppercase tracking-tight">2X Stack Bonus (Home)</span>
+                        </div>
+                        <i data-lucide="${isStackActive ? 'check-circle' : 'circle'}" class="w-4 h-4"></i>
+                    </button>
                 </div>
 
-                <!-- 5X MULTIPLIER ALERT -->
+                <!-- 5X MULTIPLIER ALERT (TELEOP) -->
                 ${isUltActive ? `
                 <div class="bg-amber-100 border-2 border-amber-500 p-2 rounded-xl flex items-center justify-center gap-2 pulse">
                     <i data-lucide="zap" class="w-4 h-4 text-amber-600 fill-current"></i>
@@ -224,6 +252,8 @@
                         ${renderCounter('Rings', 'bullseye', alliance.ringZone, side, 'ringZone')}
                         ${renderCounter('Ball', 'circle', alliance.ballZone, side, 'ballZone', 'text-game-tennis')}
                         ${renderCounter('Rocker', 'layers', alliance.rockerZone, side, 'rockerZone', 'text-game-rocker')}
+                        ${renderCounter('Bot Up', 'bot', alliance.botguyUpZone, side, 'botguyUpZone', 'text-game-botguy')}
+                        ${renderCounter('Bot Tip', 'trending-down', alliance.botguyTipZone, side, 'botguyTipZone', 'text-game-botguy opacity-50')}
                     </div>
                 </div>
 
@@ -240,7 +270,7 @@
                     </div>
                 </div>
 
-                <!-- SUMMIT BONUSES -->
+                <!-- BONUSES -->
                 <div class="flex flex-col gap-2 ${phase === 'AUTO' ? 'opacity-30 grayscale' : ''}">
                     <div class="grid grid-cols-1 gap-2">
                         <button onclick="toggleBool('${side}', 'ultimateHome')" class="flex items-center justify-between px-4 py-3 rounded-xl border-2 ${alliance.ultimateHome ? 'bg-amber-500 text-white border-amber-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
