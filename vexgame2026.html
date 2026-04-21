@@ -304,20 +304,53 @@
                 <!-- BONUSES -->
                 <div class="flex flex-col gap-2 ${phase === 'AUTO' ? 'opacity-40 grayscale pointer-events-none' : ''}">
                     <div class="grid grid-cols-1 gap-2">
-                        <button onclick="toggleBool('${side}', 'ultimateHome')" class="flex items-center justify-between px-4 py-3 rounded-xl border-2 ${alliance.ultimateHome ? 'bg-amber-500 text-white border-amber-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="crown" class="w-5 h-5"></i>
-                                <span class="text-[10px] font-black uppercase">Ultimate: Home Base</span>
+                        <!-- Ultimate Home Base -->
+                        <button onclick="toggleBool('${side}', 'ultimateHome')" class="relative overflow-hidden group flex flex-col p-4 rounded-xl border-2 ${alliance.ultimateHome ? 'bg-amber-500 text-white border-amber-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
+                            <div class="flex items-center justify-between w-full mb-2">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="crown" class="w-5 h-5"></i>
+                                    <span class="text-[10px] font-black uppercase">Ultimate: Home Base</span>
+                                </div>
+                                <span class="font-bold text-xs">+450 & 5x</span>
                             </div>
-                            <span class="font-bold text-xs">+450 & 5x</span>
+                            <!-- Stack Order Tooltip-style info -->
+                            <div class="flex items-center gap-1.5 mt-1 border-t ${alliance.ultimateHome ? 'border-amber-400 pt-2' : 'border-slate-100 pt-2'}">
+                                <span class="text-[8px] font-bold uppercase opacity-80">Order:</span>
+                                <div class="flex gap-1">
+                                    <div class="w-2.5 h-2.5 rounded-sm bg-yellow-400 shadow-sm"></div>
+                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
+                                    <div class="w-2.5 h-2.5 rounded-full border border-current bg-blue-400"></div>
+                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
+                                    <div class="w-2.5 h-2.5 rounded-sm bg-green-500"></div>
+                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
+                                    <div class="w-2.5 h-2.5 rounded-full bg-lime-300"></div>
+                                </div>
+                                <span class="text-[8px] font-medium leading-none ml-1 truncate">Yellow ⮕ Green ⮕ Rocker ⮕ Tennis</span>
+                            </div>
                         </button>
                         
-                        <button onclick="toggleBool('${side}', 'ultimateNeutral')" class="flex items-center justify-between px-4 py-3 rounded-xl border-2 ${alliance.ultimateNeutral ? 'bg-purple-600 text-white border-purple-700 shadow-lg' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="zap" class="w-5 h-5"></i>
-                                <span class="text-[10px] font-black uppercase">Ultimate: Team Zone</span>
+                        <!-- Ultimate Team Zone -->
+                        <button onclick="toggleBool('${side}', 'ultimateNeutral')" class="relative overflow-hidden group flex flex-col p-4 rounded-xl border-2 ${alliance.ultimateNeutral ? 'bg-purple-600 text-white border-purple-700 shadow-lg' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
+                            <div class="flex items-center justify-between w-full mb-2">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="zap" class="w-5 h-5"></i>
+                                    <span class="text-[10px] font-black uppercase">Ultimate: Team Zone</span>
+                                </div>
+                                <span class="font-bold text-xs">+350 & 5x</span>
                             </div>
-                            <span class="font-bold text-xs">+350 & 5x</span>
+                            <div class="flex items-center gap-1.5 mt-1 border-t ${alliance.ultimateNeutral ? 'border-purple-400 pt-2' : 'border-slate-100 pt-2'}">
+                                <span class="text-[8px] font-bold uppercase opacity-80">Order:</span>
+                                <div class="flex gap-1">
+                                    <div class="w-2.5 h-2.5 rounded-sm bg-yellow-400 shadow-sm"></div>
+                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
+                                    <div class="w-2.5 h-2.5 rounded-full border border-current bg-blue-400"></div>
+                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
+                                    <div class="w-2.5 h-2.5 rounded-sm bg-green-500"></div>
+                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
+                                    <div class="w-2.5 h-2.5 rounded-full bg-lime-300"></div>
+                                </div>
+                                <span class="text-[8px] font-medium leading-none ml-1 truncate">Yellow ⮕ Green ⮕ Rocker ⮕ Tennis</span>
+                            </div>
                         </button>
 
                         <button onclick="toggleBool('${side}', 'summitBonus')" class="flex items-center justify-between px-4 py-2.5 rounded-xl border-2 ${alliance.summitBonus ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
