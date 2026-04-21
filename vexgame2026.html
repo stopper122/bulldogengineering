@@ -3,119 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Stacker's Summit Scorer</title>
+    <title>Stacker's Summit Scorer (Tablet Optimized)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; touch-action: manipulation; }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
-        .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
         
-        .text-game-yellow { color: #facc15; }
-        .text-game-rocker { color: #22c55e; }
-        .text-game-tennis { color: #bef264; }
-        .text-game-pickle { color: #ec4899; }
-        .text-game-botguy { color: #ef4444; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            touch-action: manipulation; 
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        
+        .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .7; } }
+        
+        .text-game-yellow { color: #eab308; }
+        .text-game-rocker { color: #16a34a; }
+        .text-game-tennis { color: #a3e635; }
+        .text-game-pickle { color: #db2777; }
+        .text-game-botguy { color: #dc2626; }
 
         .bullseye-icon {
             display: inline-block;
-            width: 14px;
-            height: 14px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             background: radial-gradient(circle, #facc15 20%, #ef4444 21%, #ef4444 50%, #3b82f6 51%, #3b82f6 100%);
         }
 
         #log-sidebar {
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
-        .sidebar-closed {
-            transform: translateX(100%);
-        }
-        .multiplier-glow {
-            box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
-            border-color: rgba(234, 179, 8, 1);
-        }
-        .auto-stack-glow {
-            box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
-            border-color: rgba(59, 130, 246, 0.6);
+        .sidebar-closed { transform: translateX(100%); }
+
+        /* Large touch targets */
+        .stepper-btn {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
-<body class="bg-slate-200 h-screen flex flex-col overflow-hidden">
+<body class="bg-slate-100 h-screen flex flex-col overflow-hidden">
 
-    <header class="bg-slate-900 p-3 shadow-xl flex items-center justify-between shrink-0 z-50">
-        <div class="flex items-center gap-3">
-            <div class="bg-blue-500/20 p-2 rounded-lg text-blue-400">
-                <i data-lucide="mountain"></i>
+    <!-- Top Bar: Scaled up for Tablets -->
+    <header class="bg-slate-950 p-4 shadow-2xl flex items-center justify-between shrink-0 z-50">
+        <div class="flex items-center gap-4">
+            <div class="bg-blue-600 p-3 rounded-xl text-white shadow-lg shadow-blue-900/20">
+                <i data-lucide="mountain" class="w-8 h-8"></i>
             </div>
             <div>
-                <h1 class="text-white font-black italic text-lg leading-none uppercase tracking-tighter">Stacker's Summit</h1>
-                <span class="text-blue-400 text-[9px] font-bold tracking-[0.3em] uppercase opacity-70">Live Scoring System</span>
+                <h1 class="text-white font-black italic text-2xl leading-none uppercase tracking-tighter">Stacker's Summit</h1>
+                <span class="text-blue-400 text-xs font-bold tracking-[0.2em] uppercase opacity-70">Tablet Pro Interface</span>
             </div>
         </div>
 
-        <div class="flex items-center gap-3">
-            <div id="phase-badge" class="px-3 py-1.5 rounded-full font-black text-[10px] tracking-widest bg-amber-500 text-amber-950 pulse">
+        <div class="flex items-center gap-6">
+            <div id="phase-badge" class="px-5 py-2 rounded-lg font-black text-xs tracking-widest bg-amber-500 text-amber-950 pulse shadow-lg shadow-amber-500/20">
                 AUTO
             </div>
-            <div id="timer-display" class="text-white text-2xl font-mono font-black tabular-nums tracking-tighter">
+            <div id="timer-display" class="text-white text-5xl font-mono font-black tabular-nums tracking-tighter">
                 2:00
             </div>
-            <div class="flex gap-1.5">
-                <button onclick="toggleTimer()" id="timer-btn" class="p-2.5 bg-green-500 text-white rounded-full shadow-lg active:scale-95 transition-all">
-                    <i data-lucide="play" class="w-5 h-5"></i>
+            <div class="flex gap-3">
+                <button onclick="toggleTimer()" id="timer-btn" class="w-14 h-14 bg-green-500 text-white rounded-2xl shadow-xl active:scale-90 transition-transform flex items-center justify-center">
+                    <i data-lucide="play" class="w-8 h-8"></i>
                 </button>
-                <button onclick="resetMatch()" class="p-2.5 bg-slate-700 text-white rounded-full hover:bg-slate-600 shadow-lg active:rotate-180 transition-all">
-                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                <button onclick="resetMatch()" class="w-14 h-14 bg-slate-800 text-white rounded-2xl shadow-xl active:rotate-180 transition-all flex items-center justify-center">
+                    <i data-lucide="rotate-ccw" class="w-7 h-7"></i>
                 </button>
-                <button onclick="toggleLog()" class="p-2.5 bg-slate-800 text-blue-400 rounded-full shadow-lg border border-slate-700">
-                    <i data-lucide="history" class="w-5 h-5"></i>
+                <button onclick="toggleLog()" class="w-14 h-14 bg-slate-900 text-blue-400 rounded-2xl shadow-xl border border-slate-800 flex items-center justify-center">
+                    <i data-lucide="history" class="w-7 h-7"></i>
                 </button>
             </div>
         </div>
     </header>
 
-    <main class="flex-1 flex p-2 gap-2 overflow-hidden relative">
+    <main class="flex-1 flex p-4 gap-4 overflow-hidden relative">
         <!-- Red Alliance Side -->
-        <div class="flex-1 flex flex-col rounded-xl border-2 border-red-200 bg-red-50 overflow-hidden shadow-md">
-            <div class="bg-red-600 p-3 text-white flex justify-between items-center">
-                <h2 class="text-sm font-black uppercase italic tracking-tighter">Red</h2>
-                <div id="red-total" class="text-3xl font-black tabular-nums">0</div>
+        <div class="flex-1 flex flex-col rounded-[2rem] border-4 border-red-500/20 bg-red-50/50 overflow-hidden shadow-2xl">
+            <div class="bg-red-600 p-5 text-white flex justify-between items-center shadow-lg">
+                <h2 class="text-xl font-black uppercase italic tracking-tighter">Red Alliance</h2>
+                <div id="red-total" class="text-5xl font-black tabular-nums drop-shadow-md">0</div>
             </div>
-            <div class="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar" id="red-controls"></div>
+            <div class="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar" id="red-controls"></div>
         </div>
 
         <!-- Blue Alliance Side -->
-        <div class="flex-1 flex flex-col rounded-xl border-2 border-blue-200 bg-blue-50 overflow-hidden shadow-md">
-            <div class="bg-blue-700 p-3 text-white flex justify-between items-center">
-                <h2 class="text-sm font-black uppercase italic tracking-tighter">Blue</h2>
-                <div id="blue-total" class="text-3xl font-black tabular-nums">0</div>
+        <div class="flex-1 flex flex-col rounded-[2rem] border-4 border-blue-500/20 bg-blue-50/50 overflow-hidden shadow-2xl">
+            <div class="bg-blue-700 p-5 text-white flex justify-between items-center shadow-lg">
+                <h2 class="text-xl font-black uppercase italic tracking-tighter">Blue Alliance</h2>
+                <div id="blue-total" class="text-5xl font-black tabular-nums drop-shadow-md">0</div>
             </div>
-            <div class="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar" id="blue-controls"></div>
+            <div class="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar" id="blue-controls"></div>
         </div>
 
         <!-- Sidebar Log -->
-        <div id="log-sidebar" class="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-[60] flex flex-col sidebar-closed border-l border-slate-200">
-            <div class="bg-slate-800 p-4 text-white flex justify-between items-center shrink-0">
-                <h2 class="text-lg font-black uppercase italic tracking-tighter">Match Log</h2>
-                <button onclick="toggleLog()" class="p-2 hover:bg-slate-700 rounded-lg"><i data-lucide="x"></i></button>
+        <div id="log-sidebar" class="fixed top-0 right-0 h-full w-[400px] bg-white shadow-2xl z-[60] flex flex-col sidebar-closed border-l-4 border-slate-200">
+            <div class="bg-slate-900 p-6 text-white flex justify-between items-center shrink-0">
+                <h2 class="text-2xl font-black uppercase italic tracking-tighter">Match History</h2>
+                <button onclick="toggleLog()" class="p-3 bg-slate-800 rounded-xl"><i data-lucide="x" class="w-8 h-8"></i></button>
             </div>
-            <div class="p-4 bg-slate-50 flex-1 overflow-y-auto custom-scrollbar space-y-3" id="match-log"></div>
-            <div class="p-4 bg-white border-t border-slate-200">
-                <button onclick="saveMatch()" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm shadow-lg active:scale-95 transition-all">Save Match</button>
+            <div class="p-6 bg-slate-50 flex-1 overflow-y-auto custom-scrollbar space-y-4" id="match-log"></div>
+            <div class="p-6 bg-white border-t-2 border-slate-100">
+                <button onclick="saveMatch()" class="w-full bg-slate-950 text-white py-6 rounded-2xl font-black uppercase tracking-widest text-lg shadow-2xl active:scale-95 transition-all">Save Score</button>
             </div>
         </div>
 
         <!-- Start Overlay -->
-        <div id="overlay" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8">
-            <div class="bg-white p-8 rounded-[2rem] shadow-2xl text-center max-w-md">
-                <h3 class="text-3xl font-black text-slate-900 mb-2 italic uppercase">Ready</h3>
-                <p class="text-slate-500 text-xs font-bold mb-8 uppercase tracking-widest">30s Auto | 90s Teleop</p>
-                <button onclick="toggleTimer()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-lg">Start Match</button>
+        <div id="overlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-xl z-[100] flex items-center justify-center p-12">
+            <div class="bg-white p-12 rounded-[3rem] shadow-[0_0_100px_rgba(0,0,0,0.5)] text-center max-w-xl w-full">
+                <div class="w-24 h-24 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-8">
+                    <i data-lucide="mountain" class="w-12 h-12"></i>
+                </div>
+                <h3 class="text-5xl font-black text-slate-950 mb-4 italic uppercase tracking-tighter">New Match</h3>
+                <p class="text-slate-500 text-sm font-bold mb-12 uppercase tracking-[0.4em]">30s Auto • 90s Teleop</p>
+                <button onclick="toggleTimer()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-8 rounded-3xl shadow-2xl shadow-blue-600/30 uppercase tracking-widest text-2xl active:scale-95 transition-all">
+                    Initialize System
+                </button>
             </div>
         </div>
     </main>
@@ -128,35 +141,11 @@
         let matchLog = [];
 
         const initialState = () => ({
-            // Auto scoring (Home Base)
-            yellowBase: 0, 
-            ringBase: 0, 
-            ballBase: 0, 
-            rockerBase: 0,
-            pickleballBase: 0, 
-            autoStackBonus: false, 
-            enterNeutralZone: false, 
-            enterOpponentZone: false, 
-            
-            // Teleop Zone Scoring (Team Zone)
-            yellowZone: 0, 
-            ringZone: 0, 
-            stackedZone: 0, 
-            botguyUpZone: 0,  
-            botguyTipZone: 0, 
-            
-            // Teleop Base Scoring (Home Base)
-            yellowBaseTele: 0, 
-            ringBaseTele: 0, 
-            stackedBaseTele: 0, 
-            botguyUpBaseTele: 0,  
-            botguyTipBaseTele: 0, 
-            homeBaseMultiplier: 1, // 1 (None), 3, 4, or 5
-            
-            // End Game Bonuses
-            summitBonus: false,       
-            ultimateNeutral: false,   
-            ultimateHome: false       
+            yellowBase: 0, ringBase: 0, ballBase: 0, rockerBase: 0, pickleballBase: 0, 
+            autoStackBonus: false, enterNeutralZone: false, enterOpponentZone: false, 
+            yellowZone: 0, ringZone: 0, stackedZone: 0, botguyUpZone: 0, botguyTipZone: 0, 
+            yellowBaseTele: 0, ringBaseTele: 0, stackedBaseTele: 0, botguyUpBaseTele: 0, botguyTipBaseTele: 0, 
+            homeBaseMultiplier: 1, summitBonus: false, ultimateNeutral: false, ultimateHome: false       
         });
 
         let red = initialState();
@@ -176,40 +165,19 @@
         function calculate(alliance, opponent) {
             const currentAuto = calculateAuto(alliance);
             const opponentAuto = calculateAuto(opponent);
-            
-            let autoWinnerPoints = 0;
-            if (currentAuto > opponentAuto) autoWinnerPoints = 50;
-
             let total = currentAuto;
-            
             if (phase === 'TELEOP') {
-                total += autoWinnerPoints;
-
-                // Overall Ultimate Bonus (x5)
+                if (currentAuto > opponentAuto) total += 50;
                 const ultMult = (alliance.ultimateNeutral || alliance.ultimateHome) ? 5 : 1;
-
-                // Teleop Team Zone
-                let teamZonePoints = 0;
-                teamZonePoints += (alliance.yellowZone + alliance.ringZone) * 2;
-                teamZonePoints += (alliance.stackedZone * 5);
-                teamZonePoints += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
+                let teamZonePoints = (alliance.yellowZone + alliance.ringZone) * 2 + (alliance.stackedZone * 5) + (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
                 total += teamZonePoints * ultMult;
-
-                // Teleop Home Base (Has specific 3x, 4x, 5x multipliers)
-                let basePoints = 0;
                 const homeMult = alliance.homeBaseMultiplier || 1;
-                basePoints += (alliance.yellowBaseTele + alliance.ringBaseTele) * 10;
-                basePoints += (alliance.stackedBaseTele * 20);
-                basePoints += (alliance.botguyUpBaseTele * 30) + (alliance.botguyTipBaseTele * 15);
-                
-                // Combine home base tier multiplier with ultimate multiplier
+                let basePoints = (alliance.yellowBaseTele + alliance.ringBaseTele) * 10 + (alliance.stackedBaseTele * 20) + (alliance.botguyUpBaseTele * 30) + (alliance.botguyTipBaseTele * 15);
                 total += (basePoints * homeMult) * ultMult;
-
                 if (alliance.summitBonus) total += 100;
                 if (alliance.ultimateNeutral) total += 350;
                 if (alliance.ultimateHome) total += 450;
             }
-            
             return Math.max(0, Math.round(total));
         }
 
@@ -218,147 +186,111 @@
             const isUltActive = alliance.ultimateNeutral || alliance.ultimateHome;
             const isStackActive = alliance.autoStackBonus;
             const otherSide = side === 'red' ? blue : red;
-            
-            const currentAutoScore = calculateAuto(alliance);
-            const opponentAutoScore = calculateAuto(otherSide);
-            const isAutoWinner = currentAutoScore > opponentAutoScore && phase === 'TELEOP';
+            const isAutoWinner = calculateAuto(alliance) > calculateAuto(otherSide) && phase === 'TELEOP';
             
             container.innerHTML = `
-                <!-- AUTO -->
-                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${isStackActive ? 'auto-stack-glow' : ''}">
-                    <h3 class="text-[10px] font-black text-amber-600 uppercase flex items-center justify-between">
-                        <span>Autonomous Phase</span>
-                        ${isStackActive ? '<span class="text-blue-500">2X Stack Active</span>' : ''}
-                    </h3>
-                    
-                    <div class="grid grid-cols-2 gap-2">
-                        ${renderCounter('Cubes (20)', 'box', alliance.yellowBase, side, 'yellowBase', 'text-game-yellow')}
-                        ${renderCounter('Rings (20)', 'bullseye', alliance.ringBase, side, 'ringBase')}
-                        ${renderCounter('Rocker (50)', 'layers', alliance.rockerBase, side, 'rockerBase', 'text-game-rocker')}
-                        ${renderCounter('Ball (50)', 'circle', alliance.ballBase, side, 'ballBase', 'text-game-tennis')}
-                        ${renderCounter('Pickle (100)', 'star', alliance.pickleballBase, side, 'pickleballBase', 'text-game-pickle')}
+                <!-- AUTO PHASE -->
+                <div class="bg-white rounded-3xl p-6 border-2 border-slate-200 shadow-xl space-y-6">
+                    <div class="flex items-center justify-between border-b pb-4 border-slate-100">
+                        <h3 class="text-sm font-black text-amber-600 uppercase tracking-widest flex items-center gap-2">
+                            <i data-lucide="zap" class="w-5 h-5"></i> Autonomous
+                        </h3>
+                        ${isStackActive ? '<span class="bg-blue-600 text-white text-[10px] px-3 py-1 rounded-full font-black animate-pulse uppercase">2X Stack Power</span>' : ''}
                     </div>
                     
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="toggleBool('${side}', 'enterNeutralZone')" class="flex flex-col items-center justify-center p-2 rounded-lg border-2 ${alliance.enterNeutralZone ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-slate-50 text-slate-400 border-slate-100'} transition-all">
-                           <span class="text-[8px] font-black uppercase">Neutral Zone Ent (+10)</span>
-                        </button>
-                        <button onclick="toggleBool('${side}', 'enterOpponentZone')" class="flex flex-col items-center justify-center p-2 rounded-lg border-2 ${alliance.enterOpponentZone ? 'bg-rose-50 border-rose-500 text-rose-700' : 'bg-slate-50 text-slate-400 border-slate-100'} transition-all">
-                           <span class="text-[8px] font-black uppercase">Opponent Ent (+25)</span>
-                        </button>
+                    <div class="grid grid-cols-1 gap-4">
+                        ${renderLargeCounter('Yellow Cubes (20)', 'box', alliance.yellowBase, side, 'yellowBase', 'text-game-yellow')}
+                        ${renderLargeCounter('Blue Rings (20)', 'bullseye', alliance.ringBase, side, 'ringBase')}
+                        ${renderLargeCounter('Rockers (50)', 'layers', alliance.rockerBase, side, 'rockerBase', 'text-game-rocker')}
+                        ${renderLargeCounter('Tennis Balls (50)', 'circle', alliance.ballBase, side, 'ballBase', 'text-game-tennis')}
+                        ${renderLargeCounter('Pickleball (100)', 'star', alliance.pickleballBase, side, 'pickleballBase', 'text-game-pickle')}
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <button onclick="toggleBool('${side}', 'enterNeutralZone')" class="py-5 rounded-2xl border-4 font-black text-xs uppercase tracking-tight transition-all ${alliance.enterNeutralZone ? 'bg-indigo-600 border-indigo-700 text-white' : 'bg-slate-100 border-slate-200 text-slate-400'}">Neutral Zone (+10)</button>
+                        <button onclick="toggleBool('${side}', 'enterOpponentZone')" class="py-5 rounded-2xl border-4 font-black text-xs uppercase tracking-tight transition-all ${alliance.enterOpponentZone ? 'bg-rose-600 border-rose-700 text-white' : 'bg-slate-100 border-slate-200 text-slate-400'}">Opponent Zone (+25)</button>
                     </div>
 
-                    <button onclick="toggleBool('${side}', 'autoStackBonus')" class="w-full flex items-center justify-between px-3 py-2 rounded-lg border-2 ${isStackActive ? 'bg-blue-500 text-white border-blue-600' : 'bg-slate-50 text-slate-400 border-slate-200'} transition-all active:scale-95">
-                        <div class="flex items-center gap-2">
-                            <i data-lucide="layers" class="w-4 h-4"></i>
-                            <span class="text-[9px] font-black uppercase tracking-tight">2X Stack Bonus (Home)</span>
-                        </div>
-                        <i data-lucide="${isStackActive ? 'check-circle' : 'circle'}" class="w-4 h-4"></i>
+                    <button onclick="toggleBool('${side}', 'autoStackBonus')" class="w-full py-5 rounded-2xl border-4 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${isStackActive ? 'bg-blue-600 border-blue-700 text-white shadow-xl shadow-blue-500/30' : 'bg-slate-100 border-slate-200 text-slate-400'}">
+                        <i data-lucide="layers" class="w-6 h-6"></i> 2X Stack Bonus (Home)
                     </button>
                 </div>
 
-                ${isAutoWinner ? `
-                <div class="bg-slate-900 border-2 border-slate-900 p-2 rounded-xl flex items-center justify-center gap-2">
-                    <i data-lucide="award" class="w-4 h-4 text-amber-400 fill-current"></i>
-                    <span class="text-[10px] font-black text-white uppercase tracking-tighter">Auto Winner Bonus (+50)</span>
-                </div>
-                ` : ''}
+                ${isAutoWinner ? `<div class="bg-slate-900 text-white p-4 rounded-2xl flex items-center justify-center gap-3 shadow-lg"><i data-lucide="award" class="text-amber-400 w-6 h-6"></i><span class="font-black text-sm uppercase">Auto Winner (+50)</span></div>` : ''}
 
-                <!-- TELEOP: TEAM ZONE -->
-                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${phase === 'AUTO' ? 'opacity-40 grayscale pointer-events-none' : ''} ${isUltActive ? 'multiplier-glow' : ''}">
-                    <h3 class="text-[10px] font-black text-blue-500 uppercase">Team Zone ${isUltActive ? '(x5)' : ''}</h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        ${renderCounter('Cubes (2)', 'square', alliance.yellowZone, side, 'yellowZone', 'text-game-yellow')}
-                        ${renderCounter('Rings (2)', 'bullseye', alliance.ringZone, side, 'ringZone')}
-                        ${renderCounter('Stacked (5)', 'layers', alliance.stackedZone, side, 'stackedZone', 'text-game-tennis')}
-                        ${renderCounter('Bot Up (10)', 'bot', alliance.botguyUpZone, side, 'botguyUpZone', 'text-game-botguy')}
-                        ${renderCounter('Bot Tip (5)', 'trending-down', alliance.botguyTipZone, side, 'botguyTipZone', 'text-game-botguy opacity-50')}
-                    </div>
-                </div>
-
-                <!-- TELEOP: HOME BASE -->
-                <div class="space-y-3 p-3 bg-white rounded-xl border-2 border-blue-100 shadow-sm ${phase === 'AUTO' ? 'opacity-40 grayscale pointer-events-none' : ''} ${isUltActive || alliance.homeBaseMultiplier > 1 ? 'multiplier-glow' : ''}">
-                    <h3 class="text-[10px] font-black text-indigo-600 uppercase flex justify-between">
-                        <span>Home Base</span>
-                        <span class="text-indigo-800">${alliance.homeBaseMultiplier > 1 ? 'Current Mult: x' + alliance.homeBaseMultiplier : ''}</span>
-                    </h3>
-
-                    <!-- Multiplier Selection -->
-                    <div class="flex gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-                        ${[1, 3, 4, 5].map(m => `
-                            <button onclick="setMultiplier('${side}', ${m})" class="flex-1 py-1.5 rounded-lg border-2 font-black text-[10px] transition-all ${alliance.homeBaseMultiplier === m ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm scale-105' : 'bg-slate-50 text-slate-400 border-slate-100'}">
-                                ${m === 1 ? 'OFF' : 'x' + m}
-                            </button>
-                        `).join('')}
+                <!-- TELEOP SECTIONS -->
+                <div class="${phase === 'AUTO' ? 'opacity-30 grayscale pointer-events-none' : ''} space-y-6">
+                    <!-- TEAM ZONE -->
+                    <div class="bg-white rounded-3xl p-6 border-2 border-slate-200 shadow-xl space-y-6">
+                        <h3 class="text-sm font-black text-blue-600 uppercase tracking-widest">Team Zone ${isUltActive ? '(X5 Active)' : ''}</h3>
+                        <div class="space-y-4">
+                            ${renderLargeCounter('Cubes (2)', 'box', alliance.yellowZone, side, 'yellowZone', 'text-game-yellow')}
+                            ${renderLargeCounter('Rings (2)', 'bullseye', alliance.ringZone, side, 'ringZone')}
+                            ${renderLargeCounter('Stacked (5)', 'layers', alliance.stackedZone, side, 'stackedZone', 'text-game-tennis')}
+                            ${renderLargeCounter('BotGuy (10)', 'bot', alliance.botguyUpZone, side, 'botguyUpZone', 'text-game-botguy')}
+                        </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-2">
-                        ${renderCounter('Cubes (10)', 'box', alliance.yellowBaseTele, side, 'yellowBaseTele', 'text-game-yellow')}
-                        ${renderCounter('Rings (10)', 'bullseye', alliance.ringBaseTele, side, 'ringBaseTele')}
-                        ${renderCounter('Stacked (20)', 'layers', alliance.stackedBaseTele, side, 'stackedBaseTele', 'text-game-tennis')}
-                        ${renderCounter('Bot Up (30)', 'bot', alliance.botguyUpBaseTele, side, 'botguyUpBaseTele', 'text-game-botguy')}
-                        ${renderCounter('Bot Tip (15)', 'trending-down', alliance.botguyTipBaseTele, side, 'botguyTipBaseTele', 'text-game-botguy opacity-50')}
-                    </div>
-                </div>
-
-                <!-- BONUSES -->
-                <div class="flex flex-col gap-2 ${phase === 'AUTO' ? 'opacity-40 grayscale pointer-events-none' : ''}">
-                    <div class="grid grid-cols-1 gap-2">
-                        <!-- Ultimate Home Base -->
-                        <button onclick="toggleBool('${side}', 'ultimateHome')" class="relative overflow-hidden group flex flex-col p-4 rounded-xl border-2 ${alliance.ultimateHome ? 'bg-amber-500 text-white border-amber-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
-                            <div class="flex items-center justify-between w-full mb-2">
-                                <div class="flex items-center gap-3">
-                                    <i data-lucide="crown" class="w-5 h-5"></i>
-                                    <span class="text-[10px] font-black uppercase">Ultimate: Home Base</span>
-                                </div>
-                                <span class="font-bold text-xs">+450 & 5x</span>
-                            </div>
-                            <!-- Stack Order Tooltip-style info -->
-                            <div class="flex items-center gap-1.5 mt-1 border-t ${alliance.ultimateHome ? 'border-amber-400 pt-2' : 'border-slate-100 pt-2'}">
-                                <span class="text-[8px] font-bold uppercase opacity-80">Order:</span>
-                                <div class="flex gap-1">
-                                    <div class="w-2.5 h-2.5 rounded-sm bg-yellow-400 shadow-sm"></div>
-                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
-                                    <div class="w-2.5 h-2.5 rounded-full border border-current bg-blue-400"></div>
-                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
-                                    <div class="w-2.5 h-2.5 rounded-sm bg-green-500"></div>
-                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
-                                    <div class="w-2.5 h-2.5 rounded-full bg-lime-300"></div>
-                                </div>
-                                <span class="text-[8px] font-medium leading-none ml-1 truncate">Yellow ⮕ Green ⮕ Rocker ⮕ Tennis</span>
-                            </div>
-                        </button>
+                    <!-- HOME BASE -->
+                    <div class="bg-white rounded-3xl p-6 border-2 border-indigo-200 shadow-xl space-y-6">
+                        <h3 class="text-sm font-black text-indigo-600 uppercase tracking-widest flex justify-between">
+                            <span>Home Base</span>
+                            <span class="text-indigo-900">${alliance.homeBaseMultiplier > 1 ? 'X' + alliance.homeBaseMultiplier : ''}</span>
+                        </h3>
                         
-                        <!-- Ultimate Team Zone -->
-                        <button onclick="toggleBool('${side}', 'ultimateNeutral')" class="relative overflow-hidden group flex flex-col p-4 rounded-xl border-2 ${alliance.ultimateNeutral ? 'bg-purple-600 text-white border-purple-700 shadow-lg' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
-                            <div class="flex items-center justify-between w-full mb-2">
-                                <div class="flex items-center gap-3">
-                                    <i data-lucide="zap" class="w-5 h-5"></i>
-                                    <span class="text-[10px] font-black uppercase">Ultimate: Team Zone</span>
-                                </div>
-                                <span class="font-bold text-xs">+350 & 5x</span>
+                        <div class="flex gap-2">
+                            ${[1, 3, 4, 5].map(m => `
+                                <button onclick="setMultiplier('${side}', ${m})" class="flex-1 py-4 rounded-xl border-2 font-black text-sm transition-all ${alliance.homeBaseMultiplier === m ? 'bg-indigo-600 border-indigo-700 text-white shadow-lg scale-105' : 'bg-slate-50 border-slate-200 text-slate-400'}">
+                                    ${m === 1 ? 'OFF' : 'x' + m}
+                                </button>
+                            `).join('')}
+                        </div>
+
+                        <div class="space-y-4">
+                            ${renderLargeCounter('Cubes (10)', 'box', alliance.yellowBaseTele, side, 'yellowBaseTele', 'text-game-yellow')}
+                            ${renderLargeCounter('Rings (10)', 'bullseye', alliance.ringBaseTele, side, 'ringBaseTele')}
+                            ${renderLargeCounter('Stacked (20)', 'layers', alliance.stackedBaseTele, side, 'stackedBaseTele', 'text-game-tennis')}
+                            ${renderLargeCounter('BotGuy (30)', 'bot', alliance.botguyUpBaseTele, side, 'botguyUpBaseTele', 'text-game-botguy')}
+                        </div>
+                    </div>
+
+                    <!-- ULTIMATE BUTTONS -->
+                    <div class="space-y-4">
+                        <button onclick="toggleBool('${side}', 'ultimateHome')" class="w-full text-left p-6 rounded-3xl border-4 transition-all ${alliance.ultimateHome ? 'bg-amber-500 border-amber-600 text-white shadow-2xl' : 'bg-white border-slate-200 text-slate-400'}">
+                            <div class="flex justify-between items-center mb-4">
+                                <span class="text-lg font-black uppercase italic tracking-tighter">Ultimate Home (+450 & x5)</span>
+                                <i data-lucide="crown" class="w-8 h-8"></i>
                             </div>
-                            <div class="flex items-center gap-1.5 mt-1 border-t ${alliance.ultimateNeutral ? 'border-purple-400 pt-2' : 'border-slate-100 pt-2'}">
-                                <span class="text-[8px] font-bold uppercase opacity-80">Order:</span>
-                                <div class="flex gap-1">
-                                    <div class="w-2.5 h-2.5 rounded-sm bg-yellow-400 shadow-sm"></div>
-                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
-                                    <div class="w-2.5 h-2.5 rounded-full border border-current bg-blue-400"></div>
-                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
-                                    <div class="w-2.5 h-2.5 rounded-sm bg-green-500"></div>
-                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
-                                    <div class="w-2.5 h-2.5 rounded-full bg-lime-300"></div>
+                            <div class="flex items-center gap-3 p-3 rounded-2xl ${alliance.ultimateHome ? 'bg-amber-600' : 'bg-slate-100'}">
+                                <span class="text-[10px] font-black uppercase">Required Stack:</span>
+                                <div class="flex gap-2">
+                                    <div class="w-6 h-6 rounded-md bg-yellow-400 shadow-sm border border-black/10"></div>
+                                    <div class="w-6 h-6 rounded-full bg-blue-500 shadow-sm border border-black/10"></div>
+                                    <div class="w-6 h-6 rounded-md bg-green-600 shadow-sm border border-black/10"></div>
+                                    <div class="w-6 h-6 rounded-full bg-lime-400 shadow-sm border border-black/10"></div>
                                 </div>
-                                <span class="text-[8px] font-medium leading-none ml-1 truncate">Yellow ⮕ Green ⮕ Rocker ⮕ Tennis</span>
                             </div>
                         </button>
 
-                        <button onclick="toggleBool('${side}', 'summitBonus')" class="flex items-center justify-between px-4 py-2.5 rounded-xl border-2 ${alliance.summitBonus ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="mountain" class="w-4 h-4"></i>
-                                <span class="text-[10px] font-black uppercase">Standard Summit</span>
+                        <button onclick="toggleBool('${side}', 'ultimateNeutral')" class="w-full text-left p-6 rounded-3xl border-4 transition-all ${alliance.ultimateNeutral ? 'bg-purple-600 border-purple-700 text-white shadow-2xl' : 'bg-white border-slate-200 text-slate-400'}">
+                            <div class="flex justify-between items-center mb-4">
+                                <span class="text-lg font-black uppercase italic tracking-tighter">Ultimate Zone (+350 & x5)</span>
+                                <i data-lucide="zap" class="w-8 h-8"></i>
                             </div>
-                            <span class="font-bold text-xs">+100</span>
+                            <div class="flex items-center gap-3 p-3 rounded-2xl ${alliance.ultimateNeutral ? 'bg-purple-700' : 'bg-slate-100'}">
+                                <span class="text-[10px] font-black uppercase">Required Stack:</span>
+                                <div class="flex gap-2">
+                                    <div class="w-6 h-6 rounded-md bg-yellow-400"></div>
+                                    <div class="w-6 h-6 rounded-full bg-blue-500"></div>
+                                    <div class="w-6 h-6 rounded-md bg-green-600"></div>
+                                    <div class="w-6 h-6 rounded-full bg-lime-400"></div>
+                                </div>
+                            </div>
+                        </button>
+
+                        <button onclick="toggleBool('${side}', 'summitBonus')" class="w-full flex items-center justify-between p-6 rounded-3xl border-4 transition-all ${alliance.summitBonus ? 'bg-slate-900 border-slate-950 text-white shadow-2xl' : 'bg-white border-slate-200 text-slate-400'}">
+                            <span class="text-lg font-black uppercase italic tracking-tighter">Summit Bonus (+100)</span>
+                            <i data-lucide="mountain" class="w-8 h-8"></i>
                         </button>
                     </div>
                 </div>
@@ -366,19 +298,19 @@
             lucide.createIcons();
         }
 
-        function renderCounter(label, icon, val, side, key, iconColorClass = 'text-slate-400') {
-            let iconHtml = `<i data-lucide="${icon}" class="w-4 h-4 ${iconColorClass} shrink-0 fill-current"></i>`;
-            if (icon === 'bullseye') iconHtml = `<span class="bullseye-icon shrink-0"></span>`;
+        function renderLargeCounter(label, icon, val, side, key, iconColorClass = 'text-slate-400') {
+            let iconHtml = `<i data-lucide="${icon}" class="w-8 h-8 ${iconColorClass} fill-current"></i>`;
+            if (icon === 'bullseye') iconHtml = `<span class="bullseye-icon" style="width:30px; height:30px;"></span>`;
             return `
-                <div class="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
-                    <div class="flex items-center gap-1.5 overflow-hidden">
+                <div class="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                    <div class="flex items-center gap-4">
                         ${iconHtml}
-                        <span class="text-[8px] font-black text-slate-500 uppercase truncate">${label}</span>
+                        <span class="text-xs font-black text-slate-600 uppercase tracking-wide">${label}</span>
                     </div>
-                    <div class="flex items-center gap-1">
-                        <button onclick="changeVal('${side}', '${key}', -1)" class="p-1 bg-white border border-slate-200 rounded text-slate-400 active:bg-slate-100"><i data-lucide="minus" class="w-3 h-3"></i></button>
-                        <span class="text-[10px] font-black w-4 text-center tabular-nums">${val}</span>
-                        <button onclick="changeVal('${side}', '${key}', 1)" class="p-1 bg-white border border-slate-200 rounded text-slate-900 active:bg-slate-100"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                    <div class="flex items-center gap-4">
+                        <button onclick="changeVal('${side}', '${key}', -1)" class="stepper-btn bg-white border-2 border-slate-200 rounded-full text-slate-400 shadow-sm active:bg-slate-100 active:scale-90 transition-all"><i data-lucide="minus" class="w-6 h-6"></i></button>
+                        <span class="text-2xl font-black w-10 text-center tabular-nums">${val}</span>
+                        <button onclick="changeVal('${side}', '${key}', 1)" class="stepper-btn bg-white border-2 border-slate-900 rounded-full text-slate-900 shadow-sm active:bg-slate-100 active:scale-90 transition-all"><i data-lucide="plus" class="w-6 h-6"></i></button>
                     </div>
                 </div>
             `;
@@ -413,7 +345,7 @@
 
         window.toggleTimer = () => {
             isRunning = !isRunning;
-            document.getElementById('timer-btn').innerHTML = isRunning ? `<i data-lucide="pause"></i>` : `<i data-lucide="play"></i>`;
+            document.getElementById('timer-btn').innerHTML = isRunning ? `<i data-lucide="pause" class="w-8 h-8"></i>` : `<i data-lucide="play" class="w-8 h-8"></i>`;
             document.getElementById('overlay').classList.add('hidden');
             lucide.createIcons();
             
@@ -422,7 +354,7 @@
                     timeLeft--;
                     if (timeLeft === 90) {
                         phase = 'TELEOP';
-                        document.getElementById('phase-badge').className = "px-3 py-1.5 rounded-full font-black text-[10px] tracking-widest bg-blue-600 text-white";
+                        document.getElementById('phase-badge').className = "px-5 py-2 rounded-lg font-black text-xs tracking-widest bg-blue-600 text-white";
                         document.getElementById('phase-badge').innerText = "TELEOP";
                     }
                     if (timeLeft <= 0) {
@@ -448,7 +380,7 @@
             red = initialState();
             blue = initialState();
             document.getElementById('timer-display').innerText = "2:00";
-            document.getElementById('phase-badge').className = "px-3 py-1.5 rounded-full font-black text-[10px] tracking-widest bg-amber-500 text-amber-950 pulse";
+            document.getElementById('phase-badge').className = "px-5 py-2 rounded-lg font-black text-xs tracking-widest bg-amber-500 text-amber-950 pulse";
             document.getElementById('phase-badge').innerText = "AUTO";
             document.getElementById('overlay').classList.remove('hidden');
             update();
@@ -469,18 +401,16 @@
         function renderLog() {
             const container = document.getElementById('match-log');
             if (matchLog.length === 0) {
-                container.innerHTML = `<div class="text-center py-10 opacity-30 text-[10px] font-black uppercase italic">No Matches Recorded</div>`;
+                container.innerHTML = `<div class="text-center py-20 opacity-20 text-sm font-black uppercase tracking-widest">No Matches Saved</div>`;
                 return;
             }
             container.innerHTML = matchLog.map(m => `
-                <div class="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between shadow-sm border-l-4 ${m.winner === 'RED' ? 'border-l-red-500' : m.winner === 'BLUE' ? 'border-l-blue-500' : 'border-l-slate-400'}">
-                    <div class="flex items-center gap-3">
-                        <div class="text-[8px] font-black bg-slate-100 px-2 py-1 rounded">#${m.match}</div>
-                        <div class="font-black tabular-nums text-sm">
-                            <span class="${m.winner === 'RED' ? 'text-red-600' : 'text-slate-500'}">${m.redScore}</span> 
-                            <span class="text-slate-300 mx-1">-</span> 
-                            <span class="${m.winner === 'BLUE' ? 'text-blue-600' : 'text-slate-500'}">${m.blueScore}</span>
-                        </div>
+                <div class="p-6 bg-white border-2 border-slate-100 rounded-2xl flex items-center justify-between shadow-md border-l-[12px] ${m.winner === 'RED' ? 'border-l-red-600' : m.winner === 'BLUE' ? 'border-l-blue-600' : 'border-l-slate-400'}">
+                    <span class="text-xs font-black bg-slate-100 px-3 py-1 rounded-lg">MATCH ${m.match}</span>
+                    <div class="font-black text-2xl tracking-tighter">
+                        <span class="${m.winner === 'RED' ? 'text-red-600' : 'text-slate-500'}">${m.redScore}</span> 
+                        <span class="text-slate-300 mx-2">VS</span> 
+                        <span class="${m.winner === 'BLUE' ? 'text-blue-600' : 'text-slate-500'}">${m.blueScore}</span>
                     </div>
                 </div>
             `).join('');
