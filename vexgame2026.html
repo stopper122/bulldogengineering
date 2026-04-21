@@ -135,11 +135,11 @@
             rockerBase: 0,
             pickleballBase: 0, 
             autoStackBonus: false, 
-            enterNeutralZone: false, // +10
-            enterOpponentZone: false, // +25
+            enterNeutralZone: false, 
+            enterOpponentZone: false, 
             autoLockedScore: 0,
             
-            // Teleop Zone Scoring (Neutral Zone)
+            // Teleop Zone Scoring (Team Zone)
             yellowZone: 0, ringZone: 0, ballZone: 0, rockerZone: 0, 
             botguyUpZone: 0,  
             botguyTipZone: 0, 
@@ -161,43 +161,31 @@
         function calculateAuto(alliance) {
             let total = 0;
             const stackMult = alliance.autoStackBonus ? 2 : 1;
-
-            // Cubes & Rings = 20 pts in Auto
             total += ((alliance.yellowBase + alliance.ringBase) * 20) * stackMult;
-            
-            // Rockers & Tennis Balls = 50 pts in Auto Home Base
             total += ((alliance.ballBase + alliance.rockerBase) * 50) * stackMult;
-            
-            // Pickleball = 100
             total += (alliance.pickleballBase * 100);
-
-            // Movement Bonuses
             if (alliance.enterNeutralZone) total += 10;
             if (alliance.enterOpponentZone) total += 25;
-            
             return total;
         }
 
         function calculate(alliance, opponent) {
             const currentAuto = calculateAuto(alliance);
             const opponentAuto = calculateAuto(opponent);
-            
-            // Auto Winner logic (+50)
             let autoWinnerPoints = 0;
             if (currentAuto > opponentAuto) autoWinnerPoints = 50;
 
             let total = phase === 'AUTO' ? currentAuto : (alliance.autoLockedScore + autoWinnerPoints);
-            
             if (phase === 'AUTO') return total;
 
             const mult = (alliance.ultimateNeutral || alliance.ultimateHome) ? 5 : 1;
 
-            // Teleop Neutral Zone
-            let neutralPoints = 0;
-            neutralPoints += (alliance.yellowZone + alliance.ringZone) * 2;
-            neutralPoints += (alliance.ballZone + alliance.rockerZone) * 5;
-            neutralPoints += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
-            total += neutralPoints * mult;
+            // Teleop Team Zone
+            let teamZonePoints = 0;
+            teamZonePoints += (alliance.yellowZone + alliance.ringZone) * 2;
+            teamZonePoints += (alliance.ballZone + alliance.rockerZone) * 5;
+            teamZonePoints += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
+            total += teamZonePoints * mult;
 
             // Teleop Home Base
             let basePoints = 0;
@@ -206,7 +194,6 @@
             basePoints += (alliance.botguyUpBaseTele * 30) + (alliance.botguyTipBaseTele * 15);
             total += basePoints * mult;
 
-            // End-game Bonuses
             if (alliance.summitBonus) total += 100;
             if (alliance.ultimateNeutral) total += 350;
             if (alliance.ultimateHome) total += 450;
@@ -273,9 +260,9 @@
                 </div>
                 ` : ''}
 
-                <!-- TELEOP: NEUTRAL ZONE -->
+                <!-- TELEOP: TEAM ZONE -->
                 <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${phase === 'AUTO' ? 'opacity-30 grayscale' : ''} ${isUltActive ? 'multiplier-glow' : ''}">
-                    <h3 class="text-[10px] font-black text-blue-500 uppercase">Neutral Zone ${isUltActive ? '(x5)' : ''}</h3>
+                    <h3 class="text-[10px] font-black text-blue-500 uppercase">Team Zone ${isUltActive ? '(x5)' : ''}</h3>
                     <div class="grid grid-cols-2 gap-2">
                         ${renderCounter('Cubes', 'square', alliance.yellowZone, side, 'yellowZone', 'text-game-yellow')}
                         ${renderCounter('Rings', 'bullseye', alliance.ringZone, side, 'ringZone')}
@@ -313,7 +300,7 @@
                         <button onclick="toggleBool('${side}', 'ultimateNeutral')" class="flex items-center justify-between px-4 py-3 rounded-xl border-2 ${alliance.ultimateNeutral ? 'bg-purple-600 text-white border-purple-700 shadow-lg' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
                             <div class="flex items-center gap-3">
                                 <i data-lucide="zap" class="w-5 h-5"></i>
-                                <span class="text-[10px] font-black uppercase">Ultimate: Neutral Zone</span>
+                                <span class="text-[10px] font-black uppercase">Ultimate: Team Zone</span>
                             </div>
                             <span class="font-bold text-xs">+350 & 5x</span>
                         </button>
