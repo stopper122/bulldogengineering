@@ -54,7 +54,7 @@
             </div>
             <div>
                 <h1 class="text-white font-black italic text-lg leading-none uppercase tracking-tighter">Stacker's Summit</h1>
-                <span class="text-blue-400 text-[9px] font-bold tracking-[0.3em] uppercase opacity-70">Auto Winner: Automatic</span>
+                <span class="text-blue-400 text-[9px] font-bold tracking-[0.3em] uppercase opacity-70">Live Scoring System</span>
             </div>
         </div>
 
@@ -128,7 +128,7 @@
         let matchLog = [];
 
         const initialState = () => ({
-            // Auto scoring (Strictly Home Base)
+            // Auto scoring (Home Base)
             yellowBase: 0, 
             ringBase: 0, 
             ballBase: 0, 
@@ -137,15 +137,18 @@
             autoStackBonus: false, 
             enterNeutralZone: false, 
             enterOpponentZone: false, 
-            autoLockedScore: 0,
             
             // Teleop Zone Scoring (Team Zone)
-            yellowZone: 0, ringZone: 0, ballZone: 0, rockerZone: 0, 
+            yellowZone: 0, 
+            ringZone: 0, 
+            stackedZone: 0, // Ball on Rocker (5 pts)
             botguyUpZone: 0,  
             botguyTipZone: 0, 
             
             // Teleop Base Scoring (Home Base)
-            yellowBaseTele: 0, ringBaseTele: 0, ballBaseTele: 0, rockerBaseTele: 0, 
+            yellowBaseTele: 0, 
+            ringBaseTele: 0, 
+            stackedBaseTele: 0, // Ball on Rocker (20 pts)
             botguyUpBaseTele: 0,  
             botguyTipBaseTele: 0, 
             
@@ -161,6 +164,7 @@
         function calculateAuto(alliance) {
             let total = 0;
             const stackMult = alliance.autoStackBonus ? 2 : 1;
+            // Rule: Cubes/Rings are 20, Ball/Rocker are 50
             total += ((alliance.yellowBase + alliance.ringBase) * 20) * stackMult;
             total += ((alliance.ballBase + alliance.rockerBase) * 50) * stackMult;
             total += (alliance.pickleballBase * 100);
@@ -172,31 +176,36 @@
         function calculate(alliance, opponent) {
             const currentAuto = calculateAuto(alliance);
             const opponentAuto = calculateAuto(opponent);
+            
+            // Auto winner bonus
             let autoWinnerPoints = 0;
             if (currentAuto > opponentAuto) autoWinnerPoints = 50;
 
-            let total = phase === 'AUTO' ? currentAuto : (alliance.autoLockedScore + autoWinnerPoints);
-            if (phase === 'AUTO') return total;
+            let total = currentAuto;
+            
+            if (phase === 'TELEOP') {
+                total += autoWinnerPoints;
 
-            const mult = (alliance.ultimateNeutral || alliance.ultimateHome) ? 5 : 1;
+                const mult = (alliance.ultimateNeutral || alliance.ultimateHome) ? 5 : 1;
 
-            // Teleop Team Zone
-            let teamZonePoints = 0;
-            teamZonePoints += (alliance.yellowZone + alliance.ringZone) * 2;
-            teamZonePoints += (alliance.ballZone + alliance.rockerZone) * 5;
-            teamZonePoints += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
-            total += teamZonePoints * mult;
+                // Teleop Team Zone
+                let teamZonePoints = 0;
+                teamZonePoints += (alliance.yellowZone + alliance.ringZone) * 2;
+                teamZonePoints += (alliance.stackedZone * 5); // Ball on Rocker
+                teamZonePoints += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
+                total += teamZonePoints * mult;
 
-            // Teleop Home Base
-            let basePoints = 0;
-            basePoints += (alliance.yellowBaseTele + alliance.ringBaseTele) * 10;
-            basePoints += (alliance.ballBaseTele + alliance.rockerBaseTele) * 20;
-            basePoints += (alliance.botguyUpBaseTele * 30) + (alliance.botguyTipBaseTele * 15);
-            total += basePoints * mult;
+                // Teleop Home Base
+                let basePoints = 0;
+                basePoints += (alliance.yellowBaseTele + alliance.ringBaseTele) * 10;
+                basePoints += (alliance.stackedBaseTele * 20); // Ball on Rocker
+                basePoints += (alliance.botguyUpBaseTele * 30) + (alliance.botguyTipBaseTele * 15);
+                total += basePoints * mult;
 
-            if (alliance.summitBonus) total += 100;
-            if (alliance.ultimateNeutral) total += 350;
-            if (alliance.ultimateHome) total += 450;
+                if (alliance.summitBonus) total += 100;
+                if (alliance.ultimateNeutral) total += 350;
+                if (alliance.ultimateHome) total += 450;
+            }
             
             return Math.max(0, Math.round(total));
         }
@@ -206,14 +215,15 @@
             const isUltActive = alliance.ultimateNeutral || alliance.ultimateHome;
             const isStackActive = alliance.autoStackBonus;
             const otherSide = side === 'red' ? blue : red;
+            
             const currentAutoScore = calculateAuto(alliance);
             const opponentAutoScore = calculateAuto(otherSide);
-            const isAutoWinner = currentAutoScore > opponentAutoScore;
+            const isAutoWinner = currentAutoScore > opponentAutoScore && phase === 'TELEOP';
             
             container.innerHTML = `
-                <!-- AUTO -->
-                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${phase !== 'AUTO' ? 'hidden' : ''} ${isStackActive ? 'auto-stack-glow' : ''}">
-                    <h3 class="text-[10px] font-black text-slate-500 uppercase flex items-center justify-between">
+                <!-- AUTO (ALWAYS VISIBLE) -->
+                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${isStackActive ? 'auto-stack-glow' : ''}">
+                    <h3 class="text-[10px] font-black text-amber-600 uppercase flex items-center justify-between">
                         <span>Autonomous Phase</span>
                         ${isStackActive ? '<span class="text-blue-500">2X Stack Active</span>' : ''}
                     </h3>
@@ -228,7 +238,7 @@
                     
                     <div class="grid grid-cols-2 gap-2">
                         <button onclick="toggleBool('${side}', 'enterNeutralZone')" class="flex flex-col items-center justify-center p-2 rounded-lg border-2 ${alliance.enterNeutralZone ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-slate-50 text-slate-400 border-slate-100'} transition-all">
-                           <span class="text-[8px] font-black uppercase">Neutral Ent (+10)</span>
+                           <span class="text-[8px] font-black uppercase">Neutral Zone Ent (+10)</span>
                         </button>
                         <button onclick="toggleBool('${side}', 'enterOpponentZone')" class="flex flex-col items-center justify-center p-2 rounded-lg border-2 ${alliance.enterOpponentZone ? 'bg-rose-50 border-rose-500 text-rose-700' : 'bg-slate-50 text-slate-400 border-slate-100'} transition-all">
                            <span class="text-[8px] font-black uppercase">Opponent Ent (+25)</span>
@@ -244,50 +254,40 @@
                     </button>
                 </div>
 
-                <!-- AUTO WINNER BADGE (TELEOP ONLY) -->
-                ${phase !== 'AUTO' && isAutoWinner ? `
+                <!-- AUTO WINNER BADGE (ONLY IN TELEOP) -->
+                ${isAutoWinner ? `
                 <div class="bg-slate-900 border-2 border-slate-900 p-2 rounded-xl flex items-center justify-center gap-2">
                     <i data-lucide="award" class="w-4 h-4 text-amber-400 fill-current"></i>
                     <span class="text-[10px] font-black text-white uppercase tracking-tighter">Auto Winner Bonus (+50)</span>
                 </div>
                 ` : ''}
 
-                <!-- MULTIPLIER ALERT -->
-                ${isUltActive ? `
-                <div class="bg-amber-100 border-2 border-amber-500 p-2 rounded-xl flex items-center justify-center gap-2 pulse">
-                    <i data-lucide="zap" class="w-4 h-4 text-amber-600 fill-current"></i>
-                    <span class="text-[10px] font-black text-amber-700 uppercase tracking-tighter">5X Multiplier Active</span>
-                </div>
-                ` : ''}
-
                 <!-- TELEOP: TEAM ZONE -->
-                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${phase === 'AUTO' ? 'opacity-30 grayscale' : ''} ${isUltActive ? 'multiplier-glow' : ''}">
+                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${phase === 'AUTO' ? 'opacity-40 grayscale pointer-events-none' : ''} ${isUltActive ? 'multiplier-glow' : ''}">
                     <h3 class="text-[10px] font-black text-blue-500 uppercase">Team Zone ${isUltActive ? '(x5)' : ''}</h3>
                     <div class="grid grid-cols-2 gap-2">
-                        ${renderCounter('Cubes', 'square', alliance.yellowZone, side, 'yellowZone', 'text-game-yellow')}
-                        ${renderCounter('Rings', 'bullseye', alliance.ringZone, side, 'ringZone')}
-                        ${renderCounter('Ball', 'circle', alliance.ballZone, side, 'ballZone', 'text-game-tennis')}
-                        ${renderCounter('Rocker', 'layers', alliance.rockerZone, side, 'rockerZone', 'text-game-rocker')}
-                        ${renderCounter('Bot Up', 'bot', alliance.botguyUpZone, side, 'botguyUpZone', 'text-game-botguy')}
-                        ${renderCounter('Bot Tip', 'trending-down', alliance.botguyTipZone, side, 'botguyTipZone', 'text-game-botguy opacity-50')}
+                        ${renderCounter('Cubes (2)', 'square', alliance.yellowZone, side, 'yellowZone', 'text-game-yellow')}
+                        ${renderCounter('Rings (2)', 'bullseye', alliance.ringZone, side, 'ringZone')}
+                        ${renderCounter('Stacked (5)', 'layers', alliance.stackedZone, side, 'stackedZone', 'text-game-tennis')}
+                        ${renderCounter('Bot Up (10)', 'bot', alliance.botguyUpZone, side, 'botguyUpZone', 'text-game-botguy')}
+                        ${renderCounter('Bot Tip (5)', 'trending-down', alliance.botguyTipZone, side, 'botguyTipZone', 'text-game-botguy opacity-50')}
                     </div>
                 </div>
 
                 <!-- TELEOP: HOME BASE -->
-                <div class="space-y-3 p-3 bg-white rounded-xl border-2 border-blue-100 shadow-sm ${phase === 'AUTO' ? 'opacity-30 grayscale' : ''} ${isUltActive ? 'multiplier-glow' : ''}">
+                <div class="space-y-3 p-3 bg-white rounded-xl border-2 border-blue-100 shadow-sm ${phase === 'AUTO' ? 'opacity-40 grayscale pointer-events-none' : ''} ${isUltActive ? 'multiplier-glow' : ''}">
                     <h3 class="text-[10px] font-black text-indigo-600 uppercase">Home Base ${isUltActive ? '(x5)' : ''}</h3>
                     <div class="grid grid-cols-2 gap-2">
-                        ${renderCounter('Cubes', 'box', alliance.yellowBaseTele, side, 'yellowBaseTele', 'text-game-yellow')}
-                        ${renderCounter('Rings', 'bullseye', alliance.ringBaseTele, side, 'ringBaseTele')}
-                        ${renderCounter('Ball', 'circle', alliance.ballBaseTele, side, 'ballBaseTele', 'text-game-tennis')}
-                        ${renderCounter('Rocker', 'layers', alliance.rockerBaseTele, side, 'rockerBaseTele', 'text-game-rocker')}
-                        ${renderCounter('BG Up', 'bot', alliance.botguyUpBaseTele, side, 'botguyUpBaseTele', 'text-game-botguy')}
-                        ${renderCounter('BG Tip', 'trending-down', alliance.botguyTipBaseTele, side, 'botguyTipBaseTele', 'text-game-botguy opacity-50')}
+                        ${renderCounter('Cubes (10)', 'box', alliance.yellowBaseTele, side, 'yellowBaseTele', 'text-game-yellow')}
+                        ${renderCounter('Rings (10)', 'bullseye', alliance.ringBaseTele, side, 'ringBaseTele')}
+                        ${renderCounter('Stacked (20)', 'layers', alliance.stackedBaseTele, side, 'stackedBaseTele', 'text-game-tennis')}
+                        ${renderCounter('Bot Up (30)', 'bot', alliance.botguyUpBaseTele, side, 'botguyUpBaseTele', 'text-game-botguy')}
+                        ${renderCounter('Bot Tip (15)', 'trending-down', alliance.botguyTipBaseTele, side, 'botguyTipBaseTele', 'text-game-botguy opacity-50')}
                     </div>
                 </div>
 
                 <!-- BONUSES -->
-                <div class="flex flex-col gap-2 ${phase === 'AUTO' ? 'opacity-30 grayscale' : ''}">
+                <div class="flex flex-col gap-2 ${phase === 'AUTO' ? 'opacity-40 grayscale pointer-events-none' : ''}">
                     <div class="grid grid-cols-1 gap-2">
                         <button onclick="toggleBool('${side}', 'ultimateHome')" class="flex items-center justify-between px-4 py-3 rounded-xl border-2 ${alliance.ultimateHome ? 'bg-amber-500 text-white border-amber-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
                             <div class="flex items-center gap-3">
@@ -367,8 +367,6 @@
                 timerInterval = setInterval(() => {
                     timeLeft--;
                     if (timeLeft === 90) {
-                        red.autoLockedScore = calculateAuto(red);
-                        blue.autoLockedScore = calculateAuto(blue);
                         phase = 'TELEOP';
                         document.getElementById('phase-badge').className = "px-3 py-1.5 rounded-full font-black text-[10px] tracking-widest bg-blue-600 text-white";
                         document.getElementById('phase-badge').innerText = "TELEOP";
