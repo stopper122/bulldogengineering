@@ -15,11 +15,9 @@
         .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         
-        /* Game Element Colors */
         .text-game-yellow { color: #facc15; }
         .text-game-rocker { color: #22c55e; }
         .text-game-tennis { color: #bef264; }
-        .text-game-pickle { color: #16a34a; }
         .text-game-botguy { color: #ef4444; }
         .text-game-scrap { color: #64748b; }
 
@@ -31,7 +29,6 @@
             background: radial-gradient(circle, #facc15 20%, #ef4444 21%, #ef4444 50%, #3b82f6 51%, #3b82f6 100%);
         }
 
-        /* Sidebar Transition */
         #log-sidebar {
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -42,7 +39,6 @@
 </head>
 <body class="bg-slate-200 h-screen flex flex-col overflow-hidden">
 
-    <!-- Header -->
     <header class="bg-slate-900 p-4 shadow-xl flex items-center justify-between shrink-0 z-50">
         <div class="flex items-center gap-4">
             <div class="bg-blue-500/20 p-2 rounded-lg text-blue-400">
@@ -75,10 +71,8 @@
         </div>
     </header>
 
-    <!-- Main Content Area -->
     <main class="flex-1 flex p-3 gap-3 overflow-hidden relative">
-        
-        <!-- Red Alliance (Expanded) -->
+        <!-- Red Alliance Side -->
         <div class="flex-1 flex flex-col rounded-2xl border-2 border-red-200 bg-red-50 overflow-hidden shadow-md transition-all">
             <div class="bg-red-600 p-4 text-white flex justify-between items-start">
                 <div>
@@ -90,7 +84,7 @@
             <div class="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar" id="red-controls"></div>
         </div>
 
-        <!-- Blue Alliance (Expanded) -->
+        <!-- Blue Alliance Side -->
         <div class="flex-1 flex flex-col rounded-2xl border-2 border-blue-200 bg-blue-50 overflow-hidden shadow-md transition-all">
             <div class="bg-blue-700 p-4 text-white flex justify-between items-start">
                 <div>
@@ -102,7 +96,7 @@
             <div class="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar" id="blue-controls"></div>
         </div>
 
-        <!-- Sidebar Log Window (Collapsible) -->
+        <!-- Sidebar Log Window -->
         <div id="log-sidebar" class="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-[60] flex flex-col sidebar-closed border-l border-slate-200">
             <div class="bg-slate-800 p-4 text-white flex justify-between items-center shrink-0">
                 <div>
@@ -114,22 +108,25 @@
                 </button>
             </div>
             
-            <div class="p-4 border-b border-slate-100 bg-slate-50 flex gap-4">
-                <div class="flex-1">
-                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Next Match #</span>
-                    <input type="number" id="match-number" value="1" class="w-full bg-white border border-slate-300 text-slate-900 font-black px-3 py-2 rounded-lg text-center outline-none focus:border-blue-500">
+            <div class="p-4 border-b border-slate-100 bg-slate-50 flex flex-col gap-3">
+                <div class="flex items-center gap-4">
+                    <div class="flex-1">
+                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Next Match #</span>
+                        <input type="number" id="match-number" value="1" class="w-full bg-white border border-slate-300 text-slate-900 font-black px-3 py-2 rounded-lg text-center outline-none focus:border-blue-500">
+                    </div>
+                    <div class="flex gap-1 self-end">
+                        <label class="p-2.5 bg-slate-200 hover:bg-slate-300 rounded-lg text-slate-700 shadow-sm transition-colors cursor-pointer" title="Import CSV">
+                            <i data-lucide="upload" class="w-5 h-5"></i>
+                            <input type="file" id="import-csv" class="hidden" accept=".csv" onchange="importLog(event)">
+                        </label>
+                        <button onclick="exportLog()" class="p-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-white shadow-sm transition-colors" title="Export CSV">
+                            <i data-lucide="download" class="w-5 h-5"></i>
+                        </button>
+                    </div>
                 </div>
-                <button onclick="exportLog()" class="self-end p-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-white shadow-sm transition-colors">
-                    <i data-lucide="download" class="w-5 h-5"></i>
-                </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3 bg-slate-50" id="match-log">
-                <div class="text-center py-10 opacity-30">
-                    <i data-lucide="clipboard-list" class="mx-auto w-10 h-10 mb-2"></i>
-                    <p class="text-xs font-bold uppercase tracking-widest">No Matches Saved</p>
-                </div>
-            </div>
+            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3 bg-slate-50" id="match-log"></div>
 
             <div class="p-4 border-t border-slate-200 bg-white">
                 <button onclick="saveMatch()" class="w-full bg-slate-900 hover:bg-black text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
@@ -138,7 +135,7 @@
             </div>
         </div>
 
-        <!-- Start/Phase Overlay -->
+        <!-- Start Overlay -->
         <div id="overlay" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8">
             <div class="bg-white p-8 rounded-[2rem] shadow-2xl text-center max-w-md">
                 <h3 class="text-3xl font-black text-slate-900 mb-2 italic uppercase">Match Ready</h3>
@@ -158,10 +155,17 @@
         let matchLog = [];
 
         const initialState = () => ({
+            // Auto scoring
             yellowBase: 0, ringBase: 0, botguyUpBase: 0, botguyTipBase: 0, ballBase: 0, rockerBase: 0,
             scout: 0, autoStacks: [],
-            yellowZone: 0, ringZone: 0, botguyUpZone: 0, botguyTipZone: 0, ballZone: 0,
+            
+            // Teleop scoring
+            yellowZone: 0, ringZone: 0, 
+            botguyUpZone: 0, botguyTipZone: 0, 
+            botguyUpBaseTeleop: 0, botguyTipBaseTeleop: 0, // NEW
+            ballZone: 0,
             scrapZone: 0, scrapBase: 0, hazard: 0,
+            
             pickle: false, ultimate: false, autoWinner: false,
             autoLockedScore: 0
         });
@@ -171,10 +175,12 @@
 
         function calculateAuto(alliance) {
             let total = 0;
+            // Base items in home base
             let baseScore = (alliance.yellowBase + alliance.ringBase) * 10;
             baseScore += (alliance.ballBase + alliance.rockerBase) * 20;
             baseScore += (alliance.botguyUpBase * 30) + (alliance.botguyTipBase * 15);
 
+            // Stack bonus calculation
             let stackBonus = 0;
             if (alliance.autoStacks.length > 0) {
                 const itemCount = alliance.yellowBase + alliance.ringBase + alliance.ballBase + alliance.rockerBase + alliance.botguyUpBase + alliance.botguyTipBase;
@@ -184,11 +190,9 @@
                     stackBonus += (avgVal * h * mult * 2) - (avgVal * h); 
                 });
             }
-
             total += (baseScore * 2) + stackBonus;
             total += (alliance.ballBase + alliance.rockerBase) * 50;
             total += alliance.scout === 1 ? 10 : alliance.scout === 2 ? 25 : 0;
-
             return Math.max(0, Math.round(total));
         }
 
@@ -196,33 +200,37 @@
             let total = alliance.autoLockedScore;
             if (phase === 'AUTO') return calculateAuto(alliance);
 
+            // Teleop Zone Scoring
             total += (alliance.yellowZone + alliance.ringZone) * 2;
             total += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
             total += (alliance.ballZone * 5);
 
+            // Teleop Home Base Botguy Scoring (New)
+            total += (alliance.botguyUpBaseTeleop * 30) + (alliance.botguyTipBaseTeleop * 15);
+
+            // Bonuses/Penalties
             if (alliance.ultimate) total += 100;
             if (alliance.autoWinner) total += 50;
             if (alliance.pickle) total += 100;
-
+            
             if (!alliance.pickle) {
                 total -= (alliance.scrapZone * 2);
                 total -= (alliance.scrapBase * 10);
             }
             total -= (alliance.hazard * 15);
-
+            
             return Math.max(0, Math.round(total));
         }
 
         function renderControls(alliance, side) {
             const container = document.getElementById(`${side}-controls`);
             container.innerHTML = `
-                <!-- AUTO -->
+                <!-- AUTO SECTION -->
                 <div class="space-y-4 p-4 bg-white rounded-2xl border-2 border-slate-100 shadow-sm">
                     <h3 class="text-xs font-black text-slate-500 uppercase flex items-center justify-between">
                         <span class="flex items-center gap-1.5"><i data-lucide="cpu" class="w-4 h-4 text-amber-500"></i> Autonomous Phase</span>
                         ${phase === 'AUTO' ? '<span class="text-amber-600 animate-pulse">ACTIVE</span>' : '<i data-lucide="lock" class="w-4 h-4 opacity-30"></i>'}
                     </h3>
-                    
                     <div class="grid grid-cols-2 gap-3 ${phase !== 'AUTO' ? 'pointer-events-none opacity-40' : ''}">
                         ${renderCounter('Cubes (Base)', 'box', alliance.yellowBase, side, 'yellowBase', 'text-game-yellow')}
                         ${renderCounter('Rings (Base)', 'bullseye', alliance.ringBase, side, 'ringBase')}
@@ -231,13 +239,11 @@
                         ${renderCounter('Botguy Up', 'bot', alliance.botguyUpBase, side, 'botguyUpBase', 'text-game-botguy')}
                         ${renderCounter('Botguy Tip', 'trending-down', alliance.botguyTipBase, side, 'botguyTipBase', 'text-game-botguy opacity-50')}
                     </div>
-
                     <div class="flex gap-2 ${phase !== 'AUTO' ? 'pointer-events-none opacity-40' : ''}">
                         <button onclick="setScout('${side}', 0)" class="flex-1 py-3 rounded-xl text-[10px] font-black border-2 flex items-center justify-center ${alliance.scout === 0 ? 'bg-slate-200 text-slate-900 border-slate-300' : 'bg-white text-slate-400 border-slate-100'}">NONE</button>
                         <button onclick="setScout('${side}', 1)" class="flex-[2] py-3 rounded-xl text-[10px] font-black border-2 flex items-center justify-center ${alliance.scout === 1 ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-400 border-slate-100'}">NEUTRAL ZONE</button>
                         <button onclick="setScout('${side}', 2)" class="flex-[2] py-3 rounded-xl text-[10px] font-black border-2 flex items-center justify-center ${alliance.scout === 2 ? 'bg-red-500 text-white border-red-600' : 'bg-white text-slate-400 border-slate-100'}">OPPONENT ZONE</button>
                     </div>
-
                     <div class="p-3 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 ${phase !== 'AUTO' ? 'pointer-events-none opacity-40' : ''}">
                         <div class="flex justify-between items-center mb-3">
                             <span class="text-[10px] font-black text-slate-400 uppercase">Auto Stacks</span>
@@ -248,25 +254,36 @@
                             </div>
                         </div>
                         <div class="flex flex-wrap gap-2">
-                            ${alliance.autoStacks.length === 0 ? '<span class="text-[9px] text-slate-300 font-bold italic">No stacks recorded...</span>' : ''}
+                            ${alliance.autoStacks.length === 0 ? '<span class="text-[9px] text-slate-300 font-bold italic">No stacks...</span>' : ''}
                             ${alliance.autoStacks.map((s, i) => `<div class="bg-white px-3 py-2 rounded-lg text-xs font-black border-2 flex items-center gap-2">${s}T <i data-lucide="x" class="w-4 h-4 text-red-500 cursor-pointer" onclick="removeStack('${side}', ${i})"></i></div>`).join('')}
                         </div>
                     </div>
                 </div>
 
-                <!-- TELEOP -->
+                <!-- TELEOP SECTION -->
                 <div class="space-y-4 p-4 bg-white rounded-2xl border-2 border-slate-100 shadow-sm ${phase === 'AUTO' ? 'opacity-30 grayscale' : ''}">
                     <h3 class="text-xs font-black text-slate-500 uppercase flex items-center justify-between">
                         <span class="flex items-center gap-1.5"><i data-lucide="gamepad-2" class="w-4 h-4 text-blue-500"></i> Teleop Phase</span>
                         ${phase === 'TELEOP' ? '<span class="text-blue-600 animate-pulse">ACTIVE</span>' : ''}
                     </h3>
+                    
                     <div class="grid grid-cols-2 gap-3">
                         ${renderCounter('Cubes (Zone)', 'square', alliance.yellowZone, side, 'yellowZone', 'text-game-yellow')}
                         ${renderCounter('Rings (Zone)', 'bullseye', alliance.ringZone, side, 'ringZone')}
-                        ${renderCounter('Botguy (Zone)', 'smile', alliance.botguyUpZone, side, 'botguyUpZone', 'text-game-botguy')}
+                        ${renderCounter('Ball (Zone)', 'circle', alliance.ballZone, side, 'ballZone', 'text-game-tennis')}
                         ${renderCounter('Scrap (Zone)', 'trash-2', alliance.scrapZone, side, 'scrapZone', 'text-game-scrap')}
                     </div>
-                    
+
+                    <div class="bg-slate-50 p-3 rounded-xl space-y-3">
+                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest block border-b pb-1">Botguy Scoring</span>
+                        <div class="grid grid-cols-2 gap-2">
+                             ${renderCounter('BG Up (Zone)', 'bot', alliance.botguyUpZone, side, 'botguyUpZone', 'text-game-botguy')}
+                             ${renderCounter('BG Tip (Zone)', 'trending-down', alliance.botguyTipZone, side, 'botguyTipZone', 'text-game-botguy opacity-60')}
+                             ${renderCounter('BG Up (Base)', 'bot', alliance.botguyUpBaseTeleop, side, 'botguyUpBaseTeleop', 'text-game-botguy')}
+                             ${renderCounter('BG Tip (Base)', 'trending-down', alliance.botguyTipBaseTeleop, side, 'botguyTipBaseTeleop', 'text-game-botguy opacity-60')}
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-3 gap-2">
                          <button onclick="toggleBool('${side}', 'autoWinner')" class="flex flex-col items-center py-4 rounded-xl border-2 ${alliance.autoWinner ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-400 border-slate-100'}">
                             <i data-lucide="award" class="w-5 h-5 mb-1"></i><span class="text-[9px] font-black uppercase">Auto Win</span>
@@ -278,7 +295,6 @@
                             <i data-lucide="database" class="w-5 h-5 mb-1"></i><span class="text-[9px] font-black uppercase">Neutralizer</span>
                         </button>
                     </div>
-
                     <div class="bg-red-50 p-2 rounded-xl border-2 border-red-100">
                         ${renderCounter('Hazards Set', 'bomb', alliance.hazard, side, 'hazard', 'text-red-500')}
                     </div>
@@ -289,20 +305,17 @@
 
         function renderCounter(label, icon, val, side, key, iconColorClass = 'text-slate-400') {
             let iconHtml = `<i data-lucide="${icon}" class="w-5 h-5 ${iconColorClass} shrink-0 fill-current"></i>`;
-            if (icon === 'bullseye') {
-                iconHtml = `<span class="bullseye-icon shrink-0" style="width: 20px; height: 20px;"></span>`;
-            }
-
+            if (icon === 'bullseye') iconHtml = `<span class="bullseye-icon shrink-0" style="width: 20px; height: 20px;"></span>`;
             return `
                 <div class="flex items-center justify-between p-3 bg-white rounded-xl border-2 border-slate-100 shadow-sm">
                     <div class="flex items-center gap-2 overflow-hidden">
                         ${iconHtml}
-                        <span class="text-[10px] font-black text-slate-600 uppercase truncate">${label}</span>
+                        <span class="text-[9px] font-black text-slate-600 uppercase truncate leading-none">${label}</span>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button onclick="changeVal('${side}', '${key}', -1)" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 active:scale-90"><i data-lucide="minus" class="w-4 h-4"></i></button>
-                        <span class="text-lg font-black w-6 text-center tabular-nums">${val}</span>
-                        <button onclick="changeVal('${side}', '${key}', 1)" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-900 active:scale-90"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                        <button onclick="changeVal('${side}', '${key}', -1)" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 active:scale-90"><i data-lucide="minus" class="w-3.5 h-3.5"></i></button>
+                        <span class="text-sm font-black w-4 text-center tabular-nums">${val}</span>
+                        <button onclick="changeVal('${side}', '${key}', 1)" class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-900 active:scale-90"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>
                     </div>
                 </div>
             `;
@@ -315,10 +328,7 @@
             renderControls(blue, 'blue');
         }
 
-        window.toggleLog = () => {
-            const sidebar = document.getElementById('log-sidebar');
-            sidebar.classList.toggle('sidebar-closed');
-        };
+        window.toggleLog = () => document.getElementById('log-sidebar').classList.toggle('sidebar-closed');
 
         window.changeVal = (side, key, delta) => {
             const obj = side === 'red' ? red : blue;
@@ -407,19 +417,13 @@
             });
             renderLog();
             document.getElementById('match-number').value = parseInt(matchNum) + 1;
-            
-            // Auto-open log on save so user can see it recorded
             document.getElementById('log-sidebar').classList.remove('sidebar-closed');
         };
 
         function renderLog() {
             const container = document.getElementById('match-log');
             if (matchLog.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-10 opacity-30">
-                        <i data-lucide="clipboard-list" class="mx-auto w-10 h-10 mb-2"></i>
-                        <p class="text-xs font-bold uppercase tracking-widest">No Matches Saved</p>
-                    </div>`;
+                container.innerHTML = `<div class="text-center py-10 opacity-30"><i data-lucide="clipboard-list" class="mx-auto w-10 h-10 mb-2"></i><p class="text-xs font-bold uppercase tracking-widest">No Matches Saved</p></div>`;
             } else {
                 container.innerHTML = matchLog.map(m => `
                     <div class="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between shadow-sm border-l-4 ${m.winner === 'RED' ? 'border-l-red-500' : m.winner === 'BLUE' ? 'border-l-blue-500' : 'border-l-slate-400'}">
@@ -443,12 +447,48 @@
             let csv = "Match,Red,Blue,Winner\n" + matchLog.map(m => `${m.match},${m.redScore},${m.blueScore},${m.winner}`).join("\n");
             const link = document.createElement("a");
             link.href = encodeURI("data:text/csv;charset=utf-8," + csv);
-            link.download = `stackers_summit_log_m${matchLog[0].match}.csv`;
+            link.download = `match_log.csv`;
             link.click();
+        };
+
+        window.importLog = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                const rows = text.split('\n').filter(r => r.trim().length > 0).slice(1);
+                const importedData = [];
+                let maxMatch = 0;
+
+                rows.forEach(row => {
+                    const cols = row.split(',');
+                    if (cols.length >= 4) {
+                        const mNum = parseInt(cols[0]);
+                        importedData.push({
+                            match: cols[0],
+                            redScore: parseInt(cols[1]),
+                            blueScore: parseInt(cols[2]),
+                            winner: cols[3].trim().toUpperCase()
+                        });
+                        if (mNum > maxMatch) maxMatch = mNum;
+                    }
+                });
+
+                if (importedData.length > 0) {
+                    matchLog = importedData;
+                    document.getElementById('match-number').value = maxMatch + 1;
+                    renderLog();
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
         };
 
         window.onload = () => {
             update();
+            renderLog();
             lucide.createIcons();
         };
     </script>
