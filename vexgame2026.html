@@ -18,8 +18,8 @@
         .text-game-yellow { color: #facc15; }
         .text-game-rocker { color: #22c55e; }
         .text-game-tennis { color: #bef264; }
+        .text-game-pickle { color: #ec4899; }
         .text-game-botguy { color: #ef4444; }
-        .text-game-scrap { color: #64748b; }
 
         .bullseye-icon {
             display: inline-block;
@@ -35,6 +35,10 @@
         .sidebar-closed {
             transform: translateX(100%);
         }
+        .multiplier-glow {
+            box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
+            border-color: rgba(234, 179, 8, 1);
+        }
     </style>
 </head>
 <body class="bg-slate-200 h-screen flex flex-col overflow-hidden">
@@ -46,7 +50,7 @@
             </div>
             <div>
                 <h1 class="text-white font-black italic text-lg leading-none uppercase tracking-tighter">Stacker's Summit</h1>
-                <span class="text-blue-400 text-[9px] font-bold tracking-[0.3em] uppercase opacity-70">Official Scorer</span>
+                <span class="text-blue-400 text-[9px] font-bold tracking-[0.3em] uppercase opacity-70">Pickleball Auto Active</span>
             </div>
         </div>
 
@@ -96,24 +100,7 @@
                 <h2 class="text-lg font-black uppercase italic tracking-tighter">Match Log</h2>
                 <button onclick="toggleLog()" class="p-2 hover:bg-slate-700 rounded-lg"><i data-lucide="x"></i></button>
             </div>
-            <div class="p-4 border-b border-slate-100 bg-slate-50 flex flex-col gap-3">
-                <div class="flex items-center gap-4">
-                    <div class="flex-1">
-                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1">Match #</span>
-                        <input type="number" id="match-number" value="1" class="w-full bg-white border border-slate-300 text-slate-900 font-black px-3 py-2 rounded-lg text-center outline-none">
-                    </div>
-                    <div class="flex gap-1 self-end">
-                        <label class="p-2.5 bg-slate-200 hover:bg-slate-300 rounded-lg text-slate-700 cursor-pointer">
-                            <i data-lucide="upload" class="w-5 h-5"></i>
-                            <input type="file" id="import-csv" class="hidden" accept=".csv" onchange="importLog(event)">
-                        </label>
-                        <button onclick="exportLog()" class="p-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-white">
-                            <i data-lucide="download" class="w-5 h-5"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3 bg-slate-50" id="match-log"></div>
+            <div class="p-4 bg-slate-50 flex-1 overflow-y-auto custom-scrollbar space-y-3" id="match-log"></div>
             <div class="p-4 bg-white border-t border-slate-200">
                 <button onclick="saveMatch()" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm shadow-lg active:scale-95 transition-all">Save Match</button>
             </div>
@@ -123,8 +110,8 @@
         <div id="overlay" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8">
             <div class="bg-white p-8 rounded-[2rem] shadow-2xl text-center max-w-md">
                 <h3 class="text-3xl font-black text-slate-900 mb-2 italic uppercase">Ready</h3>
-                <p class="text-slate-500 text-xs font-bold mb-8 uppercase tracking-widest">30s Autonomous Phase Begins</p>
-                <button onclick="toggleTimer()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-lg">Start</button>
+                <p class="text-slate-500 text-xs font-bold mb-8 uppercase tracking-widest">30s Auto | 90s Teleop</p>
+                <button onclick="toggleTimer()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-lg">Start Match</button>
             </div>
         </div>
     </main>
@@ -138,8 +125,15 @@
 
         const initialState = () => ({
             // Auto scoring
-            yellowBase: 0, ringBase: 0, botguyUpBase: 0, botguyTipBase: 0, ballBase: 0, rockerBase: 0,
-            scout: 0, autoStacks: [],
+            yellowBase: 0, 
+            ringBase: 0, 
+            botguyUpBase: 0, 
+            botguyTipBase: 0, 
+            ballBase: 0, 
+            rockerBase: 0,
+            pickleballBase: 0, // 100 points
+            autoWinner: false,
+            autoLockedScore: 0,
             
             // Teleop Zone Scoring (Neutral Zone)
             yellowZone: 0, ringZone: 0, ballZone: 0, rockerZone: 0, botguyUpZone: 0, botguyTipZone: 0,
@@ -147,9 +141,10 @@
             // Teleop Base Scoring (Home Base)
             yellowBaseTele: 0, ringBaseTele: 0, ballBaseTele: 0, rockerBaseTele: 0, botguyUpBaseTele: 0, botguyTipBaseTele: 0,
             
-            scrapZone: 0, scrapBase: 0, hazard: 0,
-            pickle: false, ultimate: false, autoWinner: false,
-            autoLockedScore: 0
+            // End Game Bonuses
+            summitBonus: false,       // 100 pts
+            ultimateNeutral: false,   // 350 pts
+            ultimateHome: false       // 450 pts
         });
 
         let red = initialState();
@@ -157,107 +152,125 @@
 
         function calculateAuto(alliance) {
             let total = 0;
-            let baseScore = (alliance.yellowBase + alliance.ringBase) * 10;
-            baseScore += (alliance.ballBase + alliance.rockerBase) * 20;
-            baseScore += (alliance.botguyUpBase * 30) + (alliance.botguyTipBase * 15);
-
-            let stackBonus = 0;
-            if (alliance.autoStacks.length > 0) {
-                const itemCount = alliance.yellowBase + alliance.ringBase + alliance.ballBase + alliance.rockerBase + alliance.botguyUpBase + alliance.botguyTipBase;
-                const avgVal = itemCount > 0 ? baseScore / itemCount : 0;
-                alliance.autoStacks.forEach(h => {
-                    let mult = h === 2 ? 3 : h === 3 ? 4 : 5;
-                    stackBonus += (avgVal * h * mult * 2) - (avgVal * h); 
-                });
-            }
-            total += (baseScore * 2) + stackBonus;
-            total += (alliance.ballBase + alliance.rockerBase) * 50;
-            total += alliance.scout === 1 ? 10 : alliance.scout === 2 ? 25 : 0;
-            return Math.max(0, Math.round(total));
+            total += (alliance.yellowBase + alliance.ringBase) * 10;
+            total += (alliance.ballBase + alliance.rockerBase) * 20;
+            total += (alliance.botguyUpBase * 30) + (alliance.botguyTipBase * 15);
+            total += (alliance.pickleballBase * 100);
+            return total;
         }
 
         function calculate(alliance) {
             let total = alliance.autoLockedScore;
             if (phase === 'AUTO') return calculateAuto(alliance);
 
-            // Teleop Neutral Zone (Low Value)
-            total += (alliance.yellowZone + alliance.ringZone) * 2;
-            total += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
-            total += (alliance.ballZone + alliance.rockerZone) * 5;
+            const mult = (alliance.ultimateNeutral || alliance.ultimateHome) ? 5 : 1;
 
-            // Teleop Home Base (High Value)
-            total += (alliance.yellowBaseTele + alliance.ringBaseTele) * 10;
-            total += (alliance.botguyUpBaseTele * 30) + (alliance.botguyTipBaseTele * 15);
-            total += (alliance.ballBaseTele + alliance.rockerBaseTele) * 20;
+            // Teleop Neutral Zone
+            let neutralPoints = 0;
+            neutralPoints += (alliance.yellowZone + alliance.ringZone) * 2;
+            neutralPoints += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
+            neutralPoints += (alliance.ballZone + alliance.rockerZone) * 5;
+            total += neutralPoints * mult;
 
-            if (alliance.ultimate) total += 100;
+            // Teleop Home Base
+            let basePoints = 0;
+            basePoints += (alliance.yellowBaseTele + alliance.ringBaseTele) * 10;
+            basePoints += (alliance.botguyUpBaseTele * 30) + (alliance.botguyTipBaseTele * 15);
+            basePoints += (alliance.ballBaseTele + alliance.rockerBaseTele) * 20;
+            total += basePoints * mult;
+
+            // Bonuses
             if (alliance.autoWinner) total += 50;
-            if (alliance.pickle) total += 100;
-            
-            if (!alliance.pickle) {
-                total -= (alliance.scrapZone * 2);
-                total -= (alliance.scrapBase * 10);
-            }
-            total -= (alliance.hazard * 15);
+            if (alliance.summitBonus) total += 100;
+            if (alliance.ultimateNeutral) total += 350;
+            if (alliance.ultimateHome) total += 450;
             
             return Math.max(0, Math.round(total));
         }
 
         function renderControls(alliance, side) {
             const container = document.getElementById(`${side}-controls`);
+            const isUltActive = alliance.ultimateNeutral || alliance.ultimateHome;
+            
             container.innerHTML = `
                 <!-- AUTO -->
-                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${phase !== 'AUTO' ? 'opacity-40 grayscale' : ''}">
+                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${phase !== 'AUTO' ? 'hidden' : ''}">
                     <h3 class="text-[10px] font-black text-slate-500 uppercase flex items-center justify-between">
                         <span>Autonomous Phase</span>
-                        ${phase === 'AUTO' ? '<span class="text-amber-600 animate-pulse">ACTIVE</span>' : ''}
                     </h3>
                     <div class="grid grid-cols-2 gap-2">
                         ${renderCounter('Cubes', 'box', alliance.yellowBase, side, 'yellowBase', 'text-game-yellow')}
                         ${renderCounter('Rings', 'bullseye', alliance.ringBase, side, 'ringBase')}
                         ${renderCounter('Rocker', 'layers', alliance.rockerBase, side, 'rockerBase', 'text-game-rocker')}
-                        ${renderCounter('Summit Ball', 'circle', alliance.ballBase, side, 'ballBase', 'text-game-tennis')}
-                        ${renderCounter('Botguy Up', 'bot', alliance.botguyUpBase, side, 'botguyUpBase', 'text-game-botguy')}
-                        ${renderCounter('Botguy Tip', 'trending-down', alliance.botguyTipBase, side, 'botguyTipBase', 'text-game-botguy opacity-50')}
+                        ${renderCounter('Ball', 'circle', alliance.ballBase, side, 'ballBase', 'text-game-tennis')}
+                        ${renderCounter('Bot Up', 'bot', alliance.botguyUpBase, side, 'botguyUpBase', 'text-game-botguy')}
+                        ${renderCounter('Pickle', 'star', alliance.pickleballBase, side, 'pickleballBase', 'text-game-pickle')}
                     </div>
                 </div>
 
+                <!-- 5X MULTIPLIER ALERT -->
+                ${isUltActive ? `
+                <div class="bg-amber-100 border-2 border-amber-500 p-2 rounded-xl flex items-center justify-center gap-2 pulse">
+                    <i data-lucide="zap" class="w-4 h-4 text-amber-600 fill-current"></i>
+                    <span class="text-[10px] font-black text-amber-700 uppercase tracking-tighter">5X Multiplier Active</span>
+                </div>
+                ` : ''}
+
                 <!-- TELEOP: NEUTRAL ZONE -->
-                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${phase === 'AUTO' ? 'opacity-30 grayscale' : ''}">
-                    <h3 class="text-[10px] font-black text-blue-500 uppercase">Teleop: Neutral Zone</h3>
+                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${phase === 'AUTO' ? 'opacity-30 grayscale' : ''} ${isUltActive ? 'multiplier-glow' : ''}">
+                    <h3 class="text-[10px] font-black text-blue-500 uppercase">Neutral Zone ${isUltActive ? '(x5)' : ''}</h3>
                     <div class="grid grid-cols-2 gap-2">
                         ${renderCounter('Cubes', 'square', alliance.yellowZone, side, 'yellowZone', 'text-game-yellow')}
                         ${renderCounter('Rings', 'bullseye', alliance.ringZone, side, 'ringZone')}
-                        ${renderCounter('Summit Ball', 'circle', alliance.ballZone, side, 'ballZone', 'text-game-tennis')}
+                        ${renderCounter('Ball', 'circle', alliance.ballZone, side, 'ballZone', 'text-game-tennis')}
                         ${renderCounter('Rocker', 'layers', alliance.rockerZone, side, 'rockerZone', 'text-game-rocker')}
-                        ${renderCounter('BG Up', 'bot', alliance.botguyUpZone, side, 'botguyUpZone', 'text-game-botguy')}
-                        ${renderCounter('BG Tip', 'trending-down', alliance.botguyTipZone, side, 'botguyTipZone', 'text-game-botguy opacity-50')}
                     </div>
                 </div>
 
                 <!-- TELEOP: HOME BASE -->
-                <div class="space-y-3 p-3 bg-white rounded-xl border-2 border-blue-100 shadow-sm ${phase === 'AUTO' ? 'opacity-30 grayscale' : ''}">
-                    <h3 class="text-[10px] font-black text-indigo-600 uppercase">Teleop: Home Base</h3>
+                <div class="space-y-3 p-3 bg-white rounded-xl border-2 border-blue-100 shadow-sm ${phase === 'AUTO' ? 'opacity-30 grayscale' : ''} ${isUltActive ? 'multiplier-glow' : ''}">
+                    <h3 class="text-[10px] font-black text-indigo-600 uppercase">Home Base ${isUltActive ? '(x5)' : ''}</h3>
                     <div class="grid grid-cols-2 gap-2">
                         ${renderCounter('Cubes', 'box', alliance.yellowBaseTele, side, 'yellowBaseTele', 'text-game-yellow')}
                         ${renderCounter('Rings', 'bullseye', alliance.ringBaseTele, side, 'ringBaseTele')}
-                        ${renderCounter('Summit Ball', 'circle', alliance.ballBaseTele, side, 'ballBaseTele', 'text-game-tennis')}
+                        ${renderCounter('Ball', 'circle', alliance.ballBaseTele, side, 'ballBaseTele', 'text-game-tennis')}
                         ${renderCounter('Rocker', 'layers', alliance.rockerBaseTele, side, 'rockerBaseTele', 'text-game-rocker')}
                         ${renderCounter('BG Up', 'bot', alliance.botguyUpBaseTele, side, 'botguyUpBaseTele', 'text-game-botguy')}
                         ${renderCounter('BG Tip', 'trending-down', alliance.botguyTipBaseTele, side, 'botguyTipBaseTele', 'text-game-botguy opacity-50')}
                     </div>
                 </div>
 
-                <!-- PENALTIES & BONUSES -->
-                <div class="grid grid-cols-3 gap-2 ${phase === 'AUTO' ? 'opacity-30 grayscale' : ''}">
-                    <button onclick="toggleBool('${side}', 'autoWinner')" class="flex flex-col items-center py-2 rounded-lg border ${alliance.autoWinner ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-400 border-slate-200'}">
-                        <i data-lucide="award" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black uppercase">Auto Win</span>
-                    </button>
-                    <button onclick="toggleBool('${side}', 'ultimate')" class="flex flex-col items-center py-2 rounded-lg border ${alliance.ultimate ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-400 border-slate-200'}">
-                        <i data-lucide="zap" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black uppercase">Ultimate</span>
-                    </button>
-                    <button onclick="toggleBool('${side}', 'pickle')" class="flex flex-col items-center py-2 rounded-lg border ${alliance.pickle ? 'bg-green-500 text-white border-green-600' : 'bg-white text-slate-400 border-slate-200'}">
-                        <i data-lucide="shield-check" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black uppercase">Neutraliz.</span>
+                <!-- SUMMIT BONUSES -->
+                <div class="flex flex-col gap-2 ${phase === 'AUTO' ? 'opacity-30 grayscale' : ''}">
+                    <div class="grid grid-cols-1 gap-2">
+                        <button onclick="toggleBool('${side}', 'ultimateHome')" class="flex items-center justify-between px-4 py-3 rounded-xl border-2 ${alliance.ultimateHome ? 'bg-amber-500 text-white border-amber-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="crown" class="w-5 h-5"></i>
+                                <span class="text-[10px] font-black uppercase">Ultimate: Home Base</span>
+                            </div>
+                            <span class="font-bold text-xs">+450 & 5x</span>
+                        </button>
+                        
+                        <button onclick="toggleBool('${side}', 'ultimateNeutral')" class="flex items-center justify-between px-4 py-3 rounded-xl border-2 ${alliance.ultimateNeutral ? 'bg-purple-600 text-white border-purple-700 shadow-lg' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="zap" class="w-5 h-5"></i>
+                                <span class="text-[10px] font-black uppercase">Ultimate: Neutral Zone</span>
+                            </div>
+                            <span class="font-bold text-xs">+350 & 5x</span>
+                        </button>
+
+                        <button onclick="toggleBool('${side}', 'summitBonus')" class="flex items-center justify-between px-4 py-2.5 rounded-xl border-2 ${alliance.summitBonus ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="mountain" class="w-4 h-4"></i>
+                                <span class="text-[10px] font-black uppercase">Standard Summit</span>
+                            </div>
+                            <span class="font-bold text-xs">+100</span>
+                        </button>
+                    </div>
+                    
+                    <button onclick="toggleBool('${side}', 'autoWinner')" class="w-full flex items-center justify-center gap-2 py-2 rounded-lg border ${alliance.autoWinner ? 'bg-slate-800 text-white border-slate-900' : 'bg-white text-slate-400 border-slate-200'}">
+                        <i data-lucide="award" class="w-4 h-4"></i>
+                        <span class="text-[9px] font-black uppercase">Auto Winner (+50)</span>
                     </button>
                 </div>
             `;
@@ -273,9 +286,9 @@
                         ${iconHtml}
                         <span class="text-[8px] font-black text-slate-500 uppercase truncate">${label}</span>
                     </div>
-                    <div class="flex items-center gap-1.5">
+                    <div class="flex items-center gap-1">
                         <button onclick="changeVal('${side}', '${key}', -1)" class="p-1 bg-white border border-slate-200 rounded text-slate-400 active:bg-slate-100"><i data-lucide="minus" class="w-3 h-3"></i></button>
-                        <span class="text-[10px] font-black w-3 text-center tabular-nums">${val}</span>
+                        <span class="text-[10px] font-black w-4 text-center tabular-nums">${val}</span>
                         <button onclick="changeVal('${side}', '${key}', 1)" class="p-1 bg-white border border-slate-200 rounded text-slate-900 active:bg-slate-100"><i data-lucide="plus" class="w-3 h-3"></i></button>
                     </div>
                 </div>
@@ -297,6 +310,8 @@
 
         window.toggleBool = (side, key) => {
             const obj = side === 'red' ? red : blue;
+            if (key === 'ultimateHome' && !obj.ultimateHome) obj.ultimateNeutral = false;
+            if (key === 'ultimateNeutral' && !obj.ultimateNeutral) obj.ultimateHome = false;
             obj[key] = !obj[key];
             update();
         };
@@ -347,33 +362,31 @@
         };
 
         window.saveMatch = () => {
-            const matchNum = document.getElementById('match-number').value;
             const rScore = calculate(red);
             const bScore = calculate(blue);
             matchLog.unshift({
-                match: matchNum,
+                match: matchLog.length + 1,
                 redScore: rScore,
                 blueScore: bScore,
                 winner: rScore > bScore ? 'RED' : rScore < bScore ? 'BLUE' : 'DRAW'
             });
             renderLog();
-            document.getElementById('match-number').value = parseInt(matchNum) + 1;
         };
 
         function renderLog() {
             const container = document.getElementById('match-log');
             if (matchLog.length === 0) {
-                container.innerHTML = `<div class="text-center py-10 opacity-30 text-[10px] font-black uppercase">No Data</div>`;
+                container.innerHTML = `<div class="text-center py-10 opacity-30 text-[10px] font-black uppercase italic">No Matches Recorded</div>`;
                 return;
             }
             container.innerHTML = matchLog.map(m => `
                 <div class="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between shadow-sm border-l-4 ${m.winner === 'RED' ? 'border-l-red-500' : m.winner === 'BLUE' ? 'border-l-blue-500' : 'border-l-slate-400'}">
                     <div class="flex items-center gap-3">
-                        <div class="text-[8px] font-black bg-slate-100 px-2 py-1 rounded">M#${m.match}</div>
+                        <div class="text-[8px] font-black bg-slate-100 px-2 py-1 rounded">#${m.match}</div>
                         <div class="font-black tabular-nums text-sm">
-                            <span class="${m.winner === 'RED' ? 'text-red-600' : 'text-slate-400'}">${m.redScore}</span> 
+                            <span class="${m.winner === 'RED' ? 'text-red-600' : 'text-slate-500'}">${m.redScore}</span> 
                             <span class="text-slate-300 mx-1">-</span> 
-                            <span class="${m.winner === 'BLUE' ? 'text-blue-600' : 'text-slate-400'}">${m.blueScore}</span>
+                            <span class="${m.winner === 'BLUE' ? 'text-blue-600' : 'text-slate-500'}">${m.blueScore}</span>
                         </div>
                     </div>
                 </div>
@@ -382,31 +395,6 @@
         }
 
         window.toggleLog = () => document.getElementById('log-sidebar').classList.toggle('sidebar-closed');
-
-        window.exportLog = () => {
-            let csv = "Match,Red,Blue,Winner\n" + matchLog.map(m => `${m.match},${m.redScore},${m.blueScore},${m.winner}`).join("\n");
-            const link = document.createElement("a");
-            link.href = encodeURI("data:text/csv;charset=utf-8," + csv);
-            link.download = `match_log.csv`;
-            link.click();
-        };
-
-        window.importLog = (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const text = e.target.result;
-                const rows = text.split('\n').filter(r => r.trim().length > 0).slice(1);
-                matchLog = rows.map(row => {
-                    const cols = row.split(',');
-                    return { match: cols[0], redScore: parseInt(cols[1]), blueScore: parseInt(cols[2]), winner: cols[3].trim().toUpperCase() };
-                });
-                renderLog();
-            };
-            reader.readAsText(file);
-        };
-
         window.onload = () => { update(); lucide.createIcons(); };
     </script>
 </body>
