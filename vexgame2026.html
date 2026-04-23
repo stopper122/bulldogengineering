@@ -2,260 +2,342 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stacker's Summit Scorer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
-        
-        body { 
-            font-family: 'Inter', sans-serif; 
-            touch-action: manipulation; 
-            -webkit-user-select: none;
-            user-select: none;
-        }
-
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
-        
         .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .7; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         
-        #log-sidebar { transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
-        .sidebar-closed { transform: translateX(100%); }
+        /* Game Element Colors */
+        .text-game-yellow { color: #facc15; } /* Yellow Cubes */
+        .text-game-rocker { color: #22c55e; } /* Green Rocker Bases */
+        .text-game-tennis { color: #bef264; } /* Tennis Ball (Summit) */
+        .text-game-pickle { color: #16a34a; } /* Pickle Ball (Neutralizer) */
+        .text-game-botguy { color: #ef4444; } /* RED Botguy per request */
+        .text-game-scrap { color: #64748b; }  /* Grey Pom-poms */
 
-        .stepper-btn { transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; border-radius: 9999px; }
-
-        /* Tablet Mode (Default) */
-        .mode-tablet .stepper-btn { width: 48px; height: 48px; }
-        .mode-tablet .control-card { padding: 1.25rem; margin-bottom: 1.25rem; border-radius: 1.25rem; }
-        .mode-tablet .counter-row { padding: 0.75rem 1rem; margin-bottom: 0.5rem; }
-        .mode-tablet .alliance-container { border-radius: 1.5rem; }
-
-        /* Computer Mode (Compact) */
-        .mode-computer .stepper-btn { width: 32px; height: 32px; }
-        .mode-computer .control-card { padding: 0.75rem; margin-bottom: 0.75rem; border-radius: 0.75rem; }
-        .mode-computer .counter-row { padding: 0.4rem 0.75rem; margin-bottom: 0.25rem; }
-        .mode-computer .alliance-container { border-radius: 1rem; }
-        .mode-computer h2 { font-size: 1.1rem; }
+        /* Custom Bullseye Ring Icon */
+        .bullseye-icon {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #facc15 20%, #ef4444 21%, #ef4444 50%, #3b82f6 51%, #3b82f6 100%);
+        }
     </style>
 </head>
-<body id="app-body" class="bg-slate-100 h-screen flex flex-col overflow-hidden mode-tablet">
+<body class="bg-slate-200 h-screen flex flex-col overflow-hidden">
 
-    <!-- Header Navigation -->
+    <!-- Header -->
     <header class="bg-slate-900 p-4 shadow-xl flex items-center justify-between shrink-0 z-50">
         <div class="flex items-center gap-4">
-            <div class="bg-blue-600 p-2 rounded-lg text-white">
-                <i data-lucide="mountain" class="w-6 h-6"></i>
+            <div class="bg-blue-500/20 p-2 rounded-lg text-blue-400">
+                <i data-lucide="mountain"></i>
             </div>
             <div>
-                <h1 class="text-white font-black italic text-xl uppercase tracking-tighter leading-none">Stacker's Summit</h1>
-                <p id="mode-label" class="text-blue-400 text-[10px] font-bold uppercase tracking-widest mt-1">Tablet Mode</p>
+                <h1 class="text-white font-black italic text-xl leading-none uppercase tracking-tighter">Stacker's Summit</h1>
+                <span class="text-blue-400 text-[10px] font-bold tracking-[0.3em] uppercase opacity-70">Official Scorer</span>
             </div>
         </div>
 
         <div class="flex items-center gap-6">
-            <!-- Mode Toggle Switch -->
-            <div class="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
-                <button onclick="setMode('computer')" id="btn-computer" class="px-3 py-1.5 rounded-lg text-[10px] font-black transition-all flex items-center gap-2 text-slate-400">
-                    <i data-lucide="monitor" class="w-3.5 h-3.5"></i> PC
-                </button>
-                <button onclick="setMode('tablet')" id="btn-tablet" class="px-3 py-1.5 rounded-lg text-[10px] font-black transition-all flex items-center gap-2 bg-blue-600 text-white shadow-lg">
-                    <i data-lucide="tablet" class="w-3.5 h-3.5"></i> TABLET
-                </button>
+            <div class="flex flex-col items-end">
+                <span class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Match #</span>
+                <input type="number" id="match-number" value="1" class="w-16 bg-slate-800 border border-slate-700 text-white font-black px-2 py-1 rounded text-center outline-none focus:border-blue-500 transition-colors">
             </div>
-
-            <div id="phase-badge" class="px-4 py-2 rounded-lg font-black text-xs bg-amber-500 text-amber-950 pulse uppercase">AUTO</div>
-            
-            <div id="timer-display" class="text-white text-4xl font-mono font-black tabular-nums tracking-tighter">2:00</div>
-            
+            <div id="phase-badge" class="px-4 py-2 rounded-full font-black text-xs tracking-widest bg-amber-500 text-amber-950 pulse">
+                AUTO
+            </div>
+            <div id="timer-display" class="text-white text-4xl font-mono font-black tabular-nums tracking-tighter">
+                2:00
+            </div>
             <div class="flex gap-2">
-                <button onclick="toggleTimer()" id="timer-btn" class="w-10 h-10 bg-green-500 text-white rounded-lg shadow-lg active:scale-90 transition-transform flex items-center justify-center">
-                    <i data-lucide="play" class="w-6 h-6"></i>
+                <button onclick="toggleTimer()" id="timer-btn" class="p-3 bg-green-500 text-white rounded-full shadow-lg active:scale-95 transition-all">
+                    <i data-lucide="play"></i>
                 </button>
-                <button onclick="resetMatch()" class="w-10 h-10 bg-slate-700 text-white rounded-lg shadow-lg active:rotate-180 transition-all flex items-center justify-center">
-                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
-                </button>
-                <button onclick="toggleLog()" class="w-10 h-10 bg-slate-800 text-blue-400 rounded-lg shadow-lg border border-slate-700 flex items-center justify-center">
-                    <i data-lucide="history" class="w-5 h-5"></i>
+                <button onclick="resetMatch()" class="p-3 bg-slate-700 text-white rounded-full hover:bg-slate-600 shadow-lg active:rotate-180 transition-all">
+                    <i data-lucide="rotate-ccw"></i>
                 </button>
             </div>
         </div>
     </header>
 
-    <!-- Main Scoring Area -->
-    <main class="flex-1 flex p-4 gap-4 overflow-hidden">
+    <!-- Main Content -->
+    <main class="flex-1 flex p-3 gap-3 overflow-hidden relative">
+        
         <!-- Red Alliance -->
-        <section class="flex-1 flex flex-col bg-red-50 border-2 border-red-200 alliance-container overflow-hidden shadow-sm">
-            <div class="bg-red-600 p-4 text-white flex justify-between items-center">
-                <h2 class="font-black uppercase italic tracking-wider">Red Alliance</h2>
-                <div id="red-total" class="text-4xl font-black">0</div>
+        <div class="w-1/3 flex flex-col rounded-2xl border-2 border-red-200 bg-red-50 overflow-hidden shadow-md">
+            <div class="bg-red-600 p-4 text-white flex justify-between items-start">
+                <div>
+                    <h2 class="text-lg font-black uppercase italic tracking-tighter">Red Alliance</h2>
+                    <p class="text-[10px] font-bold opacity-80 uppercase tracking-widest">Live Points</p>
+                </div>
+                <div id="red-total" class="text-4xl font-black tabular-nums">0</div>
             </div>
-            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar" id="red-controls"></div>
-        </section>
+            <div class="flex-1 overflow-y-auto p-3 space-y-6 custom-scrollbar" id="red-controls"></div>
+        </div>
 
         <!-- Blue Alliance -->
-        <section class="flex-1 flex flex-col bg-blue-50 border-2 border-blue-200 alliance-container overflow-hidden shadow-sm">
-            <div class="bg-blue-700 p-4 text-white flex justify-between items-center">
-                <h2 class="font-black uppercase italic tracking-wider">Blue Alliance</h2>
-                <div id="blue-total" class="text-4xl font-black">0</div>
+        <div class="w-1/3 flex flex-col rounded-2xl border-2 border-blue-200 bg-blue-50 overflow-hidden shadow-md">
+            <div class="bg-blue-700 p-4 text-white flex justify-between items-start">
+                <div>
+                    <h2 class="text-lg font-black uppercase italic tracking-tighter">Blue Alliance</h2>
+                    <p class="text-[10px] font-bold opacity-80 uppercase tracking-widest">Live Points</p>
+                </div>
+                <div id="blue-total" class="text-4xl font-black tabular-nums">0</div>
             </div>
-            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar" id="blue-controls"></div>
-        </section>
+            <div class="flex-1 overflow-y-auto p-3 space-y-6 custom-scrollbar" id="blue-controls"></div>
+        </div>
 
-        <!-- Log Sidebar -->
-        <div id="log-sidebar" class="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-[60] flex flex-col sidebar-closed border-l border-slate-200">
-            <div class="bg-slate-900 p-4 text-white flex justify-between items-center">
-                <h2 class="font-black uppercase tracking-tighter italic">History</h2>
-                <button onclick="toggleLog()" class="p-2 hover:bg-slate-800 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <!-- History Log -->
+        <div class="w-1/3 flex flex-col rounded-2xl border-2 border-slate-300 bg-white overflow-hidden shadow-md">
+            <div class="bg-slate-800 p-4 text-white flex justify-between items-center">
+                <div>
+                    <h2 class="text-lg font-black uppercase italic tracking-tighter">Match Log</h2>
+                    <p class="text-[10px] font-bold opacity-80 uppercase tracking-widest">Recorded Stats</p>
+                </div>
+                <button onclick="exportLog()" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-[10px] font-black uppercase transition-colors">
+                    <i data-lucide="download" class="w-3 h-3"></i> Export
+                </button>
             </div>
-            <div id="match-log" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar"></div>
-            <div class="p-4 border-t border-slate-100">
-                <button onclick="saveMatch()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-black uppercase text-xs">Save Score</button>
+            
+            <div class="flex-1 overflow-y-auto p-3 custom-scrollbar space-y-2" id="match-log"></div>
+
+            <div class="p-4 border-t border-slate-100 bg-slate-50">
+                <button onclick="saveMatch()" class="w-full bg-slate-900 hover:bg-black text-white py-3 rounded-xl font-black uppercase tracking-widest text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="save"></i> Save Match
+                </button>
+            </div>
+        </div>
+
+        <!-- Overlay -->
+        <div id="overlay" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8">
+            <div class="bg-white p-8 rounded-[2rem] shadow-2xl text-center max-w-md">
+                <h3 class="text-3xl font-black text-slate-900 mb-2 italic uppercase">Match Ready</h3>
+                <p class="text-slate-500 text-sm font-bold mb-8 uppercase tracking-wide">30s Autonomous Phase Begins Now</p>
+                <button onclick="toggleTimer()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-lg">
+                    Begin Match
+                </button>
             </div>
         </div>
     </main>
 
     <script>
-        // Scoring State
-        const createAllianceState = () => ({
-            cubes: 0,
-            rings: 0,
-            rockers: 0,
-            balls: 0,
-            pickleballs: 0,
-            autoBonus: false
-        });
-
-        let red = createAllianceState();
-        let blue = createAllianceState();
         let timeLeft = 120;
         let isRunning = false;
         let phase = 'AUTO';
         let timerInterval;
-        let currentMode = 'tablet';
+        let matchLog = [];
 
-        // Display Mode Logic
-        window.setMode = (mode) => {
-            currentMode = mode;
-            const body = document.getElementById('app-body');
-            const btnPC = document.getElementById('btn-computer');
-            const btnTab = document.getElementById('btn-tablet');
-            const label = document.getElementById('mode-label');
+        const initialState = () => ({
+            yellowBase: 0, ringBase: 0, botguyUpBase: 0, botguyTipBase: 0, ballBase: 0, rockerBase: 0,
+            scout: 0, autoStacks: [],
+            yellowZone: 0, ringZone: 0, botguyUpZone: 0, botguyTipZone: 0, ballZone: 0,
+            scrapZone: 0, scrapBase: 0, hazard: 0,
+            pickle: false, ultimate: false, autoWinner: false,
+            autoLockedScore: 0
+        });
 
-            if (mode === 'computer') {
-                body.classList.replace('mode-tablet', 'mode-computer');
-                btnPC.className = "px-3 py-1.5 rounded-lg text-[10px] font-black bg-blue-600 text-white shadow-lg flex items-center gap-2";
-                btnTab.className = "px-3 py-1.5 rounded-lg text-[10px] font-black text-slate-400 flex items-center gap-2";
-                label.innerText = "Computer Mode";
-            } else {
-                body.classList.replace('mode-computer', 'mode-tablet');
-                btnTab.className = "px-3 py-1.5 rounded-lg text-[10px] font-black bg-blue-600 text-white shadow-lg flex items-center gap-2";
-                btnPC.className = "px-3 py-1.5 rounded-lg text-[10px] font-black text-slate-400 flex items-center gap-2";
-                label.innerText = "Tablet Mode";
-            }
-            render();
-        };
+        let red = initialState();
+        let blue = initialState();
 
-        // Core Calculation (Original logic preserved)
-        function calculateScore(alliance) {
+        function calculateAuto(alliance) {
             let total = 0;
-            total += alliance.cubes * 10;
-            total += alliance.rings * 5;
-            total += alliance.rockers * 20;
-            total += alliance.balls * 15;
-            total += alliance.pickleballs * 50;
-            if (alliance.autoBonus) total += 20;
-            return total;
+            let baseScore = (alliance.yellowBase + alliance.ringBase) * 10;
+            baseScore += (alliance.ballBase + alliance.rockerBase) * 20;
+            baseScore += (alliance.botguyUpBase * 30) + (alliance.botguyTipBase * 15);
+
+            let stackBonus = 0;
+            if (alliance.autoStacks.length > 0) {
+                const itemCount = alliance.yellowBase + alliance.ringBase + alliance.ballBase + alliance.rockerBase + alliance.botguyUpBase + alliance.botguyTipBase;
+                const avgVal = itemCount > 0 ? baseScore / itemCount : 0;
+                alliance.autoStacks.forEach(h => {
+                    let mult = h === 2 ? 3 : h === 3 ? 4 : 5;
+                    stackBonus += (avgVal * h * mult * 2) - (avgVal * h); 
+                });
+            }
+
+            total += (baseScore * 2) + stackBonus;
+            total += (alliance.ballBase + alliance.rockerBase) * 50;
+            total += alliance.scout === 1 ? 10 : alliance.scout === 2 ? 25 : 0;
+
+            return Math.max(0, Math.round(total));
         }
 
-        function render() {
-            document.getElementById('red-total').innerText = calculateScore(red);
-            document.getElementById('blue-total').innerText = calculateScore(blue);
-            
-            renderSide('red', red);
-            renderSide('blue', blue);
+        function calculate(alliance) {
+            let total = alliance.autoLockedScore;
+            if (phase === 'AUTO') return calculateAuto(alliance);
+
+            total += (alliance.yellowZone + alliance.ringZone) * 2;
+            total += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
+            total += (alliance.ballZone * 5);
+
+            if (alliance.ultimate) total += 100;
+            if (alliance.autoWinner) total += 50;
+            if (alliance.pickle) total += 100;
+
+            if (!alliance.pickle) {
+                total -= (alliance.scrapZone * 2);
+                total -= (alliance.scrapBase * 10);
+            }
+            total -= (alliance.hazard * 15);
+
+            return Math.max(0, Math.round(total));
+        }
+
+        function renderControls(alliance, side) {
+            const container = document.getElementById(`${side}-controls`);
+            container.innerHTML = `
+                <!-- AUTO -->
+                <div class="space-y-3 p-3 bg-white/40 rounded-2xl border border-slate-200">
+                    <h3 class="text-[10px] font-black text-slate-500 uppercase flex items-center justify-between">
+                        <span class="flex items-center gap-1.5"><i data-lucide="cpu" class="w-3 h-3 text-amber-500"></i> Autonomous Phase</span>
+                        ${phase === 'AUTO' ? '<span class="text-amber-600 animate-pulse">ACTIVE</span>' : '<i data-lucide="lock" class="w-3 h-3 opacity-30"></i>'}
+                    </h3>
+                    
+                    <div class="grid grid-cols-2 gap-2 ${phase !== 'AUTO' ? 'pointer-events-none opacity-60' : ''}">
+                        ${renderCounter('Cubes (Base)', 'box', alliance.yellowBase, side, 'yellowBase', 'text-game-yellow')}
+                        ${renderCounter('Rings (Base)', 'bullseye', alliance.ringBase, side, 'ringBase')}
+                        ${renderCounter('Rocker (Base)', 'layers', alliance.rockerBase, side, 'rockerBase', 'text-game-rocker')}
+                        ${renderCounter('Summit Ball', 'circle', alliance.ballBase, side, 'ballBase', 'text-game-tennis')}
+                        ${renderCounter('Botguy Up', 'bot', alliance.botguyUpBase, side, 'botguyUpBase', 'text-game-botguy')}
+                        ${renderCounter('Botguy Tip', 'trending-down', alliance.botguyTipBase, side, 'botguyTipBase', 'text-game-botguy opacity-50')}
+                    </div>
+
+                    <div class="flex gap-1 ${phase !== 'AUTO' ? 'pointer-events-none opacity-60' : ''}">
+                        <button onclick="setScout('${side}', 0)" class="flex-1 py-1.5 rounded text-[9px] font-black border flex items-center justify-center ${alliance.scout === 0 ? 'bg-slate-200 text-slate-900 border-slate-300' : 'bg-white text-slate-400 border-slate-200'}">NONE</button>
+                        <button onclick="setScout('${side}', 1)" class="flex-[2] py-1.5 rounded text-[9px] font-black border flex items-center justify-center ${alliance.scout === 1 ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-400 border-slate-200'}">NEUTRAL ZONE</button>
+                        <button onclick="setScout('${side}', 2)" class="flex-[2] py-1.5 rounded text-[9px] font-black border flex items-center justify-center ${alliance.scout === 2 ? 'bg-red-500 text-white border-red-600' : 'bg-white text-slate-400 border-slate-200'}">OPPONENT ZONE</button>
+                    </div>
+
+                    <div class="p-2 bg-slate-900/5 rounded-xl border border-dashed border-slate-300 ${phase !== 'AUTO' ? 'pointer-events-none opacity-60' : ''}">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[9px] font-black text-slate-400 uppercase">Auto Stacks</span>
+                            <div class="flex gap-1">
+                                <button onclick="addStack('${side}', 2)" class="px-2 py-1 bg-slate-800 text-white text-[9px] rounded">2T</button>
+                                <button onclick="addStack('${side}', 3)" class="px-2 py-1 bg-slate-800 text-white text-[9px] rounded">3T</button>
+                                <button onclick="addStack('${side}', 4)" class="px-2 py-1 bg-slate-800 text-white text-[9px] rounded">4T</button>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-1">
+                            ${alliance.autoStacks.map((s, i) => `<div class="bg-white px-2 py-1 rounded text-[10px] font-bold border flex items-center gap-1">${s}T <i data-lucide="x" class="w-3 h-3 text-red-500 cursor-pointer" onclick="removeStack('${side}', ${i})"></i></div>`).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TELEOP -->
+                <div class="space-y-3 p-3 bg-white/40 rounded-2xl border border-slate-200 ${phase === 'AUTO' ? 'opacity-30' : ''}">
+                    <h3 class="text-[10px] font-black text-slate-500 uppercase flex items-center justify-between">
+                        <span class="flex items-center gap-1.5"><i data-lucide="gamepad-2" class="w-3 h-3 text-blue-500"></i> Teleop Phase</span>
+                        ${phase === 'TELEOP' ? '<span class="text-blue-600 animate-pulse">ACTIVE</span>' : ''}
+                    </h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        ${renderCounter('Cubes (Zone)', 'square', alliance.yellowZone, side, 'yellowZone', 'text-game-yellow')}
+                        ${renderCounter('Rings (Zone)', 'bullseye', alliance.ringZone, side, 'ringZone')}
+                        ${renderCounter('Botguy (Zone)', 'smile', alliance.botguyUpZone, side, 'botguyUpZone', 'text-game-botguy')}
+                        ${renderCounter('Scrap (Zone)', 'trash-2', alliance.scrapZone, side, 'scrapZone', 'text-game-scrap')}
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-2">
+                         <button onclick="toggleBool('${side}', 'autoWinner')" class="flex flex-col items-center p-2 rounded-xl border-2 ${alliance.autoWinner ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-400 border-slate-200'}">
+                            <i data-lucide="award" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black uppercase">Auto Win</span>
+                        </button>
+                        <button onclick="toggleBool('${side}', 'ultimate')" class="flex flex-col items-center p-2 rounded-xl border-2 ${alliance.ultimate ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-400 border-slate-200'}">
+                            <i data-lucide="zap" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black uppercase">Ultimate</span>
+                        </button>
+                        <button onclick="toggleBool('${side}', 'pickle')" class="flex flex-col items-center p-2 rounded-xl border-2 ${alliance.pickle ? 'bg-green-500 text-white border-green-600' : 'bg-white text-slate-400 border-slate-200'}">
+                            <i data-lucide="database" class="w-4 h-4 mb-1 text-game-pickle"></i><span class="text-[8px] font-black uppercase">Neutralizer</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-red-50 p-2 rounded-lg border border-red-100">
+                        ${renderCounter('Hazards Set', 'bomb', alliance.hazard, side, 'hazard', 'text-red-500')}
+                    </div>
+                </div>
+            `;
             lucide.createIcons();
         }
 
-        function renderSide(id, state) {
-            const container = document.getElementById(`${id}-controls`);
-            const isTab = currentMode === 'tablet';
-            
-            container.innerHTML = `
-                <div class="bg-white border border-slate-200 control-card shadow-sm">
-                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Field Scoring</h3>
-                    ${renderCounter(id, 'cubes', 'Cubes', 'box', state.cubes, 'text-amber-500')}
-                    ${renderCounter(id, 'rings', 'Rings', 'circle-dashed', state.rings, 'text-blue-400')}
-                    ${renderCounter(id, 'rockers', 'Rockers', 'layers', state.rockers, 'text-green-600')}
-                    ${renderCounter(id, 'balls', 'Balls', 'circle', state.balls, 'text-orange-500')}
-                    ${renderCounter(id, 'pickleballs', 'Pickleballs', 'target', state.pickleballs, 'text-lime-500')}
-                </div>
-
-                <div class="bg-white border border-slate-200 control-card shadow-sm">
-                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Bonuses</h3>
-                    <button onclick="toggleBonus('${id}')" class="w-full py-4 rounded-xl border-2 font-black text-xs uppercase transition-all ${state.autoBonus ? 'bg-indigo-600 border-indigo-700 text-white shadow-inner' : 'bg-slate-50 border-slate-100 text-slate-300'}">
-                        Autonomous Bonus (+20)
-                    </button>
-                </div>
-            `;
-        }
-
-        function renderCounter(side, key, label, icon, val, color) {
-            const isTab = currentMode === 'tablet';
-            const iconSize = isTab ? 'w-6 h-6' : 'w-4 h-4';
-            const labelSize = isTab ? 'text-xs' : 'text-[10px]';
+        function renderCounter(label, icon, val, side, key, iconColorClass = 'text-slate-400') {
+            let iconHtml = `<i data-lucide="${icon}" class="w-3 h-3 ${iconColorClass} shrink-0 fill-current"></i>`;
+            if (icon === 'bullseye') {
+                iconHtml = `<span class="bullseye-icon shrink-0"></span>`;
+            }
 
             return `
-                <div class="flex items-center justify-between bg-slate-50 border border-slate-100 counter-row">
-                    <div class="flex items-center gap-3">
-                        <i data-lucide="${icon}" class="${iconSize} ${color}"></i>
-                        <span class="${labelSize} font-bold text-slate-700 uppercase tracking-tight">${label}</span>
+                <div class="flex items-center justify-between p-2 bg-white rounded-lg shadow-sm border border-slate-200">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        ${iconHtml}
+                        <span class="text-[9px] font-bold text-slate-500 uppercase truncate">${label}</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <button onclick="changeVal('${side}', '${key}', -1)" class="stepper-btn bg-white border border-slate-200 text-slate-400 active:scale-90">
-                            <i data-lucide="minus" class="${isTab ? 'w-4 h-4' : 'w-3 h-3'}"></i>
-                        </button>
-                        <span class="${isTab ? 'text-xl' : 'text-sm'} font-black w-8 text-center tabular-nums">${val}</span>
-                        <button onclick="changeVal('${side}', '${key}', 1)" class="stepper-btn bg-slate-900 text-white active:scale-90">
-                            <i data-lucide="plus" class="${isTab ? 'w-4 h-4' : 'w-3 h-3'}"></i>
-                        </button>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="changeVal('${side}', '${key}', -1)" class="p-1 hover:bg-slate-100 rounded text-slate-300"><i data-lucide="minus" class="w-3 h-3"></i></button>
+                        <span class="text-xs font-black w-4 text-center tabular-nums">${val}</span>
+                        <button onclick="changeVal('${side}', '${key}', 1)" class="p-1 hover:bg-slate-100 rounded text-slate-900"><i data-lucide="plus" class="w-3 h-3"></i></button>
                     </div>
                 </div>
             `;
         }
 
-        // Actions
+        function update() {
+            document.getElementById('red-total').innerText = calculate(red);
+            document.getElementById('blue-total').innerText = calculate(blue);
+            renderControls(red, 'red');
+            renderControls(blue, 'blue');
+        }
+
         window.changeVal = (side, key, delta) => {
-            const state = side === 'red' ? red : blue;
-            state[key] = Math.max(0, state[key] + delta);
-            render();
+            const obj = side === 'red' ? red : blue;
+            obj[key] = Math.max(0, obj[key] + delta);
+            update();
         };
 
-        window.toggleBonus = (side) => {
-            const state = side === 'red' ? red : blue;
-            state.autoBonus = !state.autoBonus;
-            render();
+        window.toggleBool = (side, key) => {
+            const obj = side === 'red' ? red : blue;
+            obj[key] = !obj[key];
+            update();
+        };
+
+        window.setScout = (side, val) => {
+            const obj = side === 'red' ? red : blue;
+            obj.scout = val;
+            update();
+        };
+
+        window.addStack = (side, h) => {
+            const obj = side === 'red' ? red : blue;
+            obj.autoStacks.push(h);
+            update();
+        };
+
+        window.removeStack = (side, i) => {
+            const obj = side === 'red' ? red : blue;
+            obj.autoStacks.splice(i, 1);
+            update();
         };
 
         window.toggleTimer = () => {
             isRunning = !isRunning;
-            const btn = document.getElementById('timer-btn');
-            btn.innerHTML = isRunning ? `<i data-lucide="pause"></i>` : `<i data-lucide="play"></i>`;
+            document.getElementById('timer-btn').innerHTML = isRunning ? `<i data-lucide="pause"></i>` : `<i data-lucide="play"></i>`;
+            document.getElementById('overlay').classList.add('hidden');
             lucide.createIcons();
-
+            
             if (isRunning) {
                 timerInterval = setInterval(() => {
                     timeLeft--;
                     if (timeLeft === 90) {
+                        red.autoLockedScore = calculateAuto(red);
+                        blue.autoLockedScore = calculateAuto(blue);
                         phase = 'TELEOP';
-                        const badge = document.getElementById('phase-badge');
-                        badge.innerText = "TELEOP";
-                        badge.classList.replace('bg-amber-500', 'bg-blue-600');
-                        badge.classList.replace('text-amber-950', 'text-white');
-                        badge.classList.remove('pulse');
+                        document.getElementById('phase-badge').className = "px-4 py-2 rounded-full font-black text-xs tracking-widest bg-blue-600 text-white";
+                        document.getElementById('phase-badge').innerText = "TELEOP";
                     }
                     if (timeLeft <= 0) {
                         clearInterval(timerInterval);
@@ -265,6 +347,7 @@
                     const m = Math.floor(timeLeft / 60);
                     const s = timeLeft % 60;
                     document.getElementById('timer-display').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+                    update();
                 }, 1000);
             } else {
                 clearInterval(timerInterval);
@@ -273,36 +356,58 @@
 
         window.resetMatch = () => {
             clearInterval(timerInterval);
-            red = createAllianceState();
-            blue = createAllianceState();
             timeLeft = 120;
             isRunning = false;
             phase = 'AUTO';
+            red = initialState();
+            blue = initialState();
             document.getElementById('timer-display').innerText = "2:00";
-            const badge = document.getElementById('phase-badge');
-            badge.innerText = "AUTO";
-            badge.className = "px-4 py-2 rounded-lg font-black text-xs bg-amber-500 text-amber-950 pulse uppercase";
-            render();
+            document.getElementById('phase-badge').className = "px-4 py-2 rounded-full font-black text-xs tracking-widest bg-amber-500 text-amber-950 pulse";
+            document.getElementById('phase-badge').innerText = "AUTO";
+            document.getElementById('overlay').classList.remove('hidden');
+            update();
         };
 
         window.saveMatch = () => {
-            const log = document.getElementById('match-log');
-            const entry = document.createElement('div');
-            entry.className = "p-3 bg-slate-50 border border-slate-200 rounded-lg flex justify-between items-center";
-            entry.innerHTML = `
-                <div>
-                    <p class="text-[8px] font-bold text-slate-400 uppercase">${new Date().toLocaleTimeString()}</p>
-                    <p class="font-black text-lg"><span class="text-red-600">${calculateScore(red)}</span> - <span class="text-blue-600">${calculateScore(blue)}</span></p>
-                </div>
-                <div class="text-[9px] font-black px-2 py-1 bg-white border border-slate-100 rounded uppercase">Match Saved</div>
-            `;
-            log.prepend(entry);
+            const matchNum = document.getElementById('match-number').value;
+            const rScore = calculate(red);
+            const bScore = calculate(blue);
+            matchLog.unshift({
+                match: matchNum,
+                redScore: rScore,
+                blueScore: bScore,
+                winner: rScore > bScore ? 'RED' : rScore < bScore ? 'BLUE' : 'DRAW'
+            });
+            renderLog();
+            document.getElementById('match-number').value = parseInt(matchNum) + 1;
         };
 
-        window.toggleLog = () => document.getElementById('log-sidebar').classList.toggle('sidebar-closed');
+        function renderLog() {
+            const container = document.getElementById('match-log');
+            container.innerHTML = matchLog.map(m => `
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between shadow-sm">
+                    <div class="flex items-center gap-2">
+                        <div class="text-[10px] font-black bg-slate-200 px-2 py-1 rounded">#${m.match}</div>
+                        <div class="font-black tabular-nums text-sm">
+                            <span class="text-red-600">${m.redScore}</span> - <span class="text-blue-600">${m.blueScore}</span>
+                        </div>
+                    </div>
+                    <div class="text-[10px] font-black uppercase text-slate-400 italic">${m.winner}</div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        window.exportLog = () => {
+            let csv = "Match,Red,Blue,Winner\n" + matchLog.map(m => `${m.match},${m.redScore},${m.blueScore},${m.winner}`).join("\n");
+            const link = document.createElement("a");
+            link.href = encodeURI("data:text/csv;charset=utf-8," + csv);
+            link.download = "match_log.csv";
+            link.click();
+        };
 
         window.onload = () => {
-            render();
+            update();
             lucide.createIcons();
         };
     </script>
