@@ -95,23 +95,16 @@
                 <h2 class="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
                     <i data-lucide="list" class="w-3 h-3"></i> Match Log
                 </h2>
-                <button onclick="toggleLog()" class="md:hidden"><i data-lucide="chevron-down"></i></button>
+                <div class="flex gap-2">
+                    <button onclick="exportJSON()" title="Export History" class="hover:text-blue-400"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+                    <button onclick="triggerImport()" title="Import History" class="hover:text-green-400"><i data-lucide="upload" class="w-3.5 h-3.5"></i></button>
+                </div>
             </div>
             
+            <input type="file" id="import-input" class="hidden" accept=".json">
             <div class="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-2 bg-slate-50" id="match-log"></div>
 
-            <!-- New Export/Import Section -->
-            <div class="p-3 border-t border-slate-200 bg-white space-y-2">
-                <div class="flex gap-2">
-                    <button onclick="exportMatchHistory()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg font-bold text-[9px] uppercase flex items-center justify-center gap-1 border border-slate-300">
-                        <i data-lucide="download" class="w-3 h-3"></i> Backup
-                    </button>
-                    <button onclick="triggerImport()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg font-bold text-[9px] uppercase flex items-center justify-center gap-1 border border-slate-300">
-                        <i data-lucide="upload" class="w-3 h-3"></i> Restore
-                    </button>
-                </div>
-                <input type="file" id="import-input" class="hidden" accept=".json">
-                
+            <div class="p-3 border-t border-slate-100">
                 <button id="save-btn" onclick="saveMatch()" class="w-full bg-slate-900 text-white py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg active:scale-95 flex items-center justify-center gap-2">
                     <i data-lucide="save" class="w-4 h-4"></i> Commit Result
                 </button>
@@ -174,17 +167,21 @@
         let red = initialState();
         let blue = initialState();
 
-        // Scoring Logic (UNCHANGED per instructions)
+        // SCORING LOGIC (RESTORED TO ORIGINAL)
         function calculateAuto(alliance) {
             let total = 0;
+            
+            // Base items (x10 or x20)
             let baseScore = (alliance.yellowBase + alliance.ringBase) * 10;
             baseScore += (alliance.ballBase + alliance.rockerBase) * 20;
             baseScore += (alliance.botguyUpBase * 30) + (alliance.botguyTipBase * 15);
 
+            // Stack Multiplier Logic
             let stackBonus = 0;
             if (alliance.autoStacks.length > 0) {
                 const itemCount = alliance.yellowBase + alliance.ringBase + alliance.ballBase + alliance.rockerBase + alliance.botguyUpBase + alliance.botguyTipBase;
                 const avgVal = itemCount > 0 ? baseScore / itemCount : 0;
+                
                 alliance.autoStacks.forEach(h => {
                     let mult = h === 2 ? 3 : h === 3 ? 4 : 5;
                     stackBonus += (avgVal * h * mult * 2) - (avgVal * h); 
@@ -194,27 +191,35 @@
             total += (baseScore * 2) + stackBonus;
             total += (alliance.ballBase + alliance.rockerBase) * 50;
             total += alliance.scout === 1 ? 10 : alliance.scout === 2 ? 25 : 0;
+
             return Math.max(0, Math.round(total));
         }
 
         function calculate(alliance) {
             if (phase === 'AUTO') return calculateAuto(alliance);
+
             let total = alliance.autoLockedScore;
+            
+            // Teleop items
             total += (alliance.yellowZone + alliance.ringZone) * 2;
             total += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
             total += (alliance.ballZone * 5);
+
             if (alliance.ultimate) total += 100;
             if (alliance.autoWinner) total += 50;
             if (alliance.pickle) total += 100;
+
+            // Penalties
             if (!alliance.pickle) {
                 total -= (alliance.scrapZone * 2);
                 total -= (alliance.scrapBase * 10);
             }
             total -= (alliance.hazard * 15);
+
             return Math.max(0, Math.round(total));
         }
 
-        // UI Rendering (UNCHANGED per instructions)
+        // UI Rendering (RESTORED TO ORIGINAL)
         function renderControls(alliance, side) {
             const container = document.getElementById(`${side}-controls`);
             const isAuto = phase === 'AUTO';
@@ -251,7 +256,11 @@
                             </div>
                         </div>
                         <div class="flex flex-wrap gap-1">
-                            ${alliance.autoStacks.map((s, i) => `<div class="bg-white px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1">${s}T <i data-lucide="x" class="w-2.5 h-2.5 text-red-500 cursor-pointer" onclick="removeStack('${side}', ${i})"></i></div>`).join('')}
+                            ${alliance.autoStacks.map((s, i) => `
+                                <div class="bg-white px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1">
+                                    ${s}T <i data-lucide="x" class="w-2.5 h-2.5 text-red-500 cursor-pointer" onclick="removeStack('${side}', ${i})"></i>
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
                 </div>
@@ -270,13 +279,16 @@
                     
                     <div class="grid grid-cols-3 gap-1.5">
                          <button onclick="toggleBool('${side}', 'autoWinner')" class="flex flex-col items-center p-1.5 rounded-lg border ${alliance.autoWinner ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-400 border-slate-200'}">
-                            <i data-lucide="award" class="w-3.5 h-3.5 mb-0.5"></i><span class="text-[7px] font-black uppercase">Win</span>
+                            <i data-lucide="award" class="w-3.5 h-3.5 mb-0.5"></i>
+                            <span class="text-[7px] font-black uppercase">Win</span>
                         </button>
                         <button onclick="toggleBool('${side}', 'ultimate')" class="flex flex-col items-center p-1.5 rounded-lg border ${alliance.ultimate ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-400 border-slate-200'}">
-                            <i data-lucide="zap" class="w-3.5 h-3.5 mb-0.5"></i><span class="text-[7px] font-black uppercase">Ult</span>
+                            <i data-lucide="zap" class="w-3.5 h-3.5 mb-0.5"></i>
+                            <span class="text-[7px] font-black uppercase">Ult</span>
                         </button>
                         <button onclick="toggleBool('${side}', 'pickle')" class="flex flex-col items-center p-1.5 rounded-lg border ${alliance.pickle ? 'bg-green-500 text-white border-green-600' : 'bg-white text-slate-400 border-slate-200'}">
-                            <i data-lucide="database" class="w-3.5 h-3.5 mb-0.5"></i><span class="text-[7px] font-black uppercase">Pickle</span>
+                            <i data-lucide="database" class="w-3.5 h-3.5 mb-0.5"></i>
+                            <span class="text-[7px] font-black uppercase">Pickle</span>
                         </button>
                     </div>
 
@@ -311,34 +323,38 @@
             renderControls(blue, 'blue');
         }
 
-        // Actions
+        // Action Handlers
         window.changeVal = (side, key, delta) => {
             const obj = side === 'red' ? red : blue;
             obj[key] = Math.max(0, obj[key] + delta);
             update();
         };
+
         window.toggleBool = (side, key) => {
             const obj = side === 'red' ? red : blue;
             obj[key] = !obj[key];
             update();
         };
+
         window.setScout = (side, val) => {
             const obj = side === 'red' ? red : blue;
             obj.scout = val;
             update();
         };
+
         window.addStack = (side, h) => {
             const obj = side === 'red' ? red : blue;
             obj.autoStacks.push(h);
             update();
         };
+
         window.removeStack = (side, i) => {
             const obj = side === 'red' ? red : blue;
             obj.autoStacks.splice(i, 1);
             update();
         };
 
-        // Match Lifecycle
+        // Timer & Match Lifecycle
         window.toggleTimer = () => {
             isRunning = !isRunning;
             document.getElementById('timer-btn').innerHTML = isRunning ? `<i data-lucide="pause"></i>` : `<i data-lucide="play"></i>`;
@@ -348,6 +364,7 @@
             if (isRunning) {
                 timerInterval = setInterval(() => {
                     timeLeft--;
+                    
                     if (timeLeft === 90) {
                         red.autoLockedScore = calculateAuto(red);
                         blue.autoLockedScore = calculateAuto(blue);
@@ -355,11 +372,13 @@
                         document.getElementById('phase-badge').className = "px-3 py-1 rounded-full font-black text-[10px] tracking-widest bg-blue-600 text-white";
                         document.getElementById('phase-badge').innerText = "TELEOP";
                     }
+
                     if (timeLeft <= 0) {
                         clearInterval(timerInterval);
                         isRunning = false;
                         timeLeft = 0;
                     }
+
                     const m = Math.floor(timeLeft / 60);
                     const s = timeLeft % 60;
                     document.getElementById('timer-display').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
@@ -384,6 +403,43 @@
             update();
         };
 
+        // EXPORT / IMPORT LOGIC
+        window.exportJSON = () => {
+            if (matchLog.length === 0) return;
+            const dataStr = JSON.stringify(matchLog, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `match_history_${new Date().getTime()}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        };
+
+        window.triggerImport = () => {
+            document.getElementById('import-input').click();
+        };
+
+        document.getElementById('import-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        matchLog = imported;
+                        renderLog();
+                        const lastNum = Math.max(...matchLog.map(m => parseInt(m.match) || 0));
+                        if (lastNum > 0) document.getElementById('match-number').value = lastNum + 1;
+                    }
+                } catch (err) {
+                    console.error("Invalid file format");
+                }
+            };
+            reader.readAsText(file);
+        });
+
         window.saveMatch = () => {
             const matchNum = document.getElementById('match-number').value;
             const rScore = calculate(red);
@@ -393,7 +449,11 @@
                 match: matchNum,
                 redScore: rScore,
                 blueScore: bScore,
-                winner: rScore > bScore ? 'RED' : rScore < bScore ? 'BLUE' : 'DRAW'
+                winner: rScore > bScore ? 'RED' : rScore < bScore ? 'BLUE' : 'DRAW',
+                // Adding full details for better export utility
+                timestamp: new Date().toISOString(),
+                redDetails: { ...red },
+                blueDetails: { ...blue }
             });
 
             renderLog();
@@ -420,49 +480,6 @@
             `).join('');
             lucide.createIcons();
         }
-
-        // New Import/Export Functions
-        window.exportMatchHistory = () => {
-            if (matchLog.length === 0) return;
-            const dataStr = JSON.stringify(matchLog, null, 2);
-            const blob = new Blob([dataStr], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `stackers_summit_history_${new Date().getTime()}.json`;
-            link.click();
-            URL.revokeObjectURL(url);
-        };
-
-        window.triggerImport = () => {
-            document.getElementById('import-input').click();
-        };
-
-        document.getElementById('import-input').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const imported = JSON.parse(e.target.result);
-                    if (Array.isArray(imported)) {
-                        // Merge or replace? We'll replace for a clean restore
-                        matchLog = imported;
-                        renderLog();
-                        
-                        // Update match counter to next logical number
-                        const highest = Math.max(...matchLog.map(m => parseInt(m.match) || 0));
-                        if (highest >= 0) document.getElementById('match-number').value = highest + 1;
-                    }
-                } catch (err) {
-                    console.error("Failed to parse imported file", err);
-                }
-            };
-            reader.readAsText(file);
-        });
-
-        window.toggleLog = () => document.getElementById('log-overlay').classList.toggle('hidden');
 
         window.onload = () => {
             update();
