@@ -95,7 +95,7 @@
         let matchLog = [];
 
         const getEmptyState = () => ({
-            // Auto
+            // Auto Fields
             autoYellow: 0, autoRing: 0, autoRocker: 0, autoBall: 0, autoBotUp: 0, autoBotTip: 0,
             scout: 0, autoLockedScore: 0,
             // Teleop Zone
@@ -112,12 +112,17 @@
         let blue = getEmptyState();
 
         function calcAuto(a) {
-            let items = (a.autoYellow + a.autoRing) * 10;
-            items += (a.autoBall + a.autoRocker) * 20;
-            items += (a.autoBotUp * 30) + (a.autoBotTip * 15);
-            let total = (items * 2);
-            total += (a.autoBall + a.autoRocker) * 50;
-            total += a.scout === 1 ? 10 : a.scout === 2 ? 25 : 0;
+            let pts = 0;
+            pts += (a.autoYellow + a.autoRing) * 10;
+            pts += (a.autoBall + a.autoRocker) * 20;
+            pts += (a.autoBotUp * 30) + (a.autoBotTip * 15);
+            
+            let total = pts * 2; // Auto multiplier
+            total += (a.autoBall + a.autoRocker) * 50; // Special auto bonus
+            
+            if (a.scout === 1) total += 10;
+            if (a.scout === 2) total += 25;
+            
             return Math.max(0, Math.round(total));
         }
 
@@ -126,20 +131,20 @@
             
             let pts = a.autoLockedScore;
             
-            // Zone (2 pts)
+            // Teleop Zone (2 pts)
             pts += (a.zoneYellow + a.zoneRing + a.zoneRocker + a.zoneBall) * 2;
-            pts += (a.zoneBallOnRocker * 5); // Requested: 5 pts
+            pts += (a.zoneBallOnRocker * 5); 
             pts += (a.zoneBotUp * 10) + (a.zoneBotTip * 5);
 
-            // Base (10 pts)
+            // Teleop Base (10 pts)
             pts += (a.baseYellow + a.baseRing + a.baseRocker + a.baseBall) * 10;
-            pts += (a.baseBallOnRocker * 20); // Requested: 20 pts
+            pts += (a.baseBallOnRocker * 20);
             pts += (a.baseBotUp * 30) + (a.baseBotTip * 15);
             
             if (a.ultimate) pts += 100;
             if (a.autoWinner) pts += 50;
             
-            // Pickle Shield Logic: If pickle ball is in base, negate negative points
+            // Pickle Ball Logic: If pickle ball is in base, negate negative points
             if (!a.pickle) {
                 pts -= (a.pomsZone * 2);
                 pts -= (a.pomsBase * 10);
@@ -168,39 +173,41 @@
                         ${counter('Bot Up', 'bot', a.autoBotUp, side, 'autoBotUp', 'bg-game-red')}
                         ${counter('Bot Tip', 'trending-down', a.autoBotTip, side, 'autoBotTip', 'bg-red-200')}
                     </div>
+                    <div class="mt-4 flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase text-slate-400">Auto Scout</label>
+                        <div class="flex gap-2">
+                            <button onclick="setScout('${side}', 0)" class="flex-1 py-2 text-[10px] font-bold rounded-lg border ${a.scout === 0 ? 'bg-slate-900 text-white' : 'bg-white text-slate-400'}">NONE</button>
+                            <button onclick="setScout('${side}', 1)" class="flex-1 py-2 text-[10px] font-bold rounded-lg border ${a.scout === 1 ? 'bg-amber-500 text-white' : 'bg-white text-slate-400'}">LVL 1</button>
+                            <button onclick="setScout('${side}', 2)" class="flex-1 py-2 text-[10px] font-bold rounded-lg border ${a.scout === 2 ? 'bg-emerald-500 text-white' : 'bg-white text-slate-400'}">LVL 2</button>
+                        </div>
+                    </div>
                 `;
             } else {
                 container.innerHTML = `
                     <section class="space-y-4">
                         <div>
-                            <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
-                                <i data-lucide="map" class="w-3 h-3"></i> Scoring Items
-                            </h3>
+                            <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Scoring</h3>
                             <div class="grid grid-cols-2 gap-2">
-                                ${counter('Cubes (Zone)', 'box', a.zoneYellow, side, 'zoneYellow', 'bg-game-yellow')}
-                                ${counter('Cubes (Base)', 'home', a.baseYellow, side, 'baseYellow', 'bg-game-yellow')}
-                                ${counter('Rings (Zone)', 'circle', a.zoneRing, side, 'zoneRing', 'bg-slate-200')}
-                                ${counter('Rings (Base)', 'home', a.baseRing, side, 'baseRing', 'bg-slate-200')}
-                                ${counter('Rocker (Zone)', 'layers', a.zoneRocker, side, 'zoneRocker', 'bg-game-green')}
-                                ${counter('Rocker (Base)', 'home', a.baseRocker, side, 'baseRocker', 'bg-game-green')}
-                                ${counter('Ball (Zone)', 'target', a.zoneBall, side, 'zoneBall', 'bg-game-tennis')}
-                                ${counter('Ball (Base)', 'home', a.baseBall, side, 'baseBall', 'bg-game-tennis')}
-                                ${counter('Ball @ Rock (Z)', 'swatchbook', a.zoneBallOnRocker, side, 'zoneBallOnRocker', 'bg-emerald-400')}
-                                ${counter('Ball @ Rock (B)', 'swatchbook', a.baseBallOnRocker, side, 'baseBallOnRocker', 'bg-emerald-600 text-white')}
-                                ${counter('Bot Up (Zone)', 'bot', a.zoneBotUp, side, 'zoneBotUp', 'bg-game-red')}
-                                ${counter('Bot Up (Base)', 'home', a.baseBotUp, side, 'baseBotUp', 'bg-game-red')}
+                                ${counter('Cubes (Z)', 'box', a.zoneYellow, side, 'zoneYellow', 'bg-game-yellow')}
+                                ${counter('Cubes (B)', 'home', a.baseYellow, side, 'baseYellow', 'bg-game-yellow')}
+                                ${counter('Rings (Z)', 'circle', a.zoneRing, side, 'zoneRing', 'bg-slate-200')}
+                                ${counter('Rings (B)', 'home', a.baseRing, side, 'baseRing', 'bg-slate-200')}
+                                ${counter('Rocker (Z)', 'layers', a.zoneRocker, side, 'zoneRocker', 'bg-game-green')}
+                                ${counter('Rocker (B)', 'home', a.baseRocker, side, 'baseRocker', 'bg-game-green')}
+                                ${counter('Ball (Z)', 'target', a.zoneBall, side, 'zoneBall', 'bg-game-tennis')}
+                                ${counter('Ball (B)', 'home', a.baseBall, side, 'baseBall', 'bg-game-tennis')}
+                                ${counter('Ball@Rock (Z)', 'swatchbook', a.zoneBallOnRocker, side, 'zoneBallOnRocker', 'bg-emerald-400')}
+                                ${counter('Ball@Rock (B)', 'swatchbook', a.baseBallOnRocker, side, 'baseBallOnRocker', 'bg-emerald-600 text-white')}
+                                ${counter('Bot Up (Z)', 'bot', a.zoneBotUp, side, 'zoneBotUp', 'bg-game-red')}
+                                ${counter('Bot Up (B)', 'home', a.baseBotUp, side, 'baseBotUp', 'bg-game-red')}
                             </div>
                         </div>
 
-                        <div class="bg-red-50 p-2 rounded-xl border border-red-100 ${a.pickle ? 'opacity-40 grayscale' : ''}">
-                            <div class="flex items-center justify-between mb-2">
-                                <h3 class="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-1">
-                                    <i data-lucide="shield-alert" class="w-3 h-3"></i> Negative Pts ${a.pickle ? '(NEGATED)' : ''}
-                                </h3>
-                            </div>
+                        <div class="bg-red-50 p-2 rounded-xl border border-red-100 ${a.pickle ? 'opacity-40 grayscale pointer-events-none' : ''}">
+                            <h3 class="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2">Negatives</h3>
                             <div class="grid grid-cols-2 gap-2">
-                                ${counter('Pom (Zone)', 'minus-circle', a.pomsZone, side, 'pomsZone', 'bg-game-poms')}
-                                ${counter('Pom (Base)', 'home', a.pomsBase, side, 'baseBotUp', 'bg-game-poms')}
+                                ${counter('Pom (Z)', 'minus-circle', a.pomsZone, side, 'pomsZone', 'bg-game-poms')}
+                                ${counter('Pom (B)', 'home', a.pomsBase, side, 'pomsBase', 'bg-game-poms')}
                             </div>
                             <div class="mt-2">
                                 ${counter('Hazard Contact', 'bomb', a.hazard, side, 'hazard', 'bg-orange-500 text-white')}
@@ -208,14 +215,14 @@
                         </div>
 
                         <div class="grid grid-cols-3 gap-2">
-                            <button onclick="toggleBool('${side}', 'autoWinner')" class="flex flex-col items-center p-2 rounded-xl border transition-all ${a.autoWinner ? 'bg-amber-500 text-white border-amber-600 shadow-inner' : 'bg-white text-slate-300'}">
-                                <i data-lucide="award" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black uppercase">Auto Win</span>
+                            <button onclick="toggleBool('${side}', 'autoWinner')" class="flex flex-col items-center p-2 rounded-xl border ${a.autoWinner ? 'bg-amber-500 text-white' : 'bg-white text-slate-300'}">
+                                <i data-lucide="award" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black">AUTO WIN</span>
                             </button>
-                            <button onclick="toggleBool('${side}', 'ultimate')" class="flex flex-col items-center p-2 rounded-xl border transition-all ${a.ultimate ? 'bg-indigo-600 text-white border-indigo-700 shadow-inner' : 'bg-white text-slate-300'}">
-                                <i data-lucide="zap" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black uppercase">Ultimate</span>
+                            <button onclick="toggleBool('${side}', 'ultimate')" class="flex flex-col items-center p-2 rounded-xl border ${a.ultimate ? 'bg-indigo-600 text-white' : 'bg-white text-slate-300'}">
+                                <i data-lucide="zap" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black">ULTIMATE</span>
                             </button>
-                            <button onclick="toggleBool('${side}', 'pickle')" class="flex flex-col items-center p-2 rounded-xl border transition-all ${a.pickle ? 'bg-emerald-500 text-white border-emerald-600 shadow-lg scale-105' : 'bg-white text-slate-300'}">
-                                <i data-lucide="shield-check" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black uppercase">Pickle Shield</span>
+                            <button onclick="toggleBool('${side}', 'pickle')" class="flex flex-col items-center p-2 rounded-xl border ${a.pickle ? 'bg-emerald-500 text-white' : 'bg-white text-slate-300'}">
+                                <i data-lucide="shield-check" class="w-4 h-4 mb-1"></i><span class="text-[8px] font-black">PICKLE</span>
                             </button>
                         </div>
                     </section>
@@ -232,7 +239,7 @@
                         <div class="${color} p-1 rounded-lg"><i data-lucide="${icon}" class="w-3 h-3"></i></div>
                         <div class="flex items-center gap-1">
                             <button onclick="changeVal('${side}', '${key}', -1)" class="w-6 h-6 flex items-center justify-center bg-slate-50 border rounded-lg text-xs">-</button>
-                            <span class="w-5 text-center font-black text-xs tabular-nums">${val}</span>
+                            <span class="w-4 text-center font-black text-xs tabular-nums">${val}</span>
                             <button onclick="changeVal('${side}', '${key}', 1)" class="w-6 h-6 flex items-center justify-center bg-slate-100 border rounded-lg text-xs">+</button>
                         </div>
                     </div>
@@ -240,6 +247,7 @@
             `;
         }
 
+        window.setScout = (s, v) => { (s === 'red' ? red : blue).scout = v; render(); };
         window.changeVal = (s, k, d) => { (s === 'red' ? red : blue)[k] = Math.max(0, (s === 'red' ? red : blue)[k] + d); render(); };
         window.toggleBool = (s, k) => { (s === 'red' ? red : blue)[k] = !(s === 'red' ? red : blue)[k]; render(); };
 
@@ -292,7 +300,7 @@
             const container = document.getElementById('match-log');
             if (!matchLog.length) { container.innerHTML = `<div class="py-8 text-center text-[8px] font-black text-slate-300 uppercase italic">Empty</div>`; return; }
             container.innerHTML = matchLog.map(m => `
-                <div class="p-2 bg-white border border-slate-100 rounded-lg flex justify-between items-center shadow-sm">
+                <div class="p-2 bg-white border border-slate-100 rounded-lg flex justify-between items-center">
                     <span class="text-[8px] font-black text-slate-400">#${m.match}</span>
                     <div class="flex gap-2 font-black text-xs tabular-nums">
                         <span class="text-red-500">${m.r}</span>
