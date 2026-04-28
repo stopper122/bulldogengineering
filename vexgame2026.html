@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stacker's Summit Scorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; touch-action: manipulation; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
+        .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        
+        .text-game-yellow { color: #facc15; }
+        .text-game-rocker { color: #22c55e; }
+        .text-game-tennis { color: #bef264; }
+        .text-game-pickle { color: #ec4899; }
+        .text-game-botguy { color: #ef4444; }
+
+        .bullseye-icon {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #facc15 20%, #ef4444 21%, #ef4444 50%, #3b82f6 51%, #3b82f6 100%);
+        }
+
+        #log-sidebar {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sidebar-closed {
+            transform: translateX(100%);
+        }
+        .multiplier-glow {
+            box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
+            border-color: rgba(234, 179, 8, 1);
+        }
+        .auto-stack-glow {
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.6);
+        }
+    </style>
+</head>
+<body class="bg-slate-200 h-screen flex flex-col overflow-hidden">
+
+    <header class="bg-slate-900 p-3 shadow-xl flex items-center justify-between shrink-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-500/20 p-2 rounded-lg text-blue-400">
+                <i data-lucide="mountain"></i>
+            </div>
+            <div>
+                <h1 class="text-white font-black italic text-lg leading-none uppercase tracking-tighter">Stacker's Summit</h1>
+                <span class="text-blue-400 text-[9px] font-bold tracking-[0.3em] uppercase opacity-70">Live Scoring System</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <div id="phase-badge" class="px-3 py-1.5 rounded-full font-black text-[10px] tracking-widest bg-amber-500 text-amber-950 pulse">
+                AUTO
+            </div>
+            <div id="timer-display" class="text-white text-2xl font-mono font-black tabular-nums tracking-tighter">
+                2:00
+            </div>
+            <div class="flex gap-1.5">
+                <button onclick="toggleTimer()" id="timer-btn" class="p-2.5 bg-green-500 text-white rounded-full shadow-lg active:scale-95 transition-all">
+                    <i data-lucide="play" class="w-5 h-5"></i>
+                </button>
+                <button onclick="resetMatch()" class="p-2.5 bg-slate-700 text-white rounded-full hover:bg-slate-600 shadow-lg active:rotate-180 transition-all">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                </button>
+                <button onclick="swapSides()" class="p-2.5 bg-purple-600 text-white rounded-full shadow-lg active:scale-95 transition-all">
+                    <i data-lucide="repeat" class="w-5 h-5"></i>
+                </button>
+                <button onclick="toggleLog()" class="p-2.5 bg-slate-800 text-blue-400 rounded-full shadow-lg border border-slate-700">
+                    <i data-lucide="history" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main id="main-layout" class="flex-1 flex p-2 gap-2 overflow-hidden relative">
+        <!-- Red Alliance Side -->
+        <div class="flex-1 flex flex-col rounded-xl border-2 border-red-200 bg-red-50 overflow-hidden shadow-md">
+            <div class="bg-red-600 p-3 text-white flex justify-between items-center">
+                <h2 class="text-sm font-black uppercase italic tracking-tighter">Red</h2>
+                <div id="red-total" class="text-3xl font-black tabular-nums">0</div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar" id="red-controls"></div>
+        </div>
+
+        <!-- Blue Alliance Side -->
+        <div class="flex-1 flex flex-col rounded-xl border-2 border-blue-200 bg-blue-50 overflow-hidden shadow-md">
+            <div class="bg-blue-700 p-3 text-white flex justify-between items-center">
+                <h2 class="text-sm font-black uppercase italic tracking-tighter">Blue</h2>
+                <div id="blue-total" class="text-3xl font-black tabular-nums">0</div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar" id="blue-controls"></div>
+        </div>
+
+        <!-- Sidebar Log -->
+        <div id="log-sidebar" class="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-[60] flex flex-col sidebar-closed border-l border-slate-200">
+            <div class="bg-slate-800 p-4 text-white flex justify-between items-center shrink-0">
+                <h2 class="text-lg font-black uppercase italic tracking-tighter">Match Log</h2>
+                <button onclick="toggleLog()" class="p-2 hover:bg-slate-700 rounded-lg"><i data-lucide="x"></i></button>
+            </div>
+            <div class="p-4 bg-slate-50 flex-1 overflow-y-auto custom-scrollbar space-y-3" id="match-log"></div>
+            <div class="p-4 bg-white border-t border-slate-200">
+                <button onclick="saveMatch()" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm shadow-lg active:scale-95 transition-all">Save Match</button>
+            </div>
+        </div>
+
+        <!-- Start Overlay -->
+        <div id="overlay" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8">
+            <div class="bg-white p-8 rounded-[2rem] shadow-2xl text-center max-w-md">
+                <h3 class="text-3xl font-black text-slate-900 mb-2 italic uppercase">Ready</h3>
+                <p class="text-slate-500 text-xs font-bold mb-8 uppercase tracking-widest">30s Auto | 90s Teleop</p>
+                <button onclick="toggleTimer()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-lg">Start Match</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let timeLeft = 120;
+        let isRunning = false;
+        let phase = 'AUTO';
+        let timerInterval;
+        let matchLog = [];
+        let audioCtx;
+        let speechTimers = [];
+        let countdownMarksPlayed = new Set();
+        let phaseCuePlayed = { teleop: false, end: false };
+        let isSwapped = false;
+
+        const initialState = () => ({
+            // Auto scoring (Home Base)
+            yellowBase: 0, 
+            ringBase: 0, 
+            ballBase: 0, 
+            rockerBase: 0,
+            pickleballBase: 0, 
+            autoStackBonus: false, 
+            enterNeutralZone: false, 
+            enterOpponentZone: false, 
+            
+            // Teleop Zone Scoring (Team Zone)
+            yellowZone: 0, 
+            ringZone: 0, 
+            stackedZone: 0, 
+            botguyUpZone: 0,  
+            botguyTipZone: 0, 
+            opponentPomZone: 0,
+            
+            // Teleop Base Scoring (Home Base)
+            yellowBaseTele: 0, 
+            ringBaseTele: 0, 
+            stackedBaseTele: 0, 
+            botguyUpBaseTele: 0,  
+            botguyTipBaseTele: 0, 
+            opponentPomBaseTele: 0,
+            homeBaseMultiplier: 1, // 1 (None), 3, 4, or 5
+            
+            // End Game Bonuses
+            summitBonus: false,       
+            ultimateNeutral: false,   
+            ultimateHome: false       
+        });
+
+        let red = initialState();
+        let blue = initialState();
+
+        function calculateAuto(alliance) {
+            let total = 0;
+            const stackMult = alliance.autoStackBonus ? 2 : 1;
+            total += ((alliance.yellowBase + alliance.ringBase) * 20) * stackMult;
+            total += ((alliance.ballBase + alliance.rockerBase) * 50) * stackMult;
+            total += (alliance.pickleballBase * 100);
+            if (alliance.enterNeutralZone) total += 10;
+            if (alliance.enterOpponentZone) total += 25;
+            return total;
+        }
+
+
+        function ensureAudioContext() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) return null;
+                audioCtx = new AudioContextClass();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        function playTone(freq, duration, type = 'sine', volume = 0.08, when = 0) {
+            const ctx = ensureAudioContext();
+            if (!ctx) return;
+            const start = ctx.currentTime + when;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, start);
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(volume, start + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(start);
+            osc.stop(start + duration + 0.03);
+        }
+
+        function clearSpeechQueue() {
+            speechTimers.forEach(id => clearTimeout(id));
+            speechTimers = [];
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        function speak(text, delay = 0, rate = 1) {
+            if (!('speechSynthesis' in window)) return;
+            const timerId = window.setTimeout(() => {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = rate;
+                utterance.pitch = 1;
+                utterance.volume = 1;
+                window.speechSynthesis.speak(utterance);
+            }, delay);
+            speechTimers.push(timerId);
+        }
+
+        function playBell(kind) {
+            if (kind === 'teleop') {
+                [880, 1320, 1760].forEach((freq, i) => {
+                    playTone(freq, 1.5, 'sine', 0.16 / (i + 1), 0);
+                });
+            } else if (kind === 'end') {
+                [0, 0.55].forEach(offset => {
+                    [880, 1320, 1760].forEach((freq, i) => {
+                        playTone(freq, 1.5, 'sine', 0.16 / (i + 1), offset);
+                    });
+                });
+            }
+        }
+
+        function handleTimerAudioCues() {
+            const autoCountdown = [93, 92, 91];
+            const endCountdown = [3, 2, 1];
+
+            if (autoCountdown.includes(timeLeft) && !countdownMarksPlayed.has(`auto-${timeLeft}`)) {
+                countdownMarksPlayed.add(`auto-${timeLeft}`);
+                speak(String(timeLeft - 90));
+            }
+
+            if (endCountdown.includes(timeLeft) && !countdownMarksPlayed.has(`end-${timeLeft}`)) {
+                countdownMarksPlayed.add(`end-${timeLeft}`);
+                speak(String(timeLeft));
+            }
+
+            if (timeLeft === 90 && !phaseCuePlayed.teleop) {
+                phaseCuePlayed.teleop = true;
+                playBell('teleop');
+                speak('Teleop', 350);
+            }
+
+            if (timeLeft === 0 && !phaseCuePlayed.end) {
+                phaseCuePlayed.end = true;
+                playBell('end');
+                speak('Match End', 700);
+            }
+        }
+
+        function calculate(alliance, opponent) {
+            const currentAuto = calculateAuto(alliance);
+            const opponentAuto = calculateAuto(opponent);
+            
+            let autoWinnerPoints = 0;
+            if (currentAuto > opponentAuto) autoWinnerPoints = 50;
+
+            let total = currentAuto;
+            
+            if (phase === 'TELEOP') {
+                total += autoWinnerPoints;
+
+                // Overall Ultimate Bonus (x5)
+                const ultMult = (alliance.ultimateNeutral || alliance.ultimateHome) ? 5 : 1;
+
+                // Teleop Team Zone
+                let teamZonePoints = 0;
+                teamZonePoints += (alliance.yellowZone + alliance.ringZone) * 2;
+                teamZonePoints += (alliance.stackedZone * 5);
+                teamZonePoints += (alliance.botguyUpZone * 10) + (alliance.botguyTipZone * 5);
+                teamZonePoints += (alliance.opponentPomZone * -2);
+                total += teamZonePoints * ultMult;
+
+                // Teleop Home Base (Has specific 3x, 4x, 5x multipliers)
+                let basePoints = 0;
+                const homeMult = alliance.homeBaseMultiplier || 1;
+                basePoints += (alliance.yellowBaseTele + alliance.ringBaseTele) * 10;
+                basePoints += (alliance.stackedBaseTele * 20);
+                basePoints += (alliance.botguyUpBaseTele * 30) + (alliance.botguyTipBaseTele * 15);
+                basePoints += (alliance.opponentPomBaseTele * -10);
+                
+                // Combine home base tier multiplier with ultimate multiplier
+                total += (basePoints * homeMult) * ultMult;
+
+                if (alliance.summitBonus) total += 100;
+                if (alliance.ultimateNeutral) total += 350;
+                if (alliance.ultimateHome) total += 450;
+            }
+            
+            return Math.max(0, Math.round(total));
+        }
+
+        function renderControls(alliance, side) {
+            const container = document.getElementById(`${side}-controls`);
+            const isUltActive = alliance.ultimateNeutral || alliance.ultimateHome;
+            const isStackActive = alliance.autoStackBonus;
+            const otherSide = side === 'red' ? blue : red;
+            
+            const currentAutoScore = calculateAuto(alliance);
+            const opponentAutoScore = calculateAuto(otherSide);
+            const isAutoWinner = currentAutoScore > opponentAutoScore && phase === 'TELEOP';
+            
+            container.innerHTML = `
+                <!-- AUTO -->
+                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${isStackActive ? 'auto-stack-glow' : ''}">
+                    <h3 class="text-[10px] font-black text-amber-600 uppercase flex items-center justify-between">
+                        <span>Autonomous Phase</span>
+                        ${isStackActive ? '<span class="text-blue-500">2X Stack Active</span>' : ''}
+                    </h3>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        ${renderCounter('Cubes (20)', 'box', alliance.yellowBase, side, 'yellowBase', 'text-game-yellow')}
+                        ${renderCounter('Rings (20)', 'bullseye', alliance.ringBase, side, 'ringBase')}
+                        ${renderCounter('Rocker (50)', 'layers', alliance.rockerBase, side, 'rockerBase', 'text-game-rocker')}
+                        ${renderCounter('Ball (50)', 'circle', alliance.ballBase, side, 'ballBase', 'text-game-tennis')}
+                        ${renderCounter('Pickle (100)', 'star', alliance.pickleballBase, side, 'pickleballBase', 'text-game-pickle')}
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="toggleBool('${side}', 'enterNeutralZone')" class="flex flex-col items-center justify-center p-2 rounded-lg border-2 ${alliance.enterNeutralZone ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-slate-50 text-slate-400 border-slate-100'} transition-all">
+                           <span class="text-[8px] font-black uppercase">Neutral Zone Ent (+10)</span>
+                        </button>
+                        <button onclick="toggleBool('${side}', 'enterOpponentZone')" class="flex flex-col items-center justify-center p-2 rounded-lg border-2 ${alliance.enterOpponentZone ? 'bg-rose-50 border-rose-500 text-rose-700' : 'bg-slate-50 text-slate-400 border-slate-100'} transition-all">
+                           <span class="text-[8px] font-black uppercase">Opponent Ent (+25)</span>
+                        </button>
+                    </div>
+
+                    <button onclick="toggleBool('${side}', 'autoStackBonus')" class="w-full flex items-center justify-between px-3 py-2 rounded-lg border-2 ${isStackActive ? 'bg-blue-500 text-white border-blue-600' : 'bg-slate-50 text-slate-400 border-slate-200'} transition-all active:scale-95">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="layers" class="w-4 h-4"></i>
+                            <span class="text-[9px] font-black uppercase tracking-tight">2X Stack Bonus (Home)</span>
+                        </div>
+                        <i data-lucide="${isStackActive ? 'check-circle' : 'circle'}" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                ${isAutoWinner ? `
+                <div class="bg-slate-900 border-2 border-slate-900 p-2 rounded-xl flex items-center justify-center gap-2">
+                    <i data-lucide="award" class="w-4 h-4 text-amber-400 fill-current"></i>
+                    <span class="text-[10px] font-black text-white uppercase tracking-tighter">Auto Winner Bonus (+50)</span>
+                </div>
+                ` : ''}
+
+                <!-- TELEOP: TEAM ZONE -->
+                <div class="space-y-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm ${phase === 'AUTO' ? 'opacity-40 grayscale pointer-events-none' : ''} ${isUltActive ? 'multiplier-glow' : ''}">
+                    <h3 class="text-[10px] font-black text-blue-500 uppercase">Team Zone ${isUltActive ? '(x5)' : ''}</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        ${renderCounter('Cubes (2)', 'square', alliance.yellowZone, side, 'yellowZone', 'text-game-yellow')}
+                        ${renderCounter('Rings (2)', 'bullseye', alliance.ringZone, side, 'ringZone')}
+                        ${renderCounter('Stacked (5)', 'layers', alliance.stackedZone, side, 'stackedZone', 'text-game-tennis')}
+                        ${renderCounter('Bot Up (10)', 'bot', alliance.botguyUpZone, side, 'botguyUpZone', 'text-game-botguy')}
+                        ${renderCounter('Bot Tip (5)', 'trending-down', alliance.botguyTipZone, side, 'botguyTipZone', 'text-game-botguy opacity-50')}
+                        ${renderCounter('Opp. POM (-2)', 'minus-circle', alliance.opponentPomZone, side, 'opponentPomZone', 'text-rose-500')}
+                    </div>
+                </div>
+
+                <!-- TELEOP: HOME BASE -->
+                <div class="space-y-3 p-3 bg-white rounded-xl border-2 border-blue-100 shadow-sm ${phase === 'AUTO' ? 'opacity-40 grayscale pointer-events-none' : ''} ${isUltActive || alliance.homeBaseMultiplier > 1 ? 'multiplier-glow' : ''}">
+                    <h3 class="text-[10px] font-black text-indigo-600 uppercase flex justify-between">
+                        <span>Home Base</span>
+                        <span class="text-indigo-800">${alliance.homeBaseMultiplier > 1 ? 'Current Mult: x' + alliance.homeBaseMultiplier : ''}</span>
+                    </h3>
+
+                    <!-- Multiplier Selection -->
+                    <div class="flex gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+                        ${[1, 3, 4, 5].map(m => `
+                            <button onclick="setMultiplier('${side}', ${m})" class="flex-1 py-1.5 rounded-lg border-2 font-black text-[10px] transition-all ${alliance.homeBaseMultiplier === m ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm scale-105' : 'bg-slate-50 text-slate-400 border-slate-100'}">
+                                ${m === 1 ? 'OFF' : 'x' + m}
+                            </button>
+                        `).join('')}
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        ${renderCounter('Cubes (10)', 'box', alliance.yellowBaseTele, side, 'yellowBaseTele', 'text-game-yellow')}
+                        ${renderCounter('Rings (10)', 'bullseye', alliance.ringBaseTele, side, 'ringBaseTele')}
+                        ${renderCounter('Stacked (20)', 'layers', alliance.stackedBaseTele, side, 'stackedBaseTele', 'text-game-tennis')}
+                        ${renderCounter('Bot Up (30)', 'bot', alliance.botguyUpBaseTele, side, 'botguyUpBaseTele', 'text-game-botguy')}
+                        ${renderCounter('Bot Tip (15)', 'trending-down', alliance.botguyTipBaseTele, side, 'botguyTipBaseTele', 'text-game-botguy opacity-50')}
+                        ${renderCounter('Opp. POM (-10)', 'minus-circle', alliance.opponentPomBaseTele, side, 'opponentPomBaseTele', 'text-rose-500')}
+                    </div>
+                </div>
+
+                <!-- BONUSES -->
+                <div class="flex flex-col gap-2 ${phase === 'AUTO' ? 'opacity-40 grayscale pointer-events-none' : ''}">
+                    <div class="grid grid-cols-1 gap-2">
+                        <!-- Ultimate Home Base -->
+                        <button onclick="toggleBool('${side}', 'ultimateHome')" class="relative overflow-hidden group flex flex-col p-4 rounded-xl border-2 ${alliance.ultimateHome ? 'bg-amber-500 text-white border-amber-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
+                            <div class="flex items-center justify-between w-full mb-2">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="crown" class="w-5 h-5"></i>
+                                    <span class="text-[10px] font-black uppercase">Ultimate: Home Base</span>
+                                </div>
+                                <span class="font-bold text-xs">+450 & 5x</span>
+                            </div>
+                            <!-- Stack Order Tooltip-style info -->
+                            <div class="flex items-center gap-1.5 mt-1 border-t ${alliance.ultimateHome ? 'border-amber-400 pt-2' : 'border-slate-100 pt-2'}">
+                                <span class="text-[8px] font-bold uppercase opacity-80">Order:</span>
+                                <div class="flex gap-1">
+                                    <div class="w-2.5 h-2.5 rounded-sm bg-yellow-400 shadow-sm"></div>
+                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
+                                    <div class="w-2.5 h-2.5 rounded-full border border-current bg-blue-400"></div>
+                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
+                                    <div class="w-2.5 h-2.5 rounded-sm bg-green-500"></div>
+                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
+                                    <div class="w-2.5 h-2.5 rounded-full bg-lime-300"></div>
+                                </div>
+                                <span class="text-[8px] font-medium leading-none ml-1 truncate">Yellow ⮕ Green ⮕ Rocker ⮕ Tennis</span>
+                            </div>
+                        </button>
+                        
+                        <!-- Ultimate Team Zone -->
+                        <button onclick="toggleBool('${side}', 'ultimateNeutral')" class="relative overflow-hidden group flex flex-col p-4 rounded-xl border-2 ${alliance.ultimateNeutral ? 'bg-purple-600 text-white border-purple-700 shadow-lg' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
+                            <div class="flex items-center justify-between w-full mb-2">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="zap" class="w-5 h-5"></i>
+                                    <span class="text-[10px] font-black uppercase">Ultimate: Team Zone</span>
+                                </div>
+                                <span class="font-bold text-xs">+350 & 5x</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 mt-1 border-t ${alliance.ultimateNeutral ? 'border-purple-400 pt-2' : 'border-slate-100 pt-2'}">
+                                <span class="text-[8px] font-bold uppercase opacity-80">Order:</span>
+                                <div class="flex gap-1">
+                                    <div class="w-2.5 h-2.5 rounded-sm bg-yellow-400 shadow-sm"></div>
+                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
+                                    <div class="w-2.5 h-2.5 rounded-full border border-current bg-blue-400"></div>
+                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
+                                    <div class="w-2.5 h-2.5 rounded-sm bg-green-500"></div>
+                                    <i data-lucide="chevron-right" class="w-2.5 h-2.5 opacity-50"></i>
+                                    <div class="w-2.5 h-2.5 rounded-full bg-lime-300"></div>
+                                </div>
+                                <span class="text-[8px] font-medium leading-none ml-1 truncate">Yellow ⮕ Green ⮕ Rocker ⮕ Tennis</span>
+                            </div>
+                        </button>
+
+                        <button onclick="toggleBool('${side}', 'summitBonus')" class="flex items-center justify-between px-4 py-2.5 rounded-xl border-2 ${alliance.summitBonus ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-400 border-slate-200'} transition-all active:scale-95">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="mountain" class="w-4 h-4"></i>
+                                <span class="text-[10px] font-black uppercase">Standard Summit</span>
+                            </div>
+                            <span class="font-bold text-xs">+100</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function renderCounter(label, icon, val, side, key, iconColorClass = 'text-slate-400') {
+            let iconHtml = `<i data-lucide="${icon}" class="w-4 h-4 ${iconColorClass} shrink-0 fill-current"></i>`;
+            if (icon === 'bullseye') iconHtml = `<span class="bullseye-icon shrink-0"></span>`;
+            return `
+                <div class="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
+                    <div class="flex items-center gap-1.5 overflow-hidden">
+                        ${iconHtml}
+                        <span class="text-[8px] font-black text-slate-500 uppercase truncate">${label}</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button onclick="changeVal('${side}', '${key}', -1)" class="p-1 bg-white border border-slate-200 rounded text-slate-400 active:bg-slate-100"><i data-lucide="minus" class="w-3 h-3"></i></button>
+                        <span class="text-[10px] font-black w-4 text-center tabular-nums">${val}</span>
+                        <button onclick="changeVal('${side}', '${key}', 1)" class="p-1 bg-white border border-slate-200 rounded text-slate-900 active:bg-slate-100"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function update() {
+            document.getElementById('red-total').innerText = calculate(red, blue);
+            document.getElementById('blue-total').innerText = calculate(blue, red);
+            renderControls(red, 'red');
+            renderControls(blue, 'blue');
+        }
+
+        window.changeVal = (side, key, delta) => {
+            const obj = side === 'red' ? red : blue;
+            obj[key] = Math.max(0, obj[key] + delta);
+            update();
+        };
+
+        window.setMultiplier = (side, val) => {
+            const obj = side === 'red' ? red : blue;
+            obj.homeBaseMultiplier = val;
+            update();
+        };
+
+        window.toggleBool = (side, key) => {
+            const obj = side === 'red' ? red : blue;
+            if (key === 'ultimateHome' && !obj.ultimateHome) obj.ultimateNeutral = false;
+            if (key === 'ultimateNeutral' && !obj.ultimateNeutral) obj.ultimateHome = false;
+            obj[key] = !obj[key];
+            update();
+        };
+
+        window.toggleTimer = () => {
+            isRunning = !isRunning;
+            ensureAudioContext();
+            document.getElementById('timer-btn').innerHTML = isRunning ? `<i data-lucide="pause"></i>` : `<i data-lucide="play"></i>`;
+            document.getElementById('overlay').classList.add('hidden');
+            lucide.createIcons();
+            
+            if (isRunning) {
+                timerInterval = setInterval(() => {
+                    timeLeft--;
+                    if (timeLeft === 90) {
+                        phase = 'TELEOP';
+                        document.getElementById('phase-badge').className = "px-3 py-1.5 rounded-full font-black text-[10px] tracking-widest bg-blue-600 text-white";
+                        document.getElementById('phase-badge').innerText = "TELEOP";
+                    }
+                    if (timeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        isRunning = false;
+                        timeLeft = 0;
+                        document.getElementById('timer-btn').innerHTML = `<i data-lucide="play"></i>`;
+                    }
+                    handleTimerAudioCues();
+                    const m = Math.floor(timeLeft / 60);
+                    const s = timeLeft % 60;
+                    document.getElementById('timer-display').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+                    update();
+                }, 1000);
+            } else {
+                clearInterval(timerInterval);
+                clearSpeechQueue();
+            }
+        };
+
+        window.resetMatch = () => {
+            clearInterval(timerInterval);
+            clearSpeechQueue();
+            timeLeft = 120;
+            isRunning = false;
+            phase = 'AUTO';
+            countdownMarksPlayed = new Set();
+            phaseCuePlayed = { teleop: false, end: false };
+            red = initialState();
+            blue = initialState();
+            document.getElementById('timer-display').innerText = "2:00";
+            document.getElementById('phase-badge').className = "px-3 py-1.5 rounded-full font-black text-[10px] tracking-widest bg-amber-500 text-amber-950 pulse";
+            document.getElementById('phase-badge').innerText = "AUTO";
+            document.getElementById('overlay').classList.remove('hidden');
+            update();
+        };
+
+        window.saveMatch = () => {
+            const rScore = calculate(red, blue);
+            const bScore = calculate(blue, red);
+            matchLog.unshift({
+                match: matchLog.length + 1,
+                redScore: rScore,
+                blueScore: bScore,
+                winner: rScore > bScore ? 'RED' : rScore < bScore ? 'BLUE' : 'DRAW'
+            });
+            renderLog();
+        };
+
+        function renderLog() {
+            const container = document.getElementById('match-log');
+            if (matchLog.length === 0) {
+                container.innerHTML = `<div class="text-center py-10 opacity-30 text-[10px] font-black uppercase italic">No Matches Recorded</div>`;
+                return;
+            }
+            container.innerHTML = matchLog.map(m => `
+                <div class="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between shadow-sm border-l-4 ${m.winner === 'RED' ? 'border-l-red-500' : m.winner === 'BLUE' ? 'border-l-blue-500' : 'border-l-slate-400'}">
+                    <div class="flex items-center gap-3">
+                        <div class="text-[8px] font-black bg-slate-100 px-2 py-1 rounded">#${m.match}</div>
+                        <div class="font-black tabular-nums text-sm">
+                            <span class="${m.winner === 'RED' ? 'text-red-600' : 'text-slate-500'}">${m.redScore}</span> 
+                            <span class="text-slate-300 mx-1">-</span> 
+                            <span class="${m.winner === 'BLUE' ? 'text-blue-600' : 'text-slate-500'}">${m.blueScore}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        window.swapSides = () => {
+            isSwapped = !isSwapped;
+            document.getElementById('main-layout').classList.toggle('flex-row-reverse', isSwapped);
+            lucide.createIcons();
+        };
+
+        window.toggleLog = () => document.getElementById('log-sidebar').classList.toggle('sidebar-closed');
+        window.onload = () => {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.getVoices();
+            }
+            update();
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>
