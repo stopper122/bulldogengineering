@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>General Safety Test</title>
+  <style>
+    :root { --bg:#f6f7fb; --card:#fff; --text:#1f2937; --muted:#6b7280; --line:#d1d5db; --accent:#1d4ed8; --good:#166534; --bad:#b91c1c; --goodbg:#dcfce7; --badbg:#fee2e2; }
+    * { box-sizing:border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); margin:0; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:24px; box-shadow: 0 8px 24px rgba(0,0,0,.05); }
+    h1,h2 { margin-top:0; }
+    .meta-grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:20px; }
+    label { display:block; font-weight:600; margin-bottom:6px; }
+    input[type="text"], input[type="email"] { width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:16px; }
+    .question { border-top:1px solid #e5e7eb; padding:18px 0; }
+    .question:first-of-type { border-top:none; }
+    .qhead { display:flex; gap:12px; align-items:flex-start; justify-content:space-between; }
+    .qnum { font-weight:700; min-width:34px; }
+    .qtext { flex:1; line-height:1.5; }
+    .blanks { display:grid; gap:10px; margin-top:12px; }
+    .blank-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .blank-row span { color:var(--muted); min-width:70px; }
+    .blank-row input { flex:1; min-width:260px; }
+    .actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:24px; }
+    button { border:none; border-radius:12px; padding:12px 18px; font-size:16px; font-weight:700; cursor:pointer; }
+    .primary { background:var(--accent); color:#fff; }
+    .secondary { background:#e5e7eb; color:#111827; }
+    .results { margin-top:24px; }
+    .score { font-size:22px; font-weight:800; margin-bottom:10px; }
+    .status { padding:14px 16px; border-radius:12px; margin-bottom:16px; font-weight:700; }
+    .success { background:var(--goodbg); color:var(--good); }
+    .retry { background:#eff6ff; color:#1e3a8a; }
+    .result-list { display:grid; gap:10px; }
+    .result-item { padding:12px 14px; border-radius:12px; border:1px solid var(--line); display:flex; justify-content:space-between; gap:12px; }
+    .correct { background:var(--goodbg); color:var(--good); border-color:#86efac; }
+    .incorrect { background:var(--badbg); color:var(--bad); border-color:#fca5a5; }
+    .tiny { color:var(--muted); font-size:14px; line-height:1.4; }
+    .hidden { display:none; }
+    @media (max-width:700px) { .meta-grid { grid-template-columns:1fr; } }
+    @media print { .actions, .tiny, .results { display:none !important; } body { background:#fff; } .card { box-shadow:none; border:none; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>General Safety Test</h1>
+      <p class="tiny">Students must enter their name and email, complete every blank, and retake the test until they earn 100%. This page shows only whether each question is correct or incorrect. It does not reveal the correct answers.</p>
+
+      <div class="meta-grid">
+        <div>
+          <label for="studentName">Student Name</label>
+          <input id="studentName" type="text" autocomplete="name" required />
+        </div>
+        <div>
+          <label for="studentEmail">Student Email</label>
+          <input id="studentEmail" type="email" autocomplete="email" required />
+        </div>
+      </div>
+
+      <form id="quizForm"></form>
+
+      <div class="actions">
+        <button class="primary" type="button" id="gradeBtn">Grade Test</button>
+        <button class="secondary" type="button" id="retryBtn">Try Again</button>
+      </div>
+
+      <div id="results" class="results hidden" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <script>
+    const quizData = [{"id": 1, "prompt": "It is vital to your general safety that you ____________ and ____________ all safety rules.", "blanks": ["6a8da52e920664ef15b3c36c0edb24e27e6604bb2dc2f6c7c1f1f5076ff28ee9", "d3a4871f647842ab36f9c979cc6954b6ad58d80fa9165626ddbd26931192199e"]}, {"id": 2, "prompt": "Remember, a machine can be very unforgiving of ____________ on the part of the operator.", "blanks": ["ca00fccfb408989eddc401062c4d1219a6aceb6b9b55412357f1790862e8f178"]}, {"id": 3, "prompt": "Only work approved by the ____________ is to be done in the lab.", "blanks": ["1057a9604e04b274da5a4de0c8f4b4868d9b230989f8c8c6a28221143cc5a755"]}, {"id": 4, "prompt": "All injuries, no matter how small, must be reported to the ____________ immediately.", "blanks": ["1057a9604e04b274da5a4de0c8f4b4868d9b230989f8c8c6a28221143cc5a755"]}, {"id": 5, "prompt": "Loose fitting ____________ is a hazard.", "blanks": ["12d264de09a571d6851defcdcfd4ae37d3177dc28aed52c125007dcbc91c5316"]}, {"id": 6, "prompt": "Roll up ____________ above the elbow.", "blanks": ["c767e2811124e5f58b4a514fef86ed76b03eabb5d3446b62d0942b3bd77715f9"]}, {"id": 7, "prompt": "Remove all ____________ (watches, rings, chains, etc.) before working in the shop.", "blanks": ["d68ebe3c27c836bfffddcc8045cc7a464f006f1c05167f3a8fbc9ef089664c5e"]}, {"id": 8, "prompt": "Caution anyone you observe ____________ a safety rule.", "blanks": ["4a1acb3fdfd1fcf8f3ee197a13a0d023d72a20eb74c52d1e395041f83c939992"]}, {"id": 9, "prompt": "The floor, aisles, and passageways should be kept ____________ of parts, tools, and materials.", "blanks": ["913a4cb91be20332f3559f8070255d7ac3e6228bb423f4441551d3f783e7d4f4"]}, {"id": 10, "prompt": "Prevent tools and materials from ____________ over the edges of tables and benches.", "blanks": ["01e3c9895eb9c26c73881fcce39f5084a132198dd646b02ff377b7033dd7a47c"]}, {"id": 11, "prompt": "____________ leave vise jaws tightened together when not in use.", "blanks": ["6497e4b3d7bed16979a343a7db4efa6d57725529f5ac3cec45c1f08fabcbdafc"]}, {"id": 12, "prompt": "Vise handles are to be left in a ____________ position.", "blanks": ["34da56029403e6f793b86883b3c7205b8dafe06b25a3159f8c06fc87262c1028"]}, {"id": 13, "prompt": "Tools, equipment, materials, and projects are to be stored in ____________ locations.", "blanks": ["5928eeed08a2e7962b0d3ec0b45ca940f27723c22f6aeb019de797e703c3cf62"]}, {"id": 14, "prompt": "Clean up all spills ____________.", "blanks": ["d978e0e487928a68d48323006a8eca6e4925b3ea7e8ed50b326325668c93b2ac"]}, {"id": 15, "prompt": "Exercise ____________ in handling large and long pieces. Obtain help when needed, ____________ attempt to lift large or heavy objects on your own.", "blanks": ["3cf083c28255868b5f464f8ed39b1db95aee54b99b8670a2dbb556a580e9d5da", "6497e4b3d7bed16979a343a7db4efa6d57725529f5ac3cec45c1f08fabcbdafc"]}, {"id": 16, "prompt": "When using ____________ air, direct the ____________ away from yourself and other people.", "blanks": ["9da308c2e4bc33afa72df5c088b5fc5673c477f3ef21d6bdaa358393834f9804", "e8c269206ea7b1403805c161aa7b7f6b8438555ece02a460ee62cd0a9f415854"]}, {"id": 17, "prompt": "Long loose locks of ____________ can easily be caught in revolving machinery and ripped out causing serious scalp lacerations.", "blanks": ["4dc2159bba05da394c3b94c6f54354db1f1f43b321ac4bbdfc2f658237858c70"]}, {"id": 18, "prompt": "Testing the sharpness of a tool should be done on scrap material and NOT your ____________.", "blanks": ["2a0070d014bc41cb1fb0e65f98a3c94e00478a2501dca02836d2d5eb3a742a62"]}, {"id": 19, "prompt": "Keep your ____________ parts clear of the blade.", "blanks": ["230d8358dc8e8890b4c58deeb62912ee2f20357ae92a5cc861b98e68fe31acb5"]}, {"id": 20, "prompt": "Keep ____________ tight and in good condition on all tools.", "blanks": ["539822cd7b4b2940511ac47a53854e20ae64d00d2fb2d7c5a0e76a7e5b69a82c"]}, {"id": 21, "prompt": "Use ____________ only for their intended purpose. DO NOT PLAY!", "blanks": ["f9d35d43770d39092a663e665e82ae1d84a9e0da3d0d10c407acada6a40cd281"]}, {"id": 22, "prompt": "Do not ____________ anything in class.", "blanks": ["7b0456581bef4cb1f0e2c9c52ab9a3d80989f8aabe74e609d3cc183c365363de"]}, {"id": 23, "prompt": "____________ ____________ must be worn while in the lab.", "blanks": ["856e8bd358ece398c72f1003391aef5d1cd4fb9146e9f280b86290ce670b5afc", "266550babbb7bd394ab653e15b80471735127d82e68a76fdc2dd7dadcfe667d8"]}, {"id": 24, "prompt": "Arrange ____________ ____________ so that they are not a tripping hazard.", "blanks": ["07d715edb696fb5f628f7298e5d7217ed4d2bdfc5347a1c55fee30832267f21d", "736c1c7be00d33bee60ba149a291da4af694b7f6fc075b762b3c0e70698d183b"]}, {"id": 25, "prompt": "Be aware of your ____________ at all times when in the lab.", "blanks": ["3319492f430937ef24143f29404e1f1ee27a2d1a4d0cea77d60d98793d0da40c"]}, {"id": 26, "prompt": "While operating the drill press, material must be clamped securely or in a ____________.", "blanks": ["8b0e7f01bed8b6dbbce60879ec7904b1e72cf37965f8976e6a7bcf751a75cda0"]}, {"id": 27, "prompt": "____________ ____________ immediately when finished working.", "blanks": ["611496f412cac947be720d17a0ee6d7463221d14731fbc18244756271e8f5189", "d978e0e487928a68d48323006a8eca6e4925b3ea7e8ed50b326325668c93b2ac"]}];
+
+    function normalizeAnswer(value) {
+      return value
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function sha256(ascii) {
+      function rightRotate(value, amount) {
+        return (value >>> amount) | (value << (32 - amount));
+      }
+
+      const mathPow = Math.pow;
+      const maxWord = mathPow(2, 32);
+      let result = '';
+      const words = [];
+      const asciiBitLength = ascii.length * 8;
+      let hash = sha256.h = sha256.h || [];
+      let k = sha256.k = sha256.k || [];
+      let primeCounter = k.length;
+
+      const isComposite = {};
+      for (let candidate = 2; primeCounter < 64; candidate++) {
+        if (!isComposite[candidate]) {
+          for (let i = 0; i < 313; i += candidate) {
+            isComposite[i] = candidate;
+          }
+          hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+          k[primeCounter++] = (mathPow(candidate, 1/3) * maxWord) | 0;
+        }
+      }
+
+      ascii += '\x80';
+      while (ascii.length % 64 - 56) ascii += '\x00';
+      for (let i = 0; i < ascii.length; i++) {
+        const j = ascii.charCodeAt(i);
+        words[i >> 2] |= j << ((3 - i) % 4) * 8;
+      }
+      words[words.length] = ((asciiBitLength / maxWord) | 0);
+      words[words.length] = (asciiBitLength);
+
+      for (let j = 0; j < words.length;) {
+        const w = words.slice(j, j += 16);
+        const oldHash = hash.slice(0);
+        hash = hash.slice(0, 8);
+
+        for (let i = 0; i < 64; i++) {
+          const w15 = w[i - 15], w2 = w[i - 2];
+          const a = hash[0], e = hash[4];
+          const temp1 = hash[7]
+            + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+            + ((e & hash[5]) ^ ((~e) & hash[6]))
+            + k[i]
+            + (w[i] = (i < 16) ? w[i] : (
+                w[i - 16]
+                + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
+                + w[i - 7]
+                + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))
+              ) | 0
+            );
+          const temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+            + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+
+          hash = [(temp1 + temp2) | 0].concat(hash);
+          hash[4] = (hash[4] + temp1) | 0;
+          hash.pop();
+        }
+
+        for (let i = 0; i < 8; i++) {
+          hash[i] = (hash[i] + oldHash[i]) | 0;
+        }
+      }
+
+      for (let i = 0; i < 8; i++) {
+        for (let j = 3; j + 1; j--) {
+          const b = (hash[i] >> (j * 8)) & 255;
+          result += ((b < 16) ? 0 : '') + b.toString(16);
+        }
+      }
+      return result;
+    }
+
+    function buildQuiz() {
+      const form = document.getElementById('quizForm');
+      form.innerHTML = '';
+      quizData.forEach(q => {
+        const section = document.createElement('section');
+        section.className = 'question';
+        const blanks = q.blanks.map((_, index) => `
+          <div class="blank-row">
+            <span>Blank ${index + 1}</span>
+            <input type="text" data-qid="${q.id}" data-bid="${index}" aria-label="Question ${q.id} blank ${index + 1}" />
+          </div>`).join('');
+
+        section.innerHTML = `
+          <div class="qhead">
+            <div class="qnum">${q.id}.</div>
+            <div class="qtext">${q.prompt}</div>
+          </div>
+          <div class="blanks">${blanks}</div>
+        `;
+        form.appendChild(section);
+      });
+    }
+
+    function allFieldsFilled() {
+      const name = document.getElementById('studentName').value.trim();
+      const email = document.getElementById('studentEmail').value.trim();
+      if (!name || !email) return false;
+      const answers = [...document.querySelectorAll('#quizForm input[type="text"]')];
+      return answers.every(inp => inp.value.trim() !== '');
+    }
+
+    async function gradeQuiz() {
+      const name = document.getElementById('studentName').value.trim();
+      const email = document.getElementById('studentEmail').value.trim();
+      if (!name || !email) {
+        alert('Please enter student name and email before grading.');
+        return;
+      }
+      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      if (!emailOk) {
+        alert('Please enter a valid email address.');
+        return;
+      }
+      if (!allFieldsFilled()) {
+        alert('Please answer every blank before grading.');
+        return;
+      }
+
+      const byQuestion = [];
+      let correctCount = 0;
+
+      for (const q of quizData) {
+        let questionCorrect = true;
+        for (let i = 0; i < q.blanks.length; i++) {
+          const input = document.querySelector(`input[data-qid="${q.id}"]` + `[data-bid="${i}"]`);
+          const normalized = normalizeAnswer(input.value);
+          const digest = sha256(normalized);
+          if (digest !== q.blanks[i]) {
+            questionCorrect = false;
+          }
+        }
+        if (questionCorrect) correctCount++;
+        byQuestion.push({ id:q.id, correct:questionCorrect });
+      }
+
+      const percent = Math.round((correctCount / quizData.length) * 100);
+      renderResults(name, email, correctCount, percent, byQuestion);
+      localStorage.setItem('generalSafetyTestProgress', JSON.stringify({
+        name, email, correctCount, percent, byQuestion, submittedAt:new Date().toISOString()
+      }));
+    }
+
+    function renderResults(name, email, correctCount, percent, byQuestion) {
+      const results = document.getElementById('results');
+      const passed = percent === 100;
+      results.classList.remove('hidden');
+      results.innerHTML = `
+        <div class="score">${name} (${email}): ${correctCount} / ${quizData.length} correct (${percent}%)</div>
+        <div class="status ${passed ? 'success' : 'retry'}">
+          ${passed ? 'Perfect score earned. This test is complete.' : 'Not yet 100%. Review the incorrect questions and try again.'}
+        </div>
+        <div class="result-list">
+          ${byQuestion.map(item => `
+            <div class="result-item ${item.correct ? 'correct' : 'incorrect'}">
+              <span>Question ${item.id}</span>
+              <strong>${item.correct ? 'Correct' : 'Incorrect'}</strong>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      results.scrollIntoView({ behavior:'smooth', block:'start' });
+    }
+
+    function retryQuiz() {
+      document.querySelectorAll('#quizForm input[type="text"]').forEach(input => {
+        input.value = '';
+      });
+      document.getElementById('results').classList.add('hidden');
+      document.getElementById('results').innerHTML = '';
+      window.scrollTo({ top: 0, behavior:'smooth' });
+    }
+
+    buildQuiz();
+    document.getElementById('gradeBtn').addEventListener('click', gradeQuiz);
+    document.getElementById('retryBtn').addEventListener('click', retryQuiz);
+  </script>
+</body>
+</html>
