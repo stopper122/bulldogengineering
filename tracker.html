@@ -1,0 +1,1951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Tracker</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    body { margin:0; font-family:Inter, Arial, sans-serif; background:#eef2f7; color:#0f172a; }
+    body.touch-mode { font-size:16px; }
+    .layout { display:flex; min-height:100vh; }
+    .main { flex:1; padding:14px; padding-left:calc(14px + var(--main-left-gap, 0px)); overflow:visible; transition:padding-left 0.25s ease; }
+    .sidebar {
+      width:420px;
+      background:#111827;
+      color:white;
+      border-left:1px solid #374151;
+      transform:translateX(100%);
+      transition:transform 0.25s ease, width 0.25s ease;
+      position:fixed;
+      right:0;
+      top:var(--sidebar-top, 0px);
+      height:calc(100vh - var(--sidebar-top, 0px));
+      overflow:auto;
+      z-index:18;
+    }
+    .sidebar.open {
+      transform:translateX(0);
+      width:min(900px, calc(100vw - 24px));
+    }
+    .container { max-width:1180px; margin:0 auto; }
+    .card {
+      background:white;
+      padding:14px;
+      border-radius:10px;
+      box-shadow:0 2px 10px rgba(15,23,42,0.08);
+      margin-bottom:12px;
+    }
+    .controls button, .tabs button, .actions button, .tracking button, .modal-actions button {
+      margin-right:4px;
+      margin-bottom:4px;
+      padding:6px 9px;
+      border:none;
+      border-radius:7px;
+      cursor:pointer;
+      font-size:12px;
+      line-height:1.2;
+    }
+    .freeze-panel {
+      position: sticky;
+      top: var(--freeze-top, 44px);
+      z-index: 12;
+      background:#eef2f7;
+      padding-top:6px;
+      padding-bottom:2px;
+    }
+    .results-sticky {
+      position: sticky;
+      top: var(--results-top, 122px);
+      z-index: 13;
+      background:#eef2f7;
+      padding-bottom:8px;
+      box-shadow: 0 6px 12px rgba(15,23,42,0.06);
+    }
+    body.touch-mode .controls button,
+    body.touch-mode .tabs button,
+    body.touch-mode .actions button,
+    body.touch-mode .tracking button,
+    body.touch-mode .modal-actions button,
+    body.touch-mode .toggle-btn,
+    body.touch-mode input {
+      font-size:14px;
+      padding:10px 12px;
+    }
+    .tabs button { background:#ddd; }
+    .tabs button.active { background:#2563eb; color:white; }
+    .sort-btn.active-sort { background:#2563eb; color:white; }
+    .tabs button.current { background:#16a34a; color:white; }
+    input, select { margin:3px 5px 3px 0; padding:6px 8px; border:1px solid #cbd5e1; border-radius:7px; font-size:13px; }
+    table { width:100%; border-collapse:separate; border-spacing:0; margin-top:8px; background:white; }
+    th, td { border:1px solid #e2e8f0; border-left:none; border-top:none; padding:6px; text-align:left; vertical-align:top; font-size:12px; background:white; }
+    tr > *:first-child { border-left:1px solid #e2e8f0; }
+    table tr:first-child > * { border-top:1px solid #e2e8f0; }
+    th { background:#f8fafc !important; position:sticky; top:calc(var(--results-top, 0px) + var(--results-height, 0px)); z-index:15; }
+    .pill { display:inline-block; padding:3px 7px; border-radius:999px; font-size:11px; margin-right:5px; margin-bottom:5px; background:#eef2ff; }
+    .tiny { font-size:11px; color:#64748b; }
+    .danger { background:#dc2626; color:white; }
+    .neutral { background:#6b7280; color:white; }
+    .btn-minus { background:#ef4444; color:white; }
+    .btn-plus { background:#10b981; color:white; }
+    .restroom { background:#0ea5e9; color:white; }
+    .phone { background:#f59e0b; color:white; }
+    .eating { background:#8b5cf6; color:white; }
+    .games { background:#ef4444; color:white; }
+    .sleep { background:#6366f1; color:white; }
+    .report { background:#334155; color:white; }
+    .timer-live { font-weight:bold; color:#0f766e; }
+    .timer-overdue { font-weight:bold; color:#b91c1c; }
+    .timer-warning { font-weight:bold; color:#b45309; }
+    .log-wrap { padding:18px; min-width:760px; }
+    .log-wrap table { background:#1f2937; color:white; }
+    .log-table {
+      width:100%;
+      table-layout:auto;
+    }
+    .log-table th, .log-table td {
+      padding:4px 6px;
+      font-size:11px;
+    }
+    .log-table th:nth-child(1), .log-table td:nth-child(1) { white-space:nowrap; width:140px; }
+    .log-table th:nth-child(2), .log-table td:nth-child(2) { white-space:nowrap; width:70px; text-align:center; }
+    .log-table th:nth-child(3), .log-table td:nth-child(3) { white-space:nowrap; }
+    .log-table th:nth-child(4), .log-table td:nth-child(4) { white-space:nowrap; width:80px; }
+    .log-table th:nth-child(5), .log-table td:nth-child(5) { white-space:normal; }
+    .log-table th:nth-child(6), .log-table td:nth-child(6),
+    .log-table th:nth-child(7), .log-table td:nth-child(7) { white-space:nowrap; width:70px; text-align:center; }
+    .log-wrap th { border-color:#e2e8f0; }
+    .log-wrap th, .log-wrap td { border-color:#374151; background:#1f2937; }
+    .log-wrap th {
+      background:#f8fafc !important;
+      color:#111827;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .topbar {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:8px;
+      gap:10px;
+      position:sticky;
+      top:0;
+      background:#eef2f7;
+      padding-bottom:8px;
+      z-index:20;
+      box-shadow: 0 4px 10px rgba(15,23,42,0.06);
+    }
+    .toggle-btn { background:#111827; color:white; padding:7px 10px; border:none; border-radius:8px; font-size:12px; }
+    .panel-toggle-row {
+      position: sticky;
+      top: var(--panel-toggle-top, 44px);
+      z-index: 14;
+      background:#eef2f7;
+      padding-bottom:8px;
+    }
+    .left-drawer {
+      position: fixed;
+      left: 14px;
+      top: var(--left-drawer-top, 0px);
+      width: 360px;
+      max-width: calc(100vw - 28px);
+      max-height: calc(100vh - var(--left-drawer-top, 0px) - 14px);
+      overflow: auto;
+      z-index: 16;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      padding-right: 6px;
+    }
+    .left-drawer.open {
+      transform: translateX(0);
+    }
+    .left-drawer .freeze-panel,
+    .left-drawer .live-passes-card {
+      position: static;
+      top: auto;
+      z-index: auto;
+      box-shadow: none;
+    }
+    .left-drawer .card {
+      margin-bottom: 10px;
+    }
+    .left-drawer .compact-grid {
+      grid-template-columns: 1fr;
+    }
+    .left-drawer .compact-grid .inline-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      align-items: stretch;
+    }
+    .left-drawer .compact-grid .card:first-child .inline-row {
+      grid-template-columns: 1fr;
+    }
+    .left-drawer #fileInput,
+    .left-drawer #newId,
+    .left-drawer #newFirst,
+    .left-drawer #newLast,
+    .left-drawer #newPeriod,
+    .left-drawer #addBtn {
+      width: 100%;
+      box-sizing: border-box;
+      margin: 0;
+    }
+    .left-drawer #controlsContent {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      align-items: stretch;
+    }
+    .left-drawer #controlsContent > * {
+      width: 100%;
+      box-sizing: border-box;
+      margin: 0;
+    }
+    .left-drawer #controlsContent input[type="file"],
+    .left-drawer #controlsContent #searchInput {
+      grid-column: 1 / -1;
+    }
+    .left-drawer #controlsContent .full-span {
+      grid-column: 1 / -1;
+    }
+    .top-left-toggle {
+      background:#111827;
+      color:white;
+      padding:8px 12px;
+      border:none;
+      border-radius:8px;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .drawer-handle {
+      position: fixed;
+      left: 10px;
+      top: calc(var(--left-drawer-top, 0px) + 12px);
+      z-index: 17;
+      background:#111827;
+      color:white;
+      border:none;
+      border-radius:10px;
+      padding:10px 8px;
+      font-size:12px;
+      cursor:pointer;
+      box-shadow:0 8px 18px rgba(15,23,42,0.18);
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      display:none;
+    }
+    .drawer-handle.visible {
+      display:block;
+    }
+    .compact-grid {
+      display:grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap:12px;
+      align-items:start;
+    }
+    .inline-row {
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      align-items:center;
+    }
+    .table-wrap {
+      overflow: visible;
+      max-height: none;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+    }
+    .view-toggle-btn.active-view {
+      background:#2563eb;
+      color:white;
+    }
+    .seating-wrap {
+      margin-top:8px;
+    }
+    .seating-grid {
+      display:grid;
+      grid-template-columns:repeat(6, minmax(120px, 1fr));
+      gap:10px;
+      align-items:stretch;
+    }
+    .seat-card {
+      background:white;
+      border:1px solid #dbe4f0;
+      border-radius:12px;
+      padding:10px;
+      min-height:94px;
+      box-shadow:0 1px 4px rgba(15,23,42,0.05);
+      cursor:pointer;
+    }
+    .seat-card.selected-move {
+      outline:3px solid #2563eb;
+      box-shadow:0 0 0 3px rgba(37,99,235,0.15);
+    }
+    .seat-card.empty {
+      background:#f8fafc;
+      border-style:dashed;
+      color:#94a3b8;
+    }
+    .seat-card.active-pass {
+      background:#dcfce7;
+      border-color:#86efac;
+    }
+    .seat-card.near-limit {
+      background:#fff7ed;
+      border-color:#fdba74;
+    }
+    .seat-card.overdue {
+      background:#fee2e2;
+      border-color:#fca5a5;
+    }
+    .seat-card.flagged {
+      background:#fff7ed;
+      border-color:#fcd34d;
+    }
+    .seat-number {
+      font-size:11px;
+      color:#64748b;
+      margin-bottom:6px;
+      font-weight:700;
+    }
+    .seat-name {
+      font-weight:700;
+      line-height:1.2;
+      margin-bottom:4px;
+    }
+    .seat-meta {
+      font-size:11px;
+      color:#64748b;
+      line-height:1.2;
+    }
+    .seat-actions {
+      margin-top:8px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:4px;
+    }
+    .seat-helper {
+      margin-top:6px;
+      font-size:11px;
+      color:#1d4ed8;
+      font-weight:600;
+    }
+    .results-layout {
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) 280px;
+      gap:12px;
+      align-items:start;
+    }
+    .period-pass-sidebar {
+      position:sticky;
+      top:calc(var(--results-top, 0px) + var(--results-height, 0px));
+      background:#f8fafc;
+      border:1px solid #dbe4f0;
+      border-radius:12px;
+      padding:12px;
+    }
+    .period-pass-sidebar h3 {
+      margin:0 0 6px 0;
+      font-size:15px;
+    }
+    .period-pass-list {
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-top:10px;
+    }
+    .period-pass-item {
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      background:white;
+      border:1px solid #e2e8f0;
+      border-radius:10px;
+      padding:8px 10px;
+    }
+    .period-pass-name {
+      font-size:12px;
+      font-weight:700;
+      line-height:1.25;
+    }
+    .period-pass-meta {
+      font-size:10px;
+      color:#64748b;
+      margin-top:2px;
+    }
+    .period-pass-count {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:34px;
+      padding:4px 8px;
+      border-radius:999px;
+      background:#ede9fe;
+      color:#5b21b6;
+      font-weight:800;
+      font-size:12px;
+      white-space:nowrap;
+    }
+    .student-table {
+      width: 100%;
+      min-width: 1100px;
+      table-layout: auto;
+    }
+    .student-table th:nth-child(1), .student-table td:nth-child(1) { width: 90px; }
+    .student-table th:nth-child(2), .student-table td:nth-child(2) { width: 220px; max-width: 220px; }
+    .student-table th:nth-child(3), .student-table td:nth-child(3) { width: 96px; text-align:center; }
+    .student-table th:nth-child(4), .student-table td:nth-child(4) { width: 170px; max-width: 170px; }
+    .student-table th:nth-child(5), .student-table td:nth-child(5),
+    .student-table th:nth-child(6), .student-table td:nth-child(6),
+    .student-table th:nth-child(7), .student-table td:nth-child(7) { width: 72px; text-align:center; }
+    .student-table th:nth-child(8), .student-table td:nth-child(8) { min-width: 170px; }
+    .student-table th:nth-child(9), .student-table td:nth-child(9) { min-width: 150px; }
+    .clip-cell {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .status-cell {
+      line-height: 1.2;
+    }
+    .name-cell strong { display:block; margin-bottom:2px; line-height:1.25; }
+    .name-cell .tiny { display:block; line-height:1.25; }
+    .pass-dots {
+      display:flex;
+      flex-wrap:wrap;
+      gap:4px;
+      margin-top:4px;
+      align-items:center;
+    }
+    .pass-dot {
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      background:#8b5cf6;
+      display:inline-block;
+    }
+    .pass-extra {
+      font-size:10px;
+      color:#6b7280;
+      font-weight:700;
+      margin-left:2px;
+    }
+    .name-button {
+      all:unset;
+      cursor:pointer;
+      display:block;
+      width:100%;
+    }
+    .name-button:hover strong { text-decoration:underline; }
+    .count-badge {
+      display:inline-flex;
+      min-width:20px;
+      justify-content:center;
+      padding:2px 6px;
+      border-radius:999px;
+      background:#f1f5f9;
+      font-weight:600;
+    }
+    .live-passes-card {
+      position: sticky;
+      top: 54px;
+      z-index: 5;
+      border: 1px solid #7dd3fc;
+      background: #f0f9ff;
+      padding: 12px;
+    }
+    .live-passes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .live-pass-item {
+      background: white;
+      border: 1px solid #cbd5e1;
+      border-radius: 9px;
+      padding: 10px;
+    }
+    .live-pass-item.overdue {
+      border-color: #fca5a5;
+      background: #fef2f2;
+    }
+    .live-pass-name { font-weight: bold; margin-bottom: 3px; font-size:13px; }
+    .live-pass-meta { font-size: 11px; color: #475569; }
+    .live-pass-status { margin-top: 6px; }
+    .live-pass-actions { margin-top: 10px; }
+    .live-pass-actions button { margin-right: 0; }
+    .toast-container {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      min-width: 260px;
+      max-width: 340px;
+      background: #111827;
+      color: white;
+      padding: 10px 12px;
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      font-size: 12px;
+    }
+    .toast.warn { border-left: 4px solid #f59e0b; }
+    .toast.overdue { border-left: 4px solid #ef4444; }
+    .toast.success { border-left: 4px solid #10b981; }
+    .search-input { min-width:180px; }
+    .row-warning td { background:#fff7ed; }
+    .row-overdue td { background:#fee2e2; }
+    .row-active-pass td { background:#dcfce7; }
+    .row-overdue td { background:#fee2e2; }
+    .row-flagged td { background:#fff7ed; }
+    .row-pass-1 td { background:#faf5ff; }
+    .row-pass-2 td { background:#f3e8ff; }
+    .row-pass-3 td { background:#ede9fe; }
+    .row-pass-4 td { background:#ddd6fe; }
+    .row-pass-5 td { background:#c4b5fd; }
+    .flag-badge {
+      display:inline-block;
+      margin-left:4px;
+      padding:1px 5px;
+      border-radius:999px;
+      font-size:10px;
+      background:#fef3c7;
+      color:#92400e;
+      font-weight:700;
+    }
+    .sticky-col-left-1, .sticky-col-left-2, .sticky-col-right {
+      position: static;
+      left: auto;
+      right: auto;
+      z-index: auto;
+      background: white;
+    }
+    th.sticky-col-left-1, th.sticky-col-left-2, th.sticky-col-right {
+      position: sticky;
+      top: calc(var(--results-top, 0px) + var(--results-height, 0px));
+      z-index: 15;
+      background: #f8fafc !important;
+    }
+    .modal-overlay {
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,0.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:3000;
+      padding:16px;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal {
+      background:white;
+      width:min(920px, 100%);
+      max-height:90vh;
+      overflow:auto;
+      border-radius:14px;
+      box-shadow:0 20px 60px rgba(0,0,0,0.25);
+      padding:16px;
+    }
+    .modal-grid {
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:12px;
+    }
+    .modal-section {
+      border:1px solid #e2e8f0;
+      border-radius:10px;
+      padding:10px;
+      background:#fafcff;
+    }
+    .modal-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .detail-list { margin:0; padding-left:18px; }
+    @media (max-width: 980px) {
+      .left-drawer #controlsContent,
+      .left-drawer .compact-grid .inline-row {
+        grid-template-columns: 1fr;
+      }
+      .layout { display:block; }
+      .main {
+        padding-left:14px;
+        padding-right:14px;
+      }
+      .sidebar {
+        position:fixed;
+        right:0;
+        top:var(--sidebar-top, 0px);
+        width:min(420px, 92vw);
+        height:calc(100vh - var(--sidebar-top, 0px));
+        z-index:18;
+      }
+      .left-drawer {
+        width:min(320px, calc(100vw - 24px));
+      }
+      .compact-grid, .modal-grid { grid-template-columns:1fr; }
+      .student-table { min-width:980px; }
+    }
+
+    @media (max-width: 700px) {
+      body {
+        font-size:14px;
+      }
+      .main {
+        padding:10px;
+      }
+      .container {
+        max-width:100%;
+      }
+      .topbar {
+        gap:8px;
+        align-items:flex-start;
+      }
+      .topbar h1 {
+        font-size:20px !important;
+      }
+      .toggle-btn,
+      .top-left-toggle,
+      .controls button,
+      .tabs button,
+      .actions button,
+      .tracking button,
+      .modal-actions button,
+      input,
+      select {
+        font-size:13px;
+        padding:9px 10px;
+      }
+      .panel-toggle-row {
+        padding-bottom:6px;
+      }
+      .left-drawer {
+        left:10px;
+        width:calc(100vw - 20px);
+        max-width:calc(100vw - 20px);
+        max-height:calc(100vh - var(--left-drawer-top, 0px) - 10px);
+        padding-right:0;
+      }
+      .drawer-handle {
+        left:6px;
+        top:calc(var(--left-drawer-top, 0px) + 8px);
+        padding:8px 6px;
+        font-size:11px;
+      }
+      .left-drawer #controlsContent {
+        grid-template-columns:1fr;
+      }
+      .left-drawer .compact-grid .inline-row {
+        grid-template-columns:1fr;
+      }
+      .live-passes-grid {
+        grid-template-columns:1fr;
+      }
+      .results-sticky {
+        padding-bottom:6px;
+      }
+      .tabs {
+        display:flex;
+        overflow-x:auto;
+        gap:6px;
+        padding-bottom:4px;
+        scrollbar-width:thin;
+      }
+      .tabs button {
+        white-space:nowrap;
+        flex:0 0 auto;
+      }
+      .pill {
+        font-size:10px;
+        padding:3px 6px;
+      }
+      .results-layout {
+        grid-template-columns:1fr;
+      }
+      .period-pass-sidebar {
+        position:static;
+        top:auto;
+        order:-1;
+      }
+      .student-table {
+        min-width:0;
+        width:100%;
+      }
+      .student-table th:nth-child(5), .student-table td:nth-child(5),
+      .student-table th:nth-child(6), .student-table td:nth-child(6),
+      .student-table th:nth-child(7), .student-table td:nth-child(7) {
+        display:none;
+      }
+      .student-table th:nth-child(1), .student-table td:nth-child(1) {
+        width:72px;
+      }
+      .student-table th:nth-child(2), .student-table td:nth-child(2) {
+        width:auto;
+        max-width:none;
+      }
+      .student-table th:nth-child(3), .student-table td:nth-child(3) {
+        width:88px;
+      }
+      .student-table th:nth-child(4), .student-table td:nth-child(4) {
+        width:130px;
+        max-width:130px;
+      }
+      .student-table th:nth-child(8), .student-table td:nth-child(8) {
+        min-width:120px;
+      }
+      .student-table th:nth-child(9), .student-table td:nth-child(9) {
+        min-width:96px;
+      }
+      .student-table th, .student-table td {
+        font-size:11px;
+        padding:5px;
+      }
+      .pass-dot {
+        width:8px;
+        height:8px;
+      }
+      .modal {
+        width:100%;
+        max-height:92vh;
+        padding:12px;
+      }
+      .sidebar.open {
+        width:calc(100vw - 12px);
+      }
+      .log-wrap {
+        min-width:0;
+        padding:12px;
+      }
+      .log-table th, .log-table td {
+        font-size:10px;
+        padding:4px;
+      }
+      .seating-grid {
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="toast-container" id="toastContainer"></div>
+<div class="modal-overlay" id="studentModalOverlay">
+  <div class="modal">
+    <div class="topbar" style="position:static; background:white; padding-bottom:0; margin-bottom:12px;">
+      <h2 id="studentModalTitle" style="margin:0; font-size:20px;">Student Detail</h2>
+      <button class="toggle-btn" onclick="closeStudentDetail()">Close</button>
+    </div>
+    <div id="studentModalContent"></div>
+  </div>
+</div>
+<div class="layout">
+  <div class="main">
+    <div class="container">
+      <div class="topbar">
+        <h1 style="margin:0; font-size:24px;">Student Tracker</h1>
+        <button class="toggle-btn" onclick="toggleMasterLog()">Show/Hide Master Log</button>
+      </div>
+
+      <button id="leftDrawerHandle" class="drawer-handle" onclick="toggleTopPanels()">⚙️ Controls</button>
+
+      <div class="panel-toggle-row">
+        <button class="top-left-toggle" onclick="toggleTopPanels()">Hide Left Panel</button>
+      </div>
+
+      <aside id="topPanelsWrap" class="left-drawer open" aria-label="Controls panel">
+      <div class="card live-passes-card" id="livePassesCard" style="display:none;">
+        <h3 style="margin-top:0;">Students Currently Out</h3>
+        <div class="tiny">Active restroom passes stay visible here while you scroll.</div>
+        <div id="livePassesContainer"></div>
+      </div>
+
+      <div class="freeze-panel">
+      <div class="card controls">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h3 style="margin:0; font-size:16px;">Quick Controls</h3>
+          <button class="toggle-btn" onclick="toggleControls()">Hide</button>
+        </div>
+        <div class="inline-row" id="controlsContent">
+          <button id="sortFirstBtn" class="sort-btn" onclick="setSort('first')">First</button>
+          <button id="sortLastBtn" class="sort-btn" onclick="setSort('last')">Last</button>
+          <button id="viewTableBtn" class="view-toggle-btn full-span" onclick="setViewMode('table')">Table View</button>
+          <button id="viewSeatingBtn" class="view-toggle-btn full-span" onclick="setViewMode('seating')">Seating Chart</button>
+          <input id="searchInput" class="search-input" placeholder="Search name or ID" oninput="updateSearch()" />
+          <button onclick="clearSearch()">Clear Search</button>
+          <button onclick="toggleTouchMode()">Touch Mode</button>
+          <button onclick="toggleSoundAlerts()">Sound Alerts</button>
+          <input id="currentPeriodInput" placeholder="Current period" style="width:110px;" />
+          <button onclick="setCurrentPeriod()">Set Period</button>
+          <input id="restroomLimitInput" type="number" min="1" value="6" style="width:80px;" />
+          <button onclick="setRestroomLimit()">Set Limit</button>
+          <button onclick="enableNotifications()">Enable Alerts</button>
+          <button onclick="exportData()">Backup</button>
+          <button onclick="exportMasterLogCsv()">Export Master Log</button>
+          <input type="file" id="restoreFile" accept=".json" style="max-width:180px;" />
+          <button onclick="restoreData()">Restore</button>
+          <button onclick="wipeAllData()" class="danger">Wipe All</button>
+        </div>
+      </div>
+
+      </div>
+
+      <div class="compact-grid">
+        <div class="card">
+          <h2 style="margin:0 0 8px 0; font-size:18px;">Upload CSV</h2>
+          <div class="inline-row">
+            <input type="file" id="fileInput" accept=".csv" />
+            <span id="status" class="tiny"></span>
+          </div>
+          <div class="tiny">Headers: period, first name, last name, student id</div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin:0 0 8px 0; font-size:16px;">Add Student</h3>
+          <div class="inline-row">
+            <input id="newId" placeholder="ID" />
+            <input id="newFirst" placeholder="First" />
+            <input id="newLast" placeholder="Last" />
+            <input id="newPeriod" placeholder="Period" style="width:80px;" />
+            <button id="addBtn">Add</button>
+          </div>
+        </div>
+      </div>
+      </aside>
+
+      <div class="card results-sticky" id="results" style="display:none;">
+        <div class="tabs" id="tabs"></div>
+        <div class="summary" id="periodSummary"></div>
+      </div>
+
+      <div class="card" id="resultsTableCard" style="display:none;">
+        <div class="results-layout">
+          <div class="table-wrap">
+            <div id="tableContainer"></div>
+          </div>
+          <aside class="period-pass-sidebar">
+            <h3>Passes Used</h3>
+            <div class="tiny">Alphabetical list for the current period.</div>
+            <div id="passUsageContainer"></div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="sidebar" id="masterLogSidebar">
+    <div class="log-wrap">
+      <h3 style="margin-top:0;">Master Event Log</h3>
+      <div class="tiny" style="color:#d1d5db; margin-bottom:10px;">Shows restroom starts/returns, manual pass changes, phone, eating, games, and sleep events.</div>
+      <div id="masterLogContainer"></div>
+    </div>
+  </aside>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, onSnapshot, deleteDoc, doc, updateDoc, increment, arrayUnion, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBoVvSMWxE4Mr0LxuNI3NkhxEr-g54Y67k",
+    authDomain: "rrtracker-de70e.firebaseapp.com",
+    projectId: "rrtracker-de70e",
+    storageBucket: "rrtracker-de70e.firebasestorage.app",
+    messagingSenderId: "1057987490614",
+    appId: "1:1057987490614:web:7c37f2e0a9aa4e735a3997",
+    measurementId: "G-X31008YT0P"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const fileInput = document.getElementById("fileInput");
+  const statusEl = document.getElementById("status");
+  const tabsEl = document.getElementById("tabs");
+  const tableContainer = document.getElementById("tableContainer");
+  const resultsDiv = document.getElementById("results");
+  const resultsTableCard = document.getElementById("resultsTableCard");
+  const periodSummaryEl = document.getElementById("periodSummary");
+  const passUsageContainer = document.getElementById("passUsageContainer");
+  const addBtn = document.getElementById("addBtn");
+  const sidebar = document.getElementById("masterLogSidebar");
+  const modalOverlay = document.getElementById("studentModalOverlay");
+  const topbarEl = document.querySelector(".container > .topbar");
+  const panelToggleEl = document.querySelector(".panel-toggle-row");
+  const freezePanelEl = document.querySelector(".freeze-panel");
+
+  let grouped = {};
+  let allDocs = [];
+  let sortMode = "last";
+  let currentPeriod = null;
+  let activePeriod = null;
+  let restroomLimitMinutes = 6;
+  let passNotificationState = {};
+  let searchQuery = "";
+  let touchMode = localStorage.getItem("studentTrackerTouchMode") === "true";
+  let soundAlertsEnabled = localStorage.getItem("studentTrackerSoundAlerts") === "true";
+  let selectedStudentId = null;
+  let controlsVisible = true;
+  let topPanelsVisible = true;
+  let viewMode = "seating";
+  let movingSeatStudentId = null;
+
+  // 🔧 EDIT THIS to match your bell schedule by weekday.
+  // Day keys: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  // Format inside each day: { period: "#", start: "HH:MM", end: "HH:MM" }
+  const weeklyPeriodSchedule = {
+    1: [
+      { period: "2", start: "09:31", end: "10:25" },
+      { period: "3", start: "10:47", end: "11:48" },
+      { period: "4", start: "11:55", end: "12:49" },
+      { period: "6", start: "14:32", end: "15:26" }
+    ],
+    2: [
+      { period: "2", start: "09:31", end: "10:25" },
+      { period: "3", start: "10:47", end: "11:48" },
+      { period: "4", start: "11:55", end: "12:49" },
+      { period: "6", start: "14:32", end: "15:26" }
+    ],
+    3: [
+      { period: "3", start: "10:47", end: "12:49" }
+    ],
+    4: [
+      { period: "2", start: "08:30", end: "10:25" },
+      { period: "4", start: "10:47", end: "12:49" },
+      { period: "6", start: "13:31", end: "15:26" }
+    ],
+    5: [
+      { period: "2", start: "09:26", end: "10:15" },
+      { period: "3", start: "10:37", end: "11:33" },
+      { period: "4", start: "11:40", end: "12:29" },
+      { period: "6", start: "14:07", end: "14:56" }
+    ]
+  };
+
+  function applySavedModes() {
+    document.body.classList.toggle("touch-mode", touchMode);
+  }
+
+  function timeStringToMinutes(timeStr) {
+    const [hours, minutes] = String(timeStr).split(":").map(Number);
+    return (hours * 60) + minutes;
+  }
+
+  function getDefaultPeriodFromTime(now = new Date()) {
+    const currentMinutes = (now.getHours() * 60) + now.getMinutes();
+    const daySchedule = weeklyPeriodSchedule[now.getDay()] || [];
+    const match = daySchedule.find(item => {
+      const startMinutes = timeStringToMinutes(item.start);
+      const endMinutes = timeStringToMinutes(item.end);
+      return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+    });
+    return match ? String(match.period) : null;
+  }
+
+  function applyDefaultPeriodFromTime() {
+    const detectedPeriod = getDefaultPeriodFromTime();
+    if (!detectedPeriod) return;
+    currentPeriod = detectedPeriod;
+    activePeriod = detectedPeriod;
+    const input = document.getElementById("currentPeriodInput");
+    if (input) input.value = detectedPeriod;
+  }
+
+  function updateStickyOffsets() {
+    const root = document.documentElement;
+    const topbarHeight = topbarEl ? topbarEl.offsetHeight : 0;
+    const panelToggleHeight = panelToggleEl ? panelToggleEl.offsetHeight : 0;
+    const freezePanelHeight = freezePanelEl ? freezePanelEl.offsetHeight : 0;
+    const resultsHeight = resultsDiv && resultsDiv.style.display !== "none" ? resultsDiv.offsetHeight : 0;
+    root.style.setProperty("--panel-toggle-top", `${topbarHeight}px`);
+    root.style.setProperty("--freeze-top", `${topbarHeight + panelToggleHeight}px`);
+    root.style.setProperty("--results-top", `${topbarHeight + panelToggleHeight}px`);
+    root.style.setProperty("--results-height", `${resultsHeight}px`);
+    root.style.setProperty("--sidebar-top", `${topbarHeight}px`);
+    root.style.setProperty("--left-drawer-top", `${topbarHeight + panelToggleHeight}px`);
+    const drawer = document.getElementById("topPanelsWrap");
+    const drawerWidth = drawer ? drawer.offsetWidth : 360;
+    const gap = topPanelsVisible ? drawerWidth + 18 : 0;
+    root.style.setProperty("--main-left-gap", `${gap}px`);
+  }
+
+  async function loadSettings() {
+    const settingsRef = doc(db, "appSettings", "shared");
+    const snap = await getDoc(settingsRef);
+    if (snap.exists()) {
+      const data = snap.data() || {};
+      restroomLimitMinutes = Number(data.restroomLimitMinutes || 6);
+      document.getElementById("restroomLimitInput").value = restroomLimitMinutes;
+    } else {
+      await setDoc(settingsRef, { restroomLimitMinutes: 6 });
+      restroomLimitMinutes = 6;
+      document.getElementById("restroomLimitInput").value = 6;
+    }
+  }
+
+  function studentDefaults(student) {
+    return {
+      studentId: student.studentId || "",
+      seatPosition: Number(student.seatPosition || 0) || null,
+      firstName: student.firstName || "",
+      lastName: student.lastName || "",
+      period: student.period || "",
+      restroomCount: Number(student.restroomCount || 0),
+      phoneCount: Number(student.phoneCount || 0),
+      eatingCount: Number(student.eatingCount || 0),
+      gamesCount: Number(student.gamesCount || 0),
+      sleepCount: Number(student.sleepCount || 0),
+      behaviorLog: Array.isArray(student.behaviorLog) ? student.behaviorLog : [],
+      restroomActive: Boolean(student.restroomActive),
+      restroomStartTime: student.restroomStartTime || null,
+      restroomHistory: Array.isArray(student.restroomHistory) ? student.restroomHistory : []
+    };
+  }
+
+  function formatDuration(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  function getElapsedMs(startTime) {
+    if (!startTime) return 0;
+    return Date.now() - new Date(startTime).getTime();
+  }
+
+  function getElapsedMinutes(startTime) {
+    if (!startTime) return 0;
+    return Math.floor(getElapsedMs(startTime) / 60000);
+  }
+
+  function isRestroomPassOverdue(student) {
+    return Boolean(student.restroomActive && student.restroomStartTime && getElapsedMs(student.restroomStartTime) > restroomLimitMinutes * 60000);
+  }
+
+  function isRestroomPassNearLimit(student) {
+    if (!student.restroomActive || !student.restroomStartTime) return false;
+    const elapsedMs = getElapsedMs(student.restroomStartTime);
+    return elapsedMs >= Math.max(0, (restroomLimitMinutes - 1) * 60000) && elapsedMs < restroomLimitMinutes * 60000;
+  }
+
+  function getDisplayedRestroomUsedCount(student) {
+    return Number(student.restroomCount || 0) + (isRestroomPassOverdue(student) ? 1 : 0);
+  }
+
+  function getRestroomStatusText(student) {
+    if (!student.restroomActive || !student.restroomStartTime) return "In class";
+    const elapsed = getElapsedMinutes(student.restroomStartTime);
+    return isRestroomPassOverdue(student) ? `Out ${elapsed} min - counts as used` : `Out ${elapsed} min`;
+  }
+
+  function renderPassDots(count) {
+    const total = Math.max(0, Number(count || 0));
+    const shown = Math.min(total, 8);
+    let html = '<div class="pass-dots" aria-label="Restroom passes used">';
+    for (let i = 0; i < shown; i += 1) {
+      html += '<span class="pass-dot"></span>';
+    }
+    if (total === 0) {
+      html += '<span class="tiny">No passes used</span>';
+    } else if (total > shown) {
+      html += `<span class="pass-extra">+${total - shown}</span>`;
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function updateSortButtons() {
+    const firstBtn = document.getElementById("sortFirstBtn");
+    const lastBtn = document.getElementById("sortLastBtn");
+    if (firstBtn) firstBtn.classList.toggle("active-sort", sortMode === "first");
+    if (lastBtn) lastBtn.classList.toggle("active-sort", sortMode === "last");
+  }
+
+  function updateViewButtons() {
+    const tableBtn = document.getElementById("viewTableBtn");
+    const seatingBtn = document.getElementById("viewSeatingBtn");
+    if (tableBtn) tableBtn.classList.toggle("active-view", viewMode === "table");
+    if (seatingBtn) seatingBtn.classList.toggle("active-view", viewMode === "seating");
+  }
+
+  function getStudentFlags(student) {
+    const flags = [];
+    if (getDisplayedRestroomUsedCount(student) >= 3) flags.push("Restroom");
+    if ((student.phoneCount || 0) >= 2) flags.push("Phone");
+    return flags;
+  }
+
+  function studentMatchesSearch(student) {
+    if (!searchQuery) return true;
+    const haystack = `${student.firstName} ${student.lastName} ${student.studentId}`.toLowerCase();
+    return haystack.includes(searchQuery.toLowerCase());
+  }
+
+  function findDuplicateStudent(studentId, period, ignoreId = null) {
+    return allDocs.find(s => String(s.studentId).trim() === String(studentId).trim() && String(s.period).trim() === String(period).trim() && s._id !== ignoreId);
+  }
+
+  function playAlertTone(type = "warn") {
+    if (!soundAlertsEnabled) return;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = type === "overdue" ? 880 : 660;
+      gain.gain.value = 0.04;
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + (type === "overdue" ? 0.35 : 0.22));
+      oscillator.onended = () => ctx.close();
+    } catch (error) {
+      console.error("Sound alert failed", error);
+    }
+  }
+
+  function renderLivePasses() {
+    const card = document.getElementById("livePassesCard");
+    const container = document.getElementById("livePassesContainer");
+    const liveStudents = allDocs
+      .filter(student => student.restroomActive && student.restroomStartTime)
+      .sort((a, b) => new Date(a.restroomStartTime).getTime() - new Date(b.restroomStartTime).getTime());
+
+    if (!liveStudents.length) {
+      card.style.display = "none";
+      container.innerHTML = "";
+      return;
+    }
+
+    card.style.display = "block";
+    let html = '<div class="live-passes-grid">';
+
+    liveStudents.forEach(student => {
+      const elapsedMs = getElapsedMs(student.restroomStartTime);
+      const overdue = isRestroomPassOverdue(student);
+      html += `<div class="live-pass-item ${overdue ? "overdue" : ""}">
+        <div class="live-pass-name">${student.lastName}, ${student.firstName}</div>
+        <div class="live-pass-meta">Period ${student.period} · ID ${student.studentId}</div>
+        <div class="live-pass-status ${overdue ? "timer-overdue" : isRestroomPassNearLimit(student) ? "timer-warning" : "timer-live"}">Out: ${formatDuration(elapsedMs)}</div>
+        <div class="live-pass-meta">${overdue ? "Over limit - counts as used" : `Limit: ${restroomLimitMinutes} min`}</div>
+        <div class="live-pass-actions">
+          <button class="restroom" onclick="endRestroomPass('${student._id}')">⏹️</button>
+          <button class="report" onclick="openStudentDetail('${student._id}')">👁️</button>
+        </div>
+      </div>`;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  function flattenMasterLog() {
+    const rows = [];
+    allDocs.forEach(student => {
+      const name = `${student.lastName}, ${student.firstName}`.replace(/^,\s*/, "").trim();
+      (student.behaviorLog || []).forEach(entry => {
+        rows.push({
+          studentId: student.studentId,
+          name,
+          period: student.period,
+          type: entry.type || "",
+          time: entry.time || "",
+          minutes: entry.minutes ?? "",
+          value: entry.value ?? ""
+        });
+      });
+    });
+    rows.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+    return rows;
+  }
+
+  function renderMasterLog() {
+    const rows = flattenMasterLog();
+    const container = document.getElementById("masterLogContainer");
+    if (!rows.length) {
+      container.innerHTML = "<div class='tiny' style='color:#d1d5db;'>No events recorded yet.</div>";
+      return;
+    }
+    let html = `<table class="log-table"><tr><th>Time</th><th>Period</th><th>Student</th><th>ID</th><th>Event</th><th>Minutes</th><th>Value</th></tr>`;
+    rows.forEach(row => {
+      html += `<tr>
+        <td>${row.time ? new Date(row.time).toLocaleString() : ""}</td>
+        <td>${row.period || ""}</td>
+        <td>${row.name || ""}</td>
+        <td>${row.studentId || ""}</td>
+        <td>${row.type || ""}</td>
+        <td>${row.minutes !== "" ? row.minutes : ""}</td>
+        <td>${row.value !== "" ? row.value : ""}</td>
+      </tr>`;
+    });
+    html += "</table>";
+    container.innerHTML = html;
+  }
+
+  function showToast(message, type = "warn") {
+    const container = document.getElementById("toastContainer");
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.remove();
+    }, 5000);
+  }
+
+  function sendPassNotification(student, stage) {
+    const name = `${student.firstName} ${student.lastName}`.trim() || student.studentId;
+    const message = stage === "warning"
+      ? `${name} is 1 minute away from the restroom limit.`
+      : `${name} has gone over the restroom time limit.`;
+
+    showToast(message, stage === "warning" ? "warn" : "overdue");
+    playAlertTone(stage === "warning" ? "warn" : "overdue");
+
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("Student Tracker", { body: message });
+    }
+  }
+
+  function checkPassNotifications() {
+    const nextState = {};
+
+    allDocs.forEach(student => {
+      if (!student.restroomActive || !student.restroomStartTime) return;
+
+      const elapsedMs = getElapsedMs(student.restroomStartTime);
+      const warningMs = Math.max(0, (restroomLimitMinutes - 1) * 60000);
+      const overdueMs = restroomLimitMinutes * 60000;
+      const existing = passNotificationState[student._id] || {};
+      const current = { ...existing };
+
+      if (elapsedMs >= warningMs && !existing.warningSent && elapsedMs < overdueMs) {
+        sendPassNotification(student, "warning");
+        current.warningSent = true;
+      }
+
+      if (elapsedMs >= overdueMs && !existing.overdueSent) {
+        sendPassNotification(student, "overdue");
+        current.warningSent = true;
+        current.overdueSent = true;
+      }
+
+      nextState[student._id] = current;
+    });
+
+    passNotificationState = nextState;
+  }
+
+  function exportCsv(filename, headers, rows) {
+    const escapeCsv = (value) => {
+      const str = String(value ?? "");
+      return '"' + str.replace(/"/g, '""') + '"';
+    };
+    const csvLines = [headers.join(",")];
+    rows.forEach(row => {
+      csvLines.push(row.map(escapeCsv).join(","));
+    });
+    const csvText = csvLines.join("\\n");
+    const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function safeFilename(text) {
+    return String(text || "student").replace(/[^a-z0-9_-]+/gi, "_");
+  }
+
+  window.enableNotifications = async () => {
+    if (!("Notification" in window)) {
+      alert("This browser does not support notifications.");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      showToast("Notifications enabled.", "success");
+    } else {
+      alert("Notifications were not enabled. You can still use the in-page alerts.");
+    }
+  };
+
+  window.toggleTouchMode = () => {
+    touchMode = !touchMode;
+    localStorage.setItem("studentTrackerTouchMode", String(touchMode));
+    applySavedModes();
+  updateSortButtons();
+  };
+
+  window.toggleSoundAlerts = () => {
+    soundAlertsEnabled = !soundAlertsEnabled;
+    localStorage.setItem("studentTrackerSoundAlerts", String(soundAlertsEnabled));
+    showToast(soundAlertsEnabled ? "Sound alerts enabled." : "Sound alerts disabled.", "success");
+  };
+
+  window.toggleTopPanels = () => {
+    topPanelsVisible = !topPanelsVisible;
+    const wrap = document.getElementById("topPanelsWrap");
+    const btn = document.querySelector(".top-left-toggle");
+    const handle = document.getElementById("leftDrawerHandle");
+    wrap.classList.toggle("open", topPanelsVisible);
+    btn.textContent = topPanelsVisible ? "Hide Left Panel" : "Show Left Panel";
+    handle.classList.toggle("visible", !topPanelsVisible);
+    updateStickyOffsets();
+  };
+
+  window.toggleControls = () => {
+    controlsVisible = !controlsVisible;
+    const el = document.getElementById("controlsContent");
+    const btn = document.querySelector(".controls .toggle-btn");
+    if (controlsVisible) {
+      el.style.display = "flex";
+      btn.textContent = "Hide";
+    } else {
+      el.style.display = "none";
+      btn.textContent = "Show";
+    }
+    updateStickyOffsets();
+  };
+
+  window.toggleMasterLog = () => {
+    sidebar.classList.toggle("open");
+  };
+
+  window.updateSearch = () => {
+    searchQuery = document.getElementById("searchInput").value.trim();
+    if (activePeriod) renderActiveView(activePeriod);
+  };
+
+  window.clearSearch = () => {
+    searchQuery = "";
+    document.getElementById("searchInput").value = "";
+    if (activePeriod) renderActiveView(activePeriod);
+  };
+
+  window.exportData = () => {
+    const dataStr = JSON.stringify(allDocs, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "students-backup.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  window.exportMasterLogCsv = () => {
+    const rows = flattenMasterLog().map(row => [row.time, row.period, row.name, row.studentId, row.type, row.minutes, row.value]);
+    exportCsv("master-log.csv", ["time", "period", "student", "studentId", "event", "minutes", "value"], rows);
+  };
+
+  window.exportStudentReport = (id) => {
+    const student = allDocs.find(s => s._id === id);
+    if (!student) return;
+    const name = `${student.lastName}_${student.firstName}_${student.studentId}`;
+    const headers = ["section", "field1", "field2", "field3", "field4"];
+    const rows = [
+      ["summary", "studentId", student.studentId, "period", student.period],
+      ["summary", "name", `${student.firstName} ${student.lastName}`, "restroomUsed", student.restroomCount],
+      ["summary", "phoneCount", student.phoneCount, "eatingCount", student.eatingCount],
+      ["summary", "gamesCount", student.gamesCount, "sleepCount", student.sleepCount],
+      ["summary", "flags", getStudentFlags(student).join(" | "), "", ""]
+    ];
+    (student.restroomHistory || []).forEach(entry => {
+      rows.push(["restroomHistory", entry.startTime || "", entry.endTime || "", entry.minutes || "", entry.countedAsUsed ? "used" : "returned"]);
+    });
+    (student.behaviorLog || []).forEach(entry => {
+      rows.push(["behaviorLog", entry.time || "", entry.type || "", entry.minutes ?? "", entry.value ?? ""]);
+    });
+    exportCsv(`${safeFilename(name)}_report.csv`, headers, rows);
+  };
+
+  window.restoreData = async () => {
+    const restoreInput = document.getElementById("restoreFile");
+    const file = restoreInput.files[0];
+    if (!file) return alert("Select a backup file");
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!confirm("This will ADD students from backup. Continue?")) return;
+    let added = 0;
+    let skipped = 0;
+    for (const raw of data) {
+      const s = studentDefaults(raw);
+      if (findDuplicateStudent(s.studentId, s.period)) {
+        skipped += 1;
+        continue;
+      }
+      await addDoc(collection(db, "students"), {
+        studentId: s.studentId,
+        firstName: s.firstName,
+        lastName: s.lastName,
+        period: s.period,
+        restroomCount: s.restroomCount,
+        phoneCount: s.phoneCount,
+        eatingCount: s.eatingCount,
+        gamesCount: s.gamesCount,
+        sleepCount: s.sleepCount,
+        behaviorLog: s.behaviorLog,
+        restroomActive: s.restroomActive,
+        restroomStartTime: s.restroomStartTime,
+        restroomHistory: s.restroomHistory
+      });
+      added += 1;
+    }
+    alert(`Restore complete. Added: ${added}. Skipped duplicates: ${skipped}.`);
+  };
+
+  window.wipeAllData = async () => {
+    if (!confirm("Are you sure you want to DELETE ALL STUDENTS? This cannot be undone.")) return;
+    if (!confirm("Final warning: This will permanently erase all data.")) return;
+    const snapshot = await getDocs(collection(db, "students"));
+    for (const d of snapshot.docs) {
+      await deleteDoc(doc(db, "students", d.id));
+    }
+    alert("All data wiped");
+  };
+
+  function openStudentDetailContent(student) {
+    const flags = getStudentFlags(student);
+    const behaviorRows = [...(student.behaviorLog || [])].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+    const restroomRows = [...(student.restroomHistory || [])].sort((a, b) => new Date(b.endTime || b.startTime).getTime() - new Date(a.endTime || a.startTime).getTime());
+
+    document.getElementById("studentModalTitle").textContent = `${student.lastName}, ${student.firstName}`;
+    const content = document.getElementById("studentModalContent");
+    content.innerHTML = `
+      <div class="modal-grid">
+        <div class="modal-section">
+          <h3 style="margin-top:0;">Summary</h3>
+          <div class="pill">ID: ${student.studentId}</div>
+          <div class="pill">Period: ${student.period}</div>
+          <div class="pill">Restroom Used: ${student.restroomCount}</div>
+          <div class="pill">Phone: ${student.phoneCount}</div>
+          <div class="pill">Eating: ${student.eatingCount}</div>
+          <div class="pill">Games: ${student.gamesCount}</div>
+          <div class="pill">Sleep: ${student.sleepCount}</div>
+          <div class="pill">Flags: ${flags.length ? flags.join(", ") : "None"}</div>
+          <div class="modal-actions">
+            <button class="report" onclick="exportStudentReport('${student._id}')">Export Student Report</button>
+            <button class="neutral" onclick="closeStudentDetail()">Close</button>
+          </div>
+        </div>
+        <div class="modal-section">
+          <h3 style="margin-top:0;">Recent Behavior</h3>
+          ${behaviorRows.length ? `<table><tr><th>Time</th><th>Event</th><th>Minutes</th><th>Value</th></tr>${behaviorRows.map(entry => `<tr><td>${entry.time ? new Date(entry.time).toLocaleString() : ""}</td><td>${entry.type || ""}</td><td>${entry.minutes ?? ""}</td><td>${entry.value ?? ""}</td></tr>`).join("")}</table>` : `<div class="tiny">No behavior events yet.</div>`}
+        </div>
+        <div class="modal-section" style="grid-column:1 / -1;">
+          <h3 style="margin-top:0;">Restroom History</h3>
+          ${restroomRows.length ? `<table><tr><th>Start</th><th>End</th><th>Minutes</th><th>Status</th></tr>${restroomRows.map(entry => `<tr><td>${entry.startTime ? new Date(entry.startTime).toLocaleString() : ""}</td><td>${entry.endTime ? new Date(entry.endTime).toLocaleString() : ""}</td><td>${entry.minutes ?? ""}</td><td>${entry.countedAsUsed ? "Used" : "Returned"}</td></tr>`).join("")}</table>` : `<div class="tiny">No restroom history yet.</div>`}
+        </div>
+      </div>`;
+  }
+
+  window.openStudentDetail = (id) => {
+    const student = allDocs.find(s => s._id === id);
+    if (!student) return;
+    selectedStudentId = id;
+    openStudentDetailContent(student);
+    modalOverlay.classList.add("open");
+  };
+
+  window.closeStudentDetail = () => {
+    modalOverlay.classList.remove("open");
+    selectedStudentId = null;
+  };
+
+  modalOverlay.addEventListener("click", (event) => {
+    if (event.target === modalOverlay) {
+      closeStudentDetail();
+    }
+  });
+
+  async function loadFromFirebase() {
+    const snapshot = await getDocs(collection(db, "students"));
+    grouped = {};
+    allDocs = [];
+    snapshot.forEach(d => {
+      const s = studentDefaults(d.data());
+      s._id = d.id;
+      allDocs.push(s);
+      if (!grouped[s.period]) grouped[s.period] = [];
+      grouped[s.period].push(s);
+    });
+    renderTabs();
+    renderLivePasses();
+    checkPassNotifications();
+    renderMasterLog();
+    if (selectedStudentId) {
+      const selected = allDocs.find(s => s._id === selectedStudentId);
+      if (selected) openStudentDetailContent(selected);
+    }
+    const periods = Object.keys(grouped).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+    const firstPeriod = activePeriod && grouped[activePeriod] ? activePeriod : periods[0];
+    if (firstPeriod) {
+      resultsDiv.style.display = "block";
+      resultsTableCard.style.display = "block";
+      updateStickyOffsets();
+      renderActiveView(firstPeriod);
+    } else {
+      resultsDiv.style.display = "none";
+      resultsTableCard.style.display = "none";
+      updateStickyOffsets();
+      periodSummaryEl.innerHTML = "";
+      tableContainer.innerHTML = "";
+    }
+  }
+
+  onSnapshot(collection(db, "students"), loadFromFirebase);
+  onSnapshot(doc(db, "appSettings", "shared"), snap => {
+    if (!snap.exists()) return;
+    const data = snap.data() || {};
+    restroomLimitMinutes = Number(data.restroomLimitMinutes || 6);
+    document.getElementById("restroomLimitInput").value = restroomLimitMinutes;
+    if (activePeriod) renderActiveView(activePeriod);
+  });
+
+  function renderTabs() {
+    tabsEl.innerHTML = "";
+    Object.keys(grouped).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).forEach(period => {
+      const btn = document.createElement("button");
+      btn.textContent = "Period " + period;
+      if (String(period) === String(currentPeriod)) btn.classList.add("current");
+      if (String(period) === String(activePeriod)) btn.classList.add("active");
+      btn.onclick = () => renderActiveView(period);
+      tabsEl.appendChild(btn);
+    });
+  }
+
+  function getSortedStudentsForPeriod(period) {
+    let students = [...(grouped[period] || [])].filter(studentMatchesSearch);
+    if (sortMode === "first") students.sort((a, b) => (a.firstName || "").localeCompare(b.firstName || ""));
+    if (sortMode === "last") students.sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
+    return students;
+  }
+
+  function getSeatLayout(period) {
+    const students = getSortedStudentsForPeriod(period);
+    const seats = Array.from({ length: 24 }, (_, index) => ({ seatNumber: index + 1, student: null }));
+    const placedIds = new Set();
+
+    students.forEach(student => {
+      const seatNumber = Number(student.seatPosition || 0);
+      if (seatNumber >= 1 && seatNumber <= 24 && !seats[seatNumber - 1].student) {
+        seats[seatNumber - 1].student = student;
+        placedIds.add(student._id);
+      }
+    });
+
+    const unplaced = students.filter(student => !placedIds.has(student._id));
+    seats.forEach(seat => {
+      if (!seat.student && unplaced.length) {
+        seat.student = unplaced.shift();
+      }
+    });
+
+    return seats;
+  }
+
+  async function setStudentSeat(studentId, seatNumber) {
+    await updateDoc(doc(db, "students", studentId), {
+      seatPosition: seatNumber
+    });
+  }
+
+  async function moveStudentToSeat(targetSeatNumber) {
+    if (!activePeriod || !movingSeatStudentId) return;
+    const seats = getSeatLayout(activePeriod);
+    const movingSeat = seats.find(seat => seat.student && seat.student._id === movingSeatStudentId);
+    const targetSeat = seats.find(seat => seat.seatNumber === targetSeatNumber);
+    if (!movingSeat || !targetSeat) return;
+
+    const updates = [];
+    updates.push(setStudentSeat(movingSeatStudentId, targetSeatNumber));
+    if (targetSeat.student && targetSeat.student._id !== movingSeatStudentId) {
+      updates.push(setStudentSeat(targetSeat.student._id, movingSeat.seatNumber));
+    }
+    await Promise.all(updates);
+    movingSeatStudentId = null;
+  }
+
+  window.toggleSeatMove = (studentId) => {
+    movingSeatStudentId = movingSeatStudentId === studentId ? null : studentId;
+    if (activePeriod && viewMode === "seating") renderSeatingChart(activePeriod);
+  };
+
+  window.handleSeatClick = async (seatNumber) => {
+    if (!movingSeatStudentId) return;
+    await moveStudentToSeat(seatNumber);
+  };
+
+  function getSeatCardClass(student) {
+    if (!student) return "seat-card empty";
+    if (isRestroomPassOverdue(student)) return "seat-card overdue";
+    if (student.restroomActive) return "seat-card active-pass";
+    if (isRestroomPassNearLimit(student)) return "seat-card near-limit";
+    if (getStudentFlags(student).length) return "seat-card flagged";
+    return "seat-card";
+  }
+
+  function renderSeatingChart(period) {
+    activePeriod = String(period);
+    const students = getSortedStudentsForPeriod(period);
+    renderTabs();
+    renderSummary(period, students);
+    const seats = getSeatLayout(period);
+    let html = '<div class="seating-wrap"><div class="seating-grid">';
+    seats.forEach((seat) => {
+      const student = seat.student;
+      if (!student) {
+        html += `<div class="seat-card empty" onclick="handleSeatClick(${seat.seatNumber})"><div class="seat-number">Seat ${seat.seatNumber}</div><div class="seat-meta">Empty</div>${movingSeatStudentId ? `<div class="seat-helper">Tap to move here</div>` : ``}</div>`;
+        return;
+      }
+      const overdue = isRestroomPassOverdue(student);
+      const nearLimit = isRestroomPassNearLimit(student);
+      const elapsedText = student.restroomActive && student.restroomStartTime ? formatDuration(getElapsedMs(student.restroomStartTime)) : "";
+      const isMoving = movingSeatStudentId === student._id;
+      html += `<div class="${getSeatCardClass(student)} ${isMoving ? "selected-move" : ""}" onclick="handleSeatClick(${seat.seatNumber})">
+        <div class="seat-number">Seat ${seat.seatNumber}</div>
+        <div class="seat-name">${student.lastName}, ${student.firstName}</div>
+        <div class="seat-meta">ID ${student.studentId}</div>
+        <div class="seat-meta">${student.restroomActive ? `Out: ${elapsedText}` : `Passes: ${getDisplayedRestroomUsedCount(student)}`}</div>
+        <div class="seat-meta">${student.restroomActive ? (overdue ? 'Overdue' : nearLimit ? 'Near limit' : 'Active pass') : `Phone ${student.phoneCount || 0} · Sleep ${student.sleepCount || 0}`}</div>
+        <div class="seat-actions">
+          ${student.restroomActive ? `<button class="restroom" onclick="event.stopPropagation(); endRestroomPass('${student._id}')">⏹️</button>` : `<button class="restroom" onclick="event.stopPropagation(); startRestroomPass('${student._id}')">🚻</button>`}
+          <button class="btn-minus" onclick="event.stopPropagation(); adjustRestroomCount('${student._id}', -1)">➖</button>
+          <button class="btn-plus" onclick="event.stopPropagation(); adjustRestroomCount('${student._id}', 1)">➕</button>
+          <button class="phone" onclick="event.stopPropagation(); recordEvent('${student._id}', 'phone')">📱+</button>
+          <button class="sleep" onclick="event.stopPropagation(); recordEvent('${student._id}', 'sleep')">😴</button>
+          <button class="report" onclick="event.stopPropagation(); openStudentDetail('${student._id}')">👁️</button>
+          <button class="neutral" onclick="event.stopPropagation(); toggleSeatMove('${student._id}')">${isMoving ? 'Cancel' : 'Move'}</button>
+        </div>
+        ${isMoving ? `<div class="seat-helper">Tap another seat to move or swap.</div>` : ``}
+      </div>`;
+    });
+    html += '</div></div>';
+    tableContainer.innerHTML = html;
+  }
+
+  function renderActiveView(period) {
+    renderPassUsageList(period);
+    if (viewMode === "seating") {
+      renderSeatingChart(period);
+    } else {
+      renderTable(period);
+    }
+  }
+
+  function renderPassUsageList(period) {
+    if (!passUsageContainer) return;
+    const studentsWithPasses = [...(grouped[period] || [])]
+      .map(student => ({
+        ...student,
+        displayedPassCount: getDisplayedRestroomUsedCount(student)
+      }))
+      .filter(student => student.displayedPassCount > 0)
+      .sort((a, b) => {
+        const lastCompare = String(a.lastName || "").localeCompare(String(b.lastName || ""), undefined, { sensitivity: "base" });
+        if (lastCompare !== 0) return lastCompare;
+        return String(a.firstName || "").localeCompare(String(b.firstName || ""), undefined, { sensitivity: "base" });
+      });
+
+    if (!studentsWithPasses.length) {
+      passUsageContainer.innerHTML = '<div class="tiny" style="margin-top:10px;">No students in this period have used a restroom pass yet.</div>';
+      return;
+    }
+
+    passUsageContainer.innerHTML = `<div class="period-pass-list">${studentsWithPasses.map(student => `
+      <div class="period-pass-item">
+        <div>
+          <div class="period-pass-name">${student.lastName}, ${student.firstName}</div>
+          <div class="period-pass-meta">ID ${student.studentId}${student.restroomActive ? ' · currently out' : ''}</div>
+        </div>
+        <div class="period-pass-count">${student.displayedPassCount}</div>
+      </div>
+    `).join("")}</div>`;
+  }
+
+  function renderSummary(period, students) {
+    const restroom = students.reduce((sum, s) => sum + getDisplayedRestroomUsedCount(s), 0);
+    const restroomOut = students.filter(s => s.restroomActive).length;
+    const phone = students.reduce((sum, s) => sum + (s.phoneCount || 0), 0);
+    const eating = students.reduce((sum, s) => sum + (s.eatingCount || 0), 0);
+    const games = students.reduce((sum, s) => sum + (s.gamesCount || 0), 0);
+    const sleep = students.reduce((sum, s) => sum + (s.sleepCount || 0), 0);
+    periodSummaryEl.innerHTML = `
+      <span class="pill"><strong>Period ${period}</strong></span>
+      <span class="pill">Students: ${students.length}</span>
+      <span class="pill">Used Passes: ${restroom}</span>
+      <span class="pill">Out Now: ${restroomOut}</span>
+      <span class="pill">Limit: ${restroomLimitMinutes} min</span>
+      <span class="pill">Phone: ${phone}</span>
+      <span class="pill">Eating: ${eating}</span>
+      <span class="pill">Games: ${games}</span>
+      <span class="pill">Sleep: ${sleep}</span>`;
+    updateStickyOffsets();
+  }
+
+  function renderTable(period) {
+    activePeriod = String(period);
+    let students = getSortedStudentsForPeriod(period);
+    renderTabs();
+    renderSummary(period, students);
+
+    let html = `<table class="student-table"><tr>
+      <th class="sticky-col-left-1">ID</th>
+      <th class="sticky-col-left-2">Name</th>
+      <th>Pass Adjust</th>
+      <th>Restroom Status</th>
+      <th>Phone</th>
+      <th>Eating</th>
+      <th>Games</th>
+      <th>Track</th>
+      <th class="sticky-col-right">Actions</th>
+    </tr>`;
+    students.forEach(s => {
+      const lastEvent = s.behaviorLog && s.behaviorLog.length ? s.behaviorLog[s.behaviorLog.length - 1] : null;
+      const lastEventText = lastEvent ? `${lastEvent.type} (${new Date(lastEvent.time).toLocaleString()})` : "No events";
+      const elapsedMs = s.restroomActive && s.restroomStartTime ? getElapsedMs(s.restroomStartTime) : 0;
+      const elapsedText = s.restroomActive ? formatDuration(elapsedMs) : "";
+      const overdueLive = isRestroomPassOverdue(s);
+      const nearLimit = isRestroomPassNearLimit(s);
+      const flags = getStudentFlags(s);
+      const passCount = getDisplayedRestroomUsedCount(s);
+      let rowClass = overdueLive ? "row-overdue" : s.restroomActive ? "row-active-pass" : nearLimit ? "row-warning" : flags.length ? "row-flagged" : "";
+      if (!overdueLive && !nearLimit) {
+        if (passCount >= 5) rowClass = "row-pass-5";
+        else if (passCount === 4) rowClass = "row-pass-4";
+        else if (passCount === 3) rowClass = "row-pass-3";
+        else if (passCount === 2) rowClass = "row-pass-2";
+        else if (passCount === 1) rowClass = "row-pass-1";
+      }
+      html += `<tr class="${rowClass}">
+        <td class="sticky-col-left-1">${s.studentId}</td>
+        <td class="name-cell sticky-col-left-2 clip-cell">
+          <button class="name-button" onclick="openStudentDetail('${s._id}')">
+            <strong>${s.lastName}, ${s.firstName}${flags.map(flag => `<span class='flag-badge'>${flag}</span>`).join("")}</strong>
+            <span class="tiny">${lastEventText}</span>
+            ${renderPassDots(getDisplayedRestroomUsedCount(s))}
+          </button>
+        </td>
+        <td class="tracking">
+          <button class="btn-minus" onclick="adjustRestroomCount('${s._id}', -1)">➖</button>
+          <button class="btn-plus" onclick="adjustRestroomCount('${s._id}', 1)">➕</button>
+        </td>
+        <td class="clip-cell status-cell">${getRestroomStatusText(s)}${s.restroomActive ? `<br><span class="${overdueLive ? "timer-overdue" : nearLimit ? "timer-warning" : "timer-live"}">Live: ${elapsedText}</span>` : ""}</td>
+        <td>${s.phoneCount || 0}</td>
+        <td>${s.eatingCount || 0}</td>
+        <td>${s.gamesCount || 0}</td>
+        <td class="tracking clip-cell">
+          ${s.restroomActive ? `<button class="restroom" onclick="endRestroomPass('${s._id}')">⏹️</button>` : `<button class="restroom" onclick="startRestroomPass('${s._id}')">🚻</button>`}
+          <button class="phone" onclick="recordEvent('${s._id}', 'phone')">📱+</button>
+          <button class="eating" onclick="recordEvent('${s._id}', 'eating')">🍔+</button>
+          <button class="games" onclick="recordEvent('${s._id}', 'games')">🎮+</button>
+          <button class="sleep" onclick="recordEvent('${s._id}', 'sleep')">😴</button>
+        </td>
+        <td class="actions sticky-col-right clip-cell">
+          <button class="report" onclick="openStudentDetail('${s._id}')">👁️</button>
+          <button class="report" onclick="exportStudentReport('${s._id}')">📄</button>
+          <button class="neutral" onclick="editStudent('${s._id}')">✏️</button>
+          <button class="danger" onclick="deleteStudent('${s._id}')">🗑️</button>
+        </td>
+      </tr>`;
+    });
+    html += "</table>";
+    tableContainer.innerHTML = html;
+  }
+
+  window.setSort = mode => {
+    sortMode = mode;
+    updateSortButtons();
+    if (activePeriod) renderActiveView(activePeriod);
+  };
+
+  window.setViewMode = (mode) => {
+    viewMode = mode;
+    updateViewButtons();
+    if (activePeriod) renderActiveView(activePeriod);
+  };
+
+  window.setCurrentPeriod = () => {
+    currentPeriod = document.getElementById("currentPeriodInput").value;
+    renderTabs();
+  };
+
+  window.deleteStudent = async id => {
+    await deleteDoc(doc(db, "students", id));
+  };
+
+  window.editStudent = async id => {
+    const student = allDocs.find(s => s._id === id);
+    const firstName = prompt("First Name:", student.firstName);
+    if (firstName === null) return;
+    const lastName = prompt("Last Name:", student.lastName);
+    if (lastName === null) return;
+    const period = prompt("Period:", student.period);
+    if (period === null) return;
+    const duplicate = findDuplicateStudent(student.studentId, period, id);
+    if (duplicate) {
+      alert("Another student with that ID already exists in that period.");
+      return;
+    }
+    await updateDoc(doc(db, "students", id), { firstName, lastName, period });
+  };
+
+  window.setRestroomLimit = async () => {
+    const value = Number(document.getElementById("restroomLimitInput").value);
+    if (!value || value < 1) return alert("Enter a valid minute limit");
+    await setDoc(doc(db, "appSettings", "shared"), { restroomLimitMinutes: value }, { merge: true });
+  };
+
+  window.startRestroomPass = async id => {
+    await updateDoc(doc(db, "students", id), {
+      restroomActive: true,
+      restroomStartTime: new Date().toISOString(),
+      behaviorLog: arrayUnion({ type: "restroom_start", time: new Date().toISOString() })
+    });
+  };
+
+  window.endRestroomPass = async id => {
+    const student = allDocs.find(s => s._id === id);
+    if (!student || !student.restroomActive || !student.restroomStartTime) return;
+    const endTime = new Date().toISOString();
+    const elapsedMs = getElapsedMs(student.restroomStartTime);
+    const elapsed = getElapsedMinutes(student.restroomStartTime);
+    const passUsed = elapsedMs > restroomLimitMinutes * 60000;
+    const updateData = {
+      restroomActive: false,
+      restroomStartTime: null,
+      restroomHistory: arrayUnion({
+        startTime: student.restroomStartTime,
+        endTime,
+        minutes: elapsed,
+        countedAsUsed: passUsed
+      }),
+      behaviorLog: arrayUnion({
+        type: passUsed ? "restroom_used" : "restroom_returned",
+        time: endTime,
+        minutes: elapsed
+      })
+    };
+    if (passUsed) updateData.restroomCount = increment(1);
+    await updateDoc(doc(db, "students", id), updateData);
+  };
+
+  window.adjustRestroomCount = async (id, delta) => {
+    const student = allDocs.find(s => s._id === id);
+    if (!student) return;
+    const current = Number(student.restroomCount || 0);
+    const next = Math.max(0, current + delta);
+    await updateDoc(doc(db, "students", id), {
+      restroomCount: next,
+      behaviorLog: arrayUnion({
+        type: delta > 0 ? "restroom_manual_add" : "restroom_manual_subtract",
+        time: new Date().toISOString(),
+        value: next
+      })
+    });
+  };
+
+  window.recordEvent = async (id, type) => {
+    const fieldMap = { phone: "phoneCount", eating: "eatingCount", games: "gamesCount", sleep: "sleepCount" };
+    const field = fieldMap[type];
+    if (!field) return;
+    await updateDoc(doc(db, "students", id), {
+      [field]: increment(1),
+      behaviorLog: arrayUnion({ type, time: new Date().toISOString() })
+    });
+  };
+
+  addBtn.onclick = async () => {
+    const studentId = document.getElementById("newId").value.trim();
+    const firstName = document.getElementById("newFirst").value.trim();
+    const lastName = document.getElementById("newLast").value.trim();
+    const period = document.getElementById("newPeriod").value.trim();
+    if (!studentId || !period) return alert("Missing required fields");
+    if (findDuplicateStudent(studentId, period)) {
+      alert("That student ID already exists in this period.");
+      return;
+    }
+    await addDoc(collection(db, "students"), {
+      studentId, firstName, lastName, period,
+      restroomCount: 0, phoneCount: 0, eatingCount: 0, gamesCount: 0, sleepCount: 0,
+      behaviorLog: [], restroomActive: false, restroomStartTime: null, restroomHistory: []
+    });
+    document.getElementById("newId").value = "";
+    document.getElementById("newFirst").value = "";
+    document.getElementById("newLast").value = "";
+    document.getElementById("newPeriod").value = "";
+  };
+
+  applySavedModes();
+  updateSortButtons();
+  updateViewButtons();
+  updateStickyOffsets();
+  window.addEventListener("resize", updateStickyOffsets);
+  await loadSettings();
+  applyDefaultPeriodFromTime();
+  loadFromFirebase();
+
+  setInterval(() => {
+    checkPassNotifications();
+    renderLivePasses();
+    if (activePeriod) renderActiveView(activePeriod);
+  }, 1000);
+
+  fileInput.addEventListener("change", e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    statusEl.textContent = "Parsing CSV...";
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async results => {
+        try {
+          statusEl.textContent = "Uploading...";
+          let added = 0;
+          let skipped = 0;
+          for (const student of results.data) {
+            const normalized = {};
+            Object.keys(student).forEach(k => {
+              normalized[k.toLowerCase().trim()] = student[k];
+            });
+            const studentId = (normalized["student id"] || normalized["studentid"] || "").trim();
+            const period = (normalized["period"] || "").trim();
+            const firstName = (normalized["first name"] || "").trim();
+            const lastName = (normalized["last name"] || "").trim();
+            if (!studentId || !period) continue;
+            if (findDuplicateStudent(studentId, period)) {
+              skipped += 1;
+              continue;
+            }
+            await addDoc(collection(db, "students"), {
+              studentId, firstName, lastName, period,
+              restroomCount: 0, phoneCount: 0, eatingCount: 0, gamesCount: 0, sleepCount: 0,
+              behaviorLog: [], restroomActive: false, restroomStartTime: null, restroomHistory: []
+            });
+            added += 1;
+          }
+          statusEl.textContent = `Upload complete. Added: ${added}. Skipped duplicates: ${skipped}.`;
+          fileInput.value = "";
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = "Error uploading";
+        }
+      }
+    });
+  });
+</script>
+</body>
+</html>
