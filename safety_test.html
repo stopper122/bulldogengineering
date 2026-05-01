@@ -1,583 +1,132 @@
+
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>General Safety Test - Drag and Drop</title>
-  <style>
-    :root {
-      --bg: #f6f7fb;
-      --card: #ffffff;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --line: #d1d5db;
-      --accent: #1d4ed8;
-      --accent-soft: #dbeafe;
-      --good: #166534;
-      --bad: #b91c1c;
-      --goodbg: #dcfce7;
-      --badbg: #fee2e2;
-      --drop: #f8fafc;
-      --drop-border: #94a3b8;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-    .wrap {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 24px;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 24px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.06);
-    }
-    h1, h2, h3, p { margin-top: 0; }
-    .tiny {
-      color: var(--muted);
-      font-size: 14px;
-      line-height: 1.45;
-    }
-    .meta-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin: 18px 0 24px;
-    }
-    label {
-      display: block;
-      font-weight: 700;
-      margin-bottom: 6px;
-    }
-    input[type="text"], input[type="email"] {
-      width: 100%;
-      padding: 12px;
-      font-size: 16px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-    }
-    .bank-wrap {
-      position: sticky;
-      top: 12px;
-      z-index: 3;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 18px;
-      margin-bottom: 22px;
-    }
-    .bank-header {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .bank {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 14px;
-      min-height: 56px;
-      padding: 6px 0;
-    }
-    .tile {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 42px;
-      padding: 10px 14px;
-      border-radius: 999px;
-      border: 1px solid #93c5fd;
-      background: #eff6ff;
-      color: #1e3a8a;
-      font-weight: 700;
-      cursor: grab;
-      user-select: none;
-      touch-action: manipulation;
-    }
-    .tile:active { cursor: grabbing; }
-    .tile.selected {
-      outline: 3px solid #60a5fa;
-      outline-offset: 2px;
-      background: #dbeafe;
-    }
-    .quiz-grid {
-      display: grid;
-      gap: 16px;
-    }
-    .question {
-      border-top: 1px solid #e5e7eb;
-      padding-top: 16px;
-    }
-    .question:first-child {
-      border-top: none;
-      padding-top: 0;
-    }
-    .qhead {
-      display: flex;
-      gap: 12px;
-      align-items: flex-start;
-    }
-    .qnum {
-      min-width: 34px;
-      font-weight: 800;
-    }
-    .qbody {
-      flex: 1;
-      line-height: 1.55;
-    }
-    .dropzone {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 120px;
-      min-height: 44px;
-      padding: 6px 10px;
-      margin: 0 4px;
-      border: 2px dashed var(--drop-border);
-      border-radius: 12px;
-      background: var(--drop);
-      vertical-align: middle;
-    }
-    .dropzone.over {
-      background: var(--accent-soft);
-      border-color: var(--accent);
-    }
-    .dropzone .placeholder {
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .03em;
-    }
-    .dropzone .tile {
-      margin: 0;
-      width: 100%;
-      border-radius: 10px;
-    }
-    .question-controls {
-      margin-top: 8px;
-    }
-    .mini-btn, button {
-      border: none;
-      border-radius: 12px;
-      padding: 11px 16px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .mini-btn {
-      padding: 7px 10px;
-      font-size: 13px;
-      background: #e5e7eb;
-      color: #111827;
-    }
-    .actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-top: 24px;
-    }
-    .primary {
-      background: var(--accent);
-      color: #fff;
-    }
-    .secondary {
-      background: #e5e7eb;
-      color: #111827;
-    }
-    .results {
-      margin-top: 24px;
-    }
-    .hidden { display: none; }
-    .score {
-      font-size: 22px;
-      font-weight: 800;
-      margin-bottom: 10px;
-    }
-    .status {
-      padding: 14px 16px;
-      border-radius: 12px;
-      margin-bottom: 16px;
-      font-weight: 700;
-    }
-    .success { background: var(--goodbg); color: var(--good); }
-    .retry { background: #eff6ff; color: #1e3a8a; }
-    .result-list { display: grid; gap: 10px; }
-    .result-item {
-      padding: 12px 14px;
-      border-radius: 12px;
-      border: 1px solid var(--line);
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .correct { background: var(--goodbg); color: var(--good); border-color: #86efac; }
-    .incorrect { background: var(--badbg); color: var(--bad); border-color: #fca5a5; }
-    @media (max-width: 760px) {
-      .meta-grid { grid-template-columns: 1fr; }
-      .dropzone { min-width: 104px; }
-      .bank-wrap { position: static; }
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Safety Quiz</title>
+<style>
+body { font-family: Arial; margin: 20px; }
+.container { max-width: 900px; margin: auto; }
+.word-bank { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.word { padding: 6px 10px; background: #ddd; border-radius: 4px; cursor: grab; }
+.blank { display: inline-block; min-width: 120px; border-bottom: 2px solid #000; margin: 0 5px; }
+.correct { color: green; }
+.incorrect { color: red; }
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>General Safety Test</h1>
-      <p class="tiny">Enter your name and email, then drag each word or phrase from the bank into the correct blank. You can also click a tile, then click a blank to place it. The quiz grades instantly, shows only which questions are correct or incorrect, and allows retries until you reach 100%.</p>
+<div class="container">
+<h2>General Safety Quiz</h2>
 
-      <div class="meta-grid">
-        <div>
-          <label for="studentName">Student Name</label>
-          <input id="studentName" type="text" autocomplete="name" required />
-        </div>
-        <div>
-          <label for="studentEmail">Student Email</label>
-          <input id="studentEmail" type="email" autocomplete="email" required />
-        </div>
-      </div>
+<label>Name: <input type="text" id="name"></label><br><br>
+<label>Email: <input type="email" id="email"></label><br><br>
 
-      <div class="bank-wrap">
-        <div class="bank-header">
-          <div>
-            <h2 style="margin-bottom:4px;">Word Bank</h2>
-            <div class="tiny">Drag from here into the blanks. Some words appear more than once because they are used in more than one answer.</div>
-          </div>
-          <button type="button" class="mini-btn" id="clearAllTop">Clear All Answers</button>
-        </div>
-        <div id="wordBank" class="bank" aria-label="Word bank"></div>
-      </div>
+<div id="quiz"></div>
 
-      <div id="quizForm" class="quiz-grid"></div>
+<button onclick="grade()">Grade Test</button>
+<button onclick="buildQuiz()">Retry</button>
 
-      <div class="actions">
-        <button class="primary" type="button" id="gradeBtn">Grade Test</button>
-        <button class="secondary" type="button" id="retryBtn">Try Again</button>
-      </div>
+<p id="result"></p>
 
-      <div id="results" class="results hidden" aria-live="polite"></div>
-    </div>
-  </div>
+</div>
 
-  <script>
-    const quizData = [
-      { id: 1, parts: ["It is vital to your general safety that you ", " and ", " all safety rules."], answers: ["learn", "obey"] },
-      { id: 2, parts: ["Remember, a machine can be very unforgiving of ", " on the part of the operator."], answers: ["error"] },
-      { id: 3, parts: ["Only work approved by the ", " is to be done in the lab."], answers: ["teacher"] },
-      { id: 4, parts: ["All injuries, no matter how small, must be reported to the ", " immediately."], answers: ["teacher"] },
-      { id: 5, parts: ["Loose fitting ", " is a hazard."], answers: ["clothing"] },
-      { id: 6, parts: ["Roll up ", " above the elbow."], answers: ["sleeves"] },
-      { id: 7, parts: ["Remove all ", " (watches, rings, chains, etc.) before working in the shop."], answers: ["jewelry"] },
-      { id: 8, parts: ["Caution anyone you observe ", " a safety rule."], answers: ["breaking"] },
-      { id: 9, parts: ["The floor, aisles, and passageways should be kept ", " of parts, tools, and materials."], answers: ["clear"] },
-      { id: 10, parts: ["Prevent tools and materials from ", " over the edges of tables and benches."], answers: ["hanging"] },
-      { id: 11, parts: ["", " leave vise jaws tightened together when not in use."], answers: ["never"] },
-      { id: 12, parts: ["Vise handles are to be left in a ", " position."], answers: ["vertical"] },
-      { id: 13, parts: ["Tools, equipment, materials, and projects are to be stored in ", " locations."], answers: ["designated"] },
-      { id: 14, parts: ["Clean up all spills ", "."], answers: ["immediately"] },
-      { id: 15, parts: ["Exercise ", " in handling large and long pieces. Obtain help when needed, ", " attempt to lift large or heavy objects on your own."], answers: ["caution", "never"] },
-      { id: 16, parts: ["When using ", " air, direct the ", " away from yourself and other people."], answers: ["compressed", "nozzle"] },
-      { id: 17, parts: ["Long loose locks of ", " can easily be caught in revolving machinery and ripped out causing serious scalp lacerations."], answers: ["hair"] },
-      { id: 18, parts: ["Testing the sharpness of a tool should be done on scrap material and NOT your ", "."], answers: ["skin"] },
-      { id: 19, parts: ["Keep your ", " parts clear of the blade."], answers: ["body"] },
-      { id: 20, parts: ["Keep ", " tight and in good condition on all tools."], answers: ["handles"] },
-      { id: 21, parts: ["Use ", " only for their intended purpose. DO NOT PLAY!"], answers: ["tools"] },
-      { id: 22, parts: ["Do not ", " anything in class."], answers: ["throw"] },
-      { id: 23, parts: ["", " must be worn while in the lab."], answers: ["safety glasses"] },
-      { id: 24, parts: ["Arrange ", " so that they are not a tripping hazard."], answers: ["power cords"] },
-      { id: 25, parts: ["Be aware of your ", " at all times when in the lab."], answers: ["surroundings"] },
-      { id: 26, parts: ["While operating the drill press, material must be clamped securely or in a ", "."], answers: ["vise"] },
-      { id: 27, parts: ["", " ", " immediately when finished working."], answers: ["clean", "up"] }
-    ];
+<script>
+const questions = [
+["learn","obey"],
+["error"],
+["teacher"],
+["teacher"],
+["clothing"],
+["sleeves"],
+["jewelry"],
+["breaking"],
+["clear"],
+["hanging"],
+["Never"],
+["vertical"],
+["designated"],
+["immediately"],
+["caution","never"],
+["compressed","nozzle"],
+["hair"],
+["skin"],
+["body"],
+["handles"],
+["tools"],
+["throw"],
+["Safety glasses"],
+["power cords"],
+["surroundings"],
+["vise"],
+["Clean up"]
+];
 
-    const bankTerms = [
-      "learn", "obey", "error", "teacher", "teacher", "clothing", "sleeves", "jewelry",
-      "breaking", "clear", "hanging", "never", "vertical", "designated", "immediately",
-      "caution", "never", "compressed", "nozzle", "hair", "skin", "body", "handles",
-      "tools", "throw", "safety glasses", "power cords", "surroundings", "vise", "clean",
-      "up", "immediately"
-    ];
+let wordBank = [];
 
-    let selectedTileId = null;
-    let currentQuestions = [];
-    let currentBankTerms = [];
+function shuffle(arr){
+  return arr.sort(()=>Math.random()-0.5);
+}
 
-    function shuffleArray(items) {
-      const arr = [...items];
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      return arr;
+function buildQuiz(){
+  document.getElementById("result").innerText = "";
+  wordBank = [];
+  let quizDiv = document.getElementById("quiz");
+  quizDiv.innerHTML = "";
+
+  let qCopy = JSON.parse(JSON.stringify(questions));
+  shuffle(qCopy);
+
+  qCopy.forEach((q,i)=>{
+    let div = document.createElement("div");
+    div.innerHTML = q.map(()=>'<span class="blank" ondrop="drop(event)" ondragover="allowDrop(event)"></span>').join(" ");
+    quizDiv.appendChild(div);
+    q.forEach(w=>wordBank.push(w));
+  });
+
+  let bankDiv = document.createElement("div");
+  bankDiv.className="word-bank";
+
+  shuffle(wordBank).forEach(w=>{
+    let span = document.createElement("span");
+    span.className="word";
+    span.draggable=true;
+    span.innerText=w;
+    span.ondragstart=drag;
+    bankDiv.appendChild(span);
+  });
+
+  quizDiv.prepend(bankDiv);
+}
+
+function allowDrop(ev){ ev.preventDefault(); }
+function drag(ev){ ev.dataTransfer.setData("text", ev.target.innerText); }
+
+function drop(ev){
+  ev.preventDefault();
+  let data = ev.dataTransfer.getData("text");
+  ev.target.innerText = data;
+}
+
+function grade(){
+  let blanks = document.querySelectorAll(".blank");
+  let allAnswers = questions.flat();
+  let correct = 0;
+
+  blanks.forEach((b,i)=>{
+    if(allAnswers.includes(b.innerText)){
+      b.classList.add("correct");
+      correct++;
+    } else {
+      b.classList.add("incorrect");
     }
+  });
 
-    function escapeHtml(text) {
-      return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
+  let score = Math.round((correct/blanks.length)*100);
+  document.getElementById("result").innerText = "Score: " + score + "%";
+}
 
-    function createTile(text, uid) {
-      const tile = document.createElement('div');
-      tile.className = 'tile';
-      tile.draggable = true;
-      tile.textContent = text;
-      tile.dataset.value = text;
-      tile.dataset.tileId = uid;
+buildQuiz();
+</script>
 
-      tile.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', uid);
-        selectedTileId = uid;
-        clearSelections();
-        tile.classList.add('selected');
-      });
-
-      tile.addEventListener('dragend', () => {
-        tile.classList.remove('selected');
-      });
-
-      tile.addEventListener('click', () => {
-        if (selectedTileId === uid) {
-          selectedTileId = null;
-          tile.classList.remove('selected');
-          return;
-        }
-        selectedTileId = uid;
-        clearSelections();
-        tile.classList.add('selected');
-      });
-
-      return tile;
-    }
-
-    function clearSelections() {
-      document.querySelectorAll('.tile.selected').forEach(tile => tile.classList.remove('selected'));
-    }
-
-    function buildBank() {
-      const bank = document.getElementById('wordBank');
-      bank.innerHTML = '';
-      currentBankTerms.forEach((term, index) => {
-        const tile = createTile(term, 'tile-' + index + '-' + Math.random().toString(36).slice(2, 7));
-        bank.appendChild(tile);
-      });
-    }
-
-    function renderQuestionText(q) {
-      let html = '';
-      for (let i = 0; i < q.answers.length; i++) {
-        html += escapeHtml(q.parts[i]);
-        html += `<span class="dropzone" data-qid="${q.id}" data-bid="${i}" tabindex="0" aria-label="Question ${q.id} blank ${i + 1}"><span class="placeholder">Drop here</span></span>`;
-      }
-      html += escapeHtml(q.parts[q.parts.length - 1]);
-      return html;
-    }
-
-    function buildQuiz() {
-      const form = document.getElementById('quizForm');
-      form.innerHTML = '';
-      currentQuestions.forEach(q => {
-        const section = document.createElement('section');
-        section.className = 'question';
-        section.innerHTML = `
-          <div class="qhead">
-            <div class="qnum">${q.id}.</div>
-            <div class="qbody">${renderQuestionText(q)}</div>
-          </div>
-          <div class="question-controls">
-            <button type="button" class="mini-btn" data-clear-question="${q.id}">Clear Question ${q.id}</button>
-          </div>
-        `;
-        form.appendChild(section);
-      });
-      attachDropzoneEvents();
-      attachClearQuestionEvents();
-    }
-
-    function attachDropzoneEvents() {
-      document.querySelectorAll('.dropzone').forEach(zone => {
-        zone.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          zone.classList.add('over');
-        });
-        zone.addEventListener('dragleave', () => zone.classList.remove('over'));
-        zone.addEventListener('drop', (e) => {
-          e.preventDefault();
-          zone.classList.remove('over');
-          const tileId = e.dataTransfer.getData('text/plain') || selectedTileId;
-          placeTileInZone(tileId, zone);
-        });
-        zone.addEventListener('click', () => {
-          if (selectedTileId) placeTileInZone(selectedTileId, zone);
-        });
-        zone.addEventListener('keydown', (e) => {
-          if ((e.key === 'Enter' || e.key === ' ') && selectedTileId) {
-            e.preventDefault();
-            placeTileInZone(selectedTileId, zone);
-          }
-        });
-      });
-
-      document.getElementById('wordBank').addEventListener('dragover', (e) => e.preventDefault());
-      document.getElementById('wordBank').addEventListener('drop', (e) => {
-        e.preventDefault();
-        const tileId = e.dataTransfer.getData('text/plain') || selectedTileId;
-        moveTileToBank(tileId);
-      });
-      document.getElementById('wordBank').addEventListener('click', () => {
-        if (selectedTileId) moveTileToBank(selectedTileId);
-      });
-    }
-
-    function attachClearQuestionEvents() {
-      document.querySelectorAll('[data-clear-question]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const qid = btn.dataset.clearQuestion;
-          document.querySelectorAll(`.dropzone[data-qid="${qid}"]`).forEach(zone => {
-            const tile = zone.querySelector('.tile');
-            if (tile) document.getElementById('wordBank').appendChild(tile);
-            resetZone(zone);
-          });
-        });
-      });
-    }
-
-    function resetZone(zone) {
-      zone.innerHTML = '<span class="placeholder">Drop here</span>';
-    }
-
-    function moveTileToBank(tileId) {
-      const tile = document.querySelector(`.tile[data-tile-id="${tileId}"]`);
-      if (!tile) return;
-      const parentZone = tile.closest('.dropzone');
-      if (parentZone) resetZone(parentZone);
-      document.getElementById('wordBank').appendChild(tile);
-      selectedTileId = null;
-      clearSelections();
-    }
-
-    function placeTileInZone(tileId, zone) {
-      const tile = document.querySelector(`.tile[data-tile-id="${tileId}"]`);
-      if (!tile || !zone) return;
-
-      const existing = zone.querySelector('.tile');
-      if (existing) {
-        document.getElementById('wordBank').appendChild(existing);
-      }
-
-      const oldZone = tile.closest('.dropzone');
-      if (oldZone && oldZone !== zone) resetZone(oldZone);
-
-      zone.innerHTML = '';
-      zone.appendChild(tile);
-      selectedTileId = null;
-      clearSelections();
-    }
-
-    function allFieldsFilled() {
-      const name = document.getElementById('studentName').value.trim();
-      const email = document.getElementById('studentEmail').value.trim();
-      if (!name || !email) return false;
-      return [...document.querySelectorAll('.dropzone')].every(zone => zone.querySelector('.tile'));
-    }
-
-    function valueInZone(qid, bid) {
-      const zone = document.querySelector(`.dropzone[data-qid="${qid}"][data-bid="${bid}"]`);
-      const tile = zone ? zone.querySelector('.tile') : null;
-      return tile ? tile.dataset.value : '';
-    }
-
-    function gradeQuiz() {
-      const name = document.getElementById('studentName').value.trim();
-      const email = document.getElementById('studentEmail').value.trim();
-      if (!name || !email) {
-        alert('Please enter student name and email before grading.');
-        return;
-      }
-      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-      if (!emailOk) {
-        alert('Please enter a valid email address.');
-        return;
-      }
-      if (!allFieldsFilled()) {
-        alert('Please place an answer in every blank before grading.');
-        return;
-      }
-
-      const byQuestion = [];
-      let correctCount = 0;
-
-      currentQuestions.forEach(q => {
-        let questionCorrect = true;
-        q.answers.forEach((answer, index) => {
-          if (valueInZone(q.id, index) !== answer) questionCorrect = false;
-        });
-        if (questionCorrect) correctCount += 1;
-        byQuestion.push({ id: q.id, correct: questionCorrect });
-      });
-
-      const percent = Math.round((correctCount / currentQuestions.length) * 100);
-      renderResults(name, email, correctCount, percent, byQuestion);
-      localStorage.setItem('generalSafetyDragDropProgress', JSON.stringify({
-        name, email, correctCount, percent, byQuestion, submittedAt: new Date().toISOString()
-      }));
-    }
-
-    function renderResults(name, email, correctCount, percent, byQuestion) {
-      const results = document.getElementById('results');
-      const passed = percent === 100;
-      results.classList.remove('hidden');
-      results.innerHTML = `
-        <div class="score">${escapeHtml(name)} (${escapeHtml(email)}): ${correctCount} / ${currentQuestions.length} correct (${percent}%)</div>
-        <div class="status ${passed ? 'success' : 'retry'}">
-          ${passed ? 'Perfect score earned. This test is complete.' : 'Not yet 100%. Review the incorrect questions and try again.'}
-        </div>
-        <div class="result-list">
-          ${byQuestion.map(item => `
-            <div class="result-item ${item.correct ? 'correct' : 'incorrect'}">
-              <span>Question ${item.id}</span>
-              <strong>${item.correct ? 'Correct' : 'Incorrect'}</strong>
-            </div>
-          `).join('')}
-        </div>
-      `;
-      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    function randomizeQuiz() {
-      currentQuestions = shuffleArray(quizData);
-      currentBankTerms = shuffleArray(bankTerms);
-    }
-
-    function retryQuiz() {
-      document.getElementById('results').classList.add('hidden');
-      document.getElementById('results').innerHTML = '';
-      selectedTileId = null;
-      randomizeQuiz();
-      buildBank();
-      buildQuiz();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    document.getElementById('gradeBtn').addEventListener('click', gradeQuiz);
-    document.getElementById('retryBtn').addEventListener('click', retryQuiz);
-    document.getElementById('clearAllTop').addEventListener('click', retryQuiz);
-
-    randomizeQuiz();
-    buildBank();
-    buildQuiz();
-  </script>
 </body>
 </html>
