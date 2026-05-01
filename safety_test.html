@@ -12,6 +12,7 @@ body { font-family: Arial; margin: 20px; }
 .blank { display: inline-block; min-width: 120px; border-bottom: 2px solid #000; margin: 0 5px; }
 .correct { color: green; }
 .incorrect { color: red; }
+.question { margin-bottom: 12px; }
 </style>
 </head>
 <body>
@@ -27,67 +28,60 @@ body { font-family: Arial; margin: 20px; }
 <button onclick="buildQuiz()">Retry</button>
 
 <p id="result"></p>
-
 </div>
 
 <script>
 const questions = [
-["learn","obey"],
-["error"],
-["teacher"],
-["teacher"],
-["clothing"],
-["sleeves"],
-["jewelry"],
-["breaking"],
-["clear"],
-["hanging"],
-["Never"],
-["vertical"],
-["designated"],
-["immediately"],
-["caution","never"],
-["compressed","nozzle"],
-["hair"],
-["skin"],
-["body"],
-["handles"],
-["tools"],
-["throw"],
-["Safety glasses"],
-["power cords"],
-["surroundings"],
-["vise"],
-["Clean up"]
+{q: "It is vital to your general safety that you ____ and ____ all safety rules.", a:["learn","obey"]},
+{q: "Remember, a machine can be very unforgiving of ____ on the part of the operator.", a:["error"]},
+{q: "Only work approved by the ____ is to be done in the lab.", a:["teacher"]},
+{q: "All injuries must be reported to the ____ immediately.", a:["teacher"]},
+{q: "Loose fitting ____ is a hazard.", a:["clothing"]},
+{q: "Roll up ____ above the elbow.", a:["sleeves"]},
+{q: "Remove all ____ before working in the shop.", a:["jewelry"]},
+{q: "Caution anyone you observe ____ a safety rule.", a:["breaking"]},
+{q: "Keep areas ____ of parts and tools.", a:["clear"]},
+{q: "Prevent tools from ____ over edges.", a:["hanging"]},
+{q: "____ leave vise jaws tightened.", a:["Never"]},
+{q: "Vise handles left in a ____ position.", a:["vertical"]},
+{q: "Store items in ____ locations.", a:["designated"]},
+{q: "Clean spills ____.", a:["immediately"]},
+{q: "Exercise ____ and ____ attempt heavy lifts.", a:["caution","never"]},
+{q: "When using ____ air, direct the ____ away.", a:["compressed","nozzle"]},
+{q: "Loose ____ can get caught.", a:["hair"]},
+{q: "Test sharpness on scrap, not your ____.", a:["skin"]},
+{q: "Keep your ____ parts clear.", a:["body"]},
+{q: "Keep ____ tight.", a:["handles"]},
+{q: "Use ____ only for intended purpose.", a:["tools"]},
+{q: "Do not ____ anything in class.", a:["throw"]},
+{q: "____ ____ must be worn.", a:["Safety glasses"]},
+{q: "Arrange ____ ____ safely.", a:["power cords"]},
+{q: "Be aware of your ____.", a:["surroundings"]},
+{q: "Clamp material in a ____.", a:["vise"]},
+{q: "____ ____ when finished.", a:["Clean up"]}
 ];
 
-let wordBank = [];
+let currentQuestions = [];
 
 function shuffle(arr){
   return arr.sort(()=>Math.random()-0.5);
 }
 
 function buildQuiz(){
-  document.getElementById("result").innerText = "";
-  wordBank = [];
-  let quizDiv = document.getElementById("quiz");
-  quizDiv.innerHTML = "";
+  document.getElementById("result").innerText="";
+  let quizDiv=document.getElementById("quiz");
+  quizDiv.innerHTML="";
 
-  let qCopy = JSON.parse(JSON.stringify(questions));
-  shuffle(qCopy);
+  currentQuestions = shuffle([...questions]);
 
-  qCopy.forEach((q,i)=>{
-    let div = document.createElement("div");
-    div.innerHTML = q.map(()=>'<span class="blank" ondrop="drop(event)" ondragover="allowDrop(event)"></span>').join(" ");
-    quizDiv.appendChild(div);
-    q.forEach(w=>wordBank.push(w));
-  });
+  let wordBank=[];
+  currentQuestions.forEach(q=> q.a.forEach(a=>wordBank.push(a)));
 
-  let bankDiv = document.createElement("div");
+  let bankDiv=document.createElement("div");
   bankDiv.className="word-bank";
 
   shuffle(wordBank).forEach(w=>{
-    let span = document.createElement("span");
+    let span=document.createElement("span");
     span.className="word";
     span.draggable=true;
     span.innerText=w;
@@ -95,38 +89,53 @@ function buildQuiz(){
     bankDiv.appendChild(span);
   });
 
-  quizDiv.prepend(bankDiv);
+  quizDiv.appendChild(bankDiv);
+
+  currentQuestions.forEach((q,i)=>{
+    let div=document.createElement("div");
+    div.className="question";
+
+    let parts=q.q.split("____");
+    let html="";
+    parts.forEach((p,idx)=>{
+      html+=p;
+      if(idx < parts.length-1){
+        html+= '<span class="blank" data-answer="'+q.a[idx]+'" ondrop="drop(event)" ondragover="allowDrop(event)"></span>';
+      }
+    });
+
+    div.innerHTML=html;
+    quizDiv.appendChild(div);
+  });
 }
 
-function allowDrop(ev){ ev.preventDefault(); }
-function drag(ev){ ev.dataTransfer.setData("text", ev.target.innerText); }
-
+function allowDrop(ev){ev.preventDefault();}
+function drag(ev){ev.dataTransfer.setData("text", ev.target.innerText);}
 function drop(ev){
   ev.preventDefault();
-  let data = ev.dataTransfer.getData("text");
-  ev.target.innerText = data;
+  ev.target.innerText=ev.dataTransfer.getData("text");
 }
 
 function grade(){
-  let blanks = document.querySelectorAll(".blank");
-  let allAnswers = questions.flat();
-  let correct = 0;
+  let blanks=document.querySelectorAll(".blank");
+  let correct=0;
 
-  blanks.forEach((b,i)=>{
-    if(allAnswers.includes(b.innerText)){
+  blanks.forEach(b=>{
+    if(b.innerText.trim().toLowerCase() === b.dataset.answer.toLowerCase()){
       b.classList.add("correct");
+      b.classList.remove("incorrect");
       correct++;
     } else {
       b.classList.add("incorrect");
+      b.classList.remove("correct");
     }
   });
 
-  let score = Math.round((correct/blanks.length)*100);
-  document.getElementById("result").innerText = "Score: " + score + "%";
+  let score=Math.round((correct/blanks.length)*100);
+  document.getElementById("result").innerText="Score: "+score+"%";
 }
 
 buildQuiz();
 </script>
-
 </body>
 </html>
