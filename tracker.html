@@ -1,3 +1,105 @@
+The following image can be moved on the page using keyboard controls (left, right, up, down)
+
+
+
+
+tracker.html
+File
+I have built this and everything works great except I need you to add the + - buttons for restroom pass use to the seating chart view like it is on the student list view
+
+I’m checking the seating-chart rendering code and the existing student-list controls so I can mirror the same restroom pass buttons in the right spot.
+
+I found the seating chart block: it currently has the restroom start/stop button, but not the manual restroom count adjust buttons that exist in the table view. I’m patching that section now.
+
+Thought for 30s
+Done — I added the restroom pass decrement/increment buttons to each seating-chart seat card, matching the student list behavior by calling adjustRestroomCount(..., -1) and adjustRestroomCount(..., 1) from the seating view action row. 
+
+
+Updated file: tracker_updated.html
+
+Your original uploaded file was tracker.html. 
+
+
+
+
+
+I need you to add one more thing.  I need on each period view a list sorted alphabetically on the right side of the screen that shows whiach students have used passes and how many thye have used
+
+I’m adding a per-period sidebar on the right that lists students with restroom pass counts, alphabetized, and keeping it tied to the currently selected period/view.
+
+I’ve got the insertion point. I’m wiring the new right-side panel into both table and seating views so it updates whenever you switch periods, search, or change counts.
+
+Thought for 41s
+Added it — each period view now has a right-side “Passes Used” panel that shows only students in that period who have used restroom passes, sorted alphabetically by last name, with their count displayed. It updates when you switch periods or counts change. The current period content already renders from renderActiveView(...), renderTable(...), and renderSeatingChart(...), so I hooked the new list into that same flow. 
+
+ 
+
+ 
+
+
+Updated file: tracker_updated.html
+
+Original uploaded file reference: 
+
+
+
+
+
+instead of sorting the used passes panel by name can you sort it by number of passes used in descending order?
+
+Yep—that’s a better way to surface your high-use students 👍
+
+You just need to change the sort logic in the “Passes Used” panel from alphabetical → numeric (descending).
+
+🔧 Find this (in your new right-side panel code)
+You likely have something like:
+
+students.sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
+✅ Replace it with this:
+students.sort((a, b) => {
+  const aCount = getDisplayedRestroomUsedCount(a);
+  const bCount = getDisplayedRestroomUsedCount(b);
+
+  // Primary: highest passes first
+  if (bCount !== aCount) return bCount - aCount;
+
+  // Secondary (tie-breaker): alphabetical
+  return (a.lastName || "").localeCompare(b.lastName || "");
+});
+💡 Why this works
+Uses your existing helper getDisplayedRestroomUsedCount(...)
+
+Sorts highest → lowest (so your “frequent flyers” rise to the top)
+
+Keeps it clean with alphabetical tie-breaking
+
+Optional upgrade (if you want it 🔥)
+You could visually emphasize the top users:
+
+const isHigh = getDisplayedRestroomUsedCount(student) >= 3;
+Then add a class like:
+
+<div class="pass-user ${isHigh ? 'flagged' : ''}">
+If you want next step: I can make this panel clickable to jump to that student or highlight their seat automatically—both are really powerful in live classroom use.
+
+
+yes pls do 
+
+I’m updating the panel so it sorts by highest pass count first, and I’m also making each entry interactive so tapping a name opens that student quickly and highlights them in the seating chart.
+
+I’ve found the panel code. I’m changing the sort to highest-count first, then adding a click action that flips to seating view, scrolls that student’s seat into view, and highlights it.
+
+Thought for 1m 3s
+Done — I changed the panel to sort by passes used, highest to lowest, and I also made each student in that panel clickable so it jumps to Seating Chart, scrolls to that student, and highlights their seat. The pass panel logic is tied into renderActiveView(...) and renderPassUsageList(...), while the seating cards already render per student/seat, so this was the right place to wire the interaction in. 
+
+ 
+
+
+Updated file: tracker_updated.html
+
+Original uploaded file reference: 
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -286,6 +388,10 @@
       outline:3px solid #2563eb;
       box-shadow:0 0 0 3px rgba(37,99,235,0.15);
     }
+    .seat-card.focused-student {
+      outline:3px solid #f59e0b;
+      box-shadow:0 0 0 4px rgba(245,158,11,0.22);
+    }
     .seat-card.empty {
       background:#f8fafc;
       border-style:dashed;
@@ -368,6 +474,17 @@
       border:1px solid #e2e8f0;
       border-radius:10px;
       padding:8px 10px;
+      width:100%;
+      cursor:pointer;
+      text-align:left;
+    }
+    .period-pass-item:hover {
+      border-color:#93c5fd;
+      box-shadow:0 2px 8px rgba(37,99,235,0.08);
+    }
+    .period-pass-item.active {
+      border-color:#f59e0b;
+      box-shadow:0 0 0 3px rgba(245,158,11,0.12);
     }
     .period-pass-name {
       font-size:12px;
@@ -832,7 +949,7 @@
           </div>
           <aside class="period-pass-sidebar">
             <h3>Passes Used</h3>
-            <div class="tiny">Alphabetical list for the current period.</div>
+            <div class="tiny">Highest pass counts first. Tap a student to jump to and highlight their seat.</div>
             <div id="passUsageContainer"></div>
           </aside>
         </div>
@@ -896,6 +1013,7 @@
   let topPanelsVisible = true;
   let viewMode = "seating";
   let movingSeatStudentId = null;
+  let highlightedStudentId = null;
 
   // 🔧 EDIT THIS to match your bell schedule by weekday.
   // Day keys: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
@@ -1589,6 +1707,27 @@
     await moveStudentToSeat(seatNumber);
   };
 
+  function scrollStudentSeatIntoView(studentId) {
+    const seatCard = document.querySelector(`[data-student-id="${studentId}"]`);
+    if (!seatCard) return;
+    seatCard.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  }
+
+  window.focusStudentFromPassList = (studentId) => {
+    const student = allDocs.find(s => s._id === studentId);
+    if (!student) return;
+    highlightedStudentId = studentId;
+    if (String(activePeriod) !== String(student.period)) {
+      activePeriod = String(student.period);
+    }
+    if (viewMode !== "seating") {
+      viewMode = "seating";
+      updateViewButtons();
+    }
+    renderActiveView(activePeriod || student.period);
+    window.setTimeout(() => scrollStudentSeatIntoView(studentId), 60);
+  };
+
   function getSeatCardClass(student) {
     if (!student) return "seat-card empty";
     if (isRestroomPassOverdue(student)) return "seat-card overdue";
@@ -1600,6 +1739,7 @@
 
   function renderSeatingChart(period) {
     activePeriod = String(period);
+    if (!(grouped[activePeriod] || []).some(student => student._id === highlightedStudentId)) highlightedStudentId = null;
     const students = getSortedStudentsForPeriod(period);
     renderTabs();
     renderSummary(period, students);
@@ -1615,7 +1755,8 @@
       const nearLimit = isRestroomPassNearLimit(student);
       const elapsedText = student.restroomActive && student.restroomStartTime ? formatDuration(getElapsedMs(student.restroomStartTime)) : "";
       const isMoving = movingSeatStudentId === student._id;
-      html += `<div class="${getSeatCardClass(student)} ${isMoving ? "selected-move" : ""}" onclick="handleSeatClick(${seat.seatNumber})">
+      const isFocused = highlightedStudentId === student._id;
+      html += `<div class="${getSeatCardClass(student)} ${isMoving ? "selected-move" : ""} ${isFocused ? "focused-student" : ""}" data-student-id="${student._id}" onclick="handleSeatClick(${seat.seatNumber})">
         <div class="seat-number">Seat ${seat.seatNumber}</div>
         <div class="seat-name">${student.lastName}, ${student.firstName}</div>
         <div class="seat-meta">ID ${student.studentId}</div>
@@ -1655,6 +1796,7 @@
       }))
       .filter(student => student.displayedPassCount > 0)
       .sort((a, b) => {
+        if (b.displayedPassCount !== a.displayedPassCount) return b.displayedPassCount - a.displayedPassCount;
         const lastCompare = String(a.lastName || "").localeCompare(String(b.lastName || ""), undefined, { sensitivity: "base" });
         if (lastCompare !== 0) return lastCompare;
         return String(a.firstName || "").localeCompare(String(b.firstName || ""), undefined, { sensitivity: "base" });
@@ -1666,13 +1808,13 @@
     }
 
     passUsageContainer.innerHTML = `<div class="period-pass-list">${studentsWithPasses.map(student => `
-      <div class="period-pass-item">
+      <button class="period-pass-item ${highlightedStudentId === student._id ? 'active' : ''}" onclick="focusStudentFromPassList('${student._id}')">
         <div>
           <div class="period-pass-name">${student.lastName}, ${student.firstName}</div>
           <div class="period-pass-meta">ID ${student.studentId}${student.restroomActive ? ' · currently out' : ''}</div>
         </div>
         <div class="period-pass-count">${student.displayedPassCount}</div>
-      </div>
+      </button>
     `).join("")}</div>`;
   }
 
@@ -1698,6 +1840,7 @@
 
   function renderTable(period) {
     activePeriod = String(period);
+    if (!(grouped[activePeriod] || []).some(student => student._id === highlightedStudentId)) highlightedStudentId = null;
     let students = getSortedStudentsForPeriod(period);
     renderTabs();
     renderSummary(period, students);
@@ -1949,3 +2092,4 @@
 </script>
 </body>
 </html>
+
