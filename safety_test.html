@@ -16,6 +16,7 @@
   .word-bank { display: flex; flex-wrap: wrap; gap: 10px; padding: 14px; min-height: 70px; background: #f8fafc; border: 2px solid #d1d5db; border-radius: 12px; margin-bottom: 22px; position: sticky; top: 0; z-index: 2; }
   .word { padding: 10px 14px; background: #e5e7eb; border: 1px solid #9ca3af; border-radius: 999px; cursor: grab; user-select: none; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,.08); }
   .word:active { cursor: grabbing; }
+  .word.disabled { opacity: .45; cursor: not-allowed; }
   .question { line-height: 2.35; font-size: 18px; margin-bottom: 18px; padding: 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff; }
   .blank { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; min-width: 170px; min-height: 46px; margin: 0 6px; padding: 4px 10px; border: 3px dashed var(--border); border-radius: 10px; background: #f9fafb; color: #374151; font-weight: bold; box-sizing: border-box; transition: all .15s ease; }
   .blank:empty::before { content: "Drop here"; color: #6b7280; font-size: 14px; font-weight: normal; }
@@ -23,8 +24,10 @@
   .blank.filled { border-style: solid; border-color: #64748b; background: #f8fafc; }
   .blank.correct { border-color: var(--ok); background: #ecfdf5; color: var(--ok); }
   .blank.incorrect { border-color: var(--bad); background: #fef2f2; color: var(--bad); }
+  .locked-note { background: #fff7ed; border-left: 5px solid #f97316; padding: 12px 14px; border-radius: 8px; margin-top: 14px; display: none; }
   .buttons { margin-top: 22px; display: flex; gap: 10px; flex-wrap: wrap; }
   button { padding: 12px 18px; font-size: 16px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
   #gradeBtn { background: #2563eb; color: white; }
   #retryBtn { background: #e5e7eb; color: #111827; }
   #result { font-size: 20px; font-weight: bold; margin-top: 18px; }
@@ -41,9 +44,12 @@
     <label>Email<input type="email" id="studentEmail" autocomplete="email" required></label>
   </div>
   <div class="instructions">
-    Drag each word or phrase from the word bank into a <strong>Drop here</strong> box. You can replace an answer by dragging another word onto the same box.
+    Drag each word or phrase from the word bank into a <strong>Drop here</strong> box. You can replace an answer before grading. Once you grade, the attempt locks.
   </div>
   <div id="quiz"></div>
+  <div id="lockedNote" class="locked-note">
+    This attempt is locked after grading. To change answers, click <strong>Retry / Shuffle Again</strong> and retake the full test.
+  </div>
   <div class="buttons">
     <button id="gradeBtn" onclick="grade()">Grade Test</button>
     <button id="retryBtn" onclick="buildQuiz()">Retry / Shuffle Again</button>
@@ -84,6 +90,11 @@ const questions = [
 ];
 
 let currentQuestions = [];
+let attemptLocked = false;
+
+function normalize(text) {
+  return text.trim().toLowerCase().replace(/\s+/g, " ");
+}
 
 function shuffle(array) {
   const arr = [...array];
@@ -95,6 +106,9 @@ function shuffle(array) {
 }
 
 function buildQuiz() {
+  attemptLocked = false;
+  document.getElementById("gradeBtn").disabled = false;
+  document.getElementById("lockedNote").style.display = "none";
   document.getElementById("result").innerHTML = "";
   document.getElementById("feedback").innerHTML = "";
   const quizDiv = document.getElementById("quiz");
@@ -135,7 +149,7 @@ function buildQuiz() {
       if (blankIndex < parts.length - 1) {
         const blank = document.createElement("span");
         blank.className = "blank";
-        blank.dataset.answer = item.a[blankIndex].toLowerCase();
+        blank.dataset.answer = normalize(item.a[blankIndex]);
         blank.dataset.questionIndex = qIndex;
         blank.dataset.blankIndex = blankIndex;
         blank.addEventListener("dragover", allowDrop);
@@ -150,17 +164,31 @@ function buildQuiz() {
   });
 }
 
-function allowDrop(event) { event.preventDefault(); }
+function allowDrop(event) {
+  if (!attemptLocked) event.preventDefault();
+}
+
 function dragEnter(event) {
+  if (attemptLocked) return;
   const target = event.target.closest(".blank");
   if (target) target.classList.add("drag-over");
 }
+
 function dragLeave(event) {
   const target = event.target.closest(".blank");
   if (target) target.classList.remove("drag-over");
 }
-function drag(event) { event.dataTransfer.setData("text/plain", event.target.textContent); }
+
+function drag(event) {
+  if (attemptLocked) {
+    event.preventDefault();
+    return;
+  }
+  event.dataTransfer.setData("text/plain", event.target.textContent);
+}
+
 function drop(event) {
+  if (attemptLocked) return;
   event.preventDefault();
   const target = event.target.closest(".blank");
   if (!target) return;
@@ -170,7 +198,24 @@ function drop(event) {
   target.classList.remove("drag-over", "correct", "incorrect");
 }
 
+function lockAttempt() {
+  attemptLocked = true;
+  document.getElementById("gradeBtn").disabled = true;
+  document.getElementById("lockedNote").style.display = "block";
+
+  document.querySelectorAll(".word").forEach(word => {
+    word.draggable = false;
+    word.classList.add("disabled");
+  });
+
+  document.querySelectorAll(".blank").forEach(blank => {
+    blank.classList.remove("drag-over");
+  });
+}
+
 function grade() {
+  if (attemptLocked) return;
+
   const name = document.getElementById("studentName").value.trim();
   const email = document.getElementById("studentEmail").value.trim();
   if (!name || !email) {
@@ -186,9 +231,11 @@ function grade() {
   document.querySelectorAll(".question").forEach((questionDiv) => {
     const questionBlanks = questionDiv.querySelectorAll(".blank");
     let questionCorrect = true;
+
     questionBlanks.forEach(blank => {
-      const studentAnswer = blank.textContent.trim().toLowerCase();
-      const correctAnswer = blank.dataset.answer.trim().toLowerCase();
+      const studentAnswer = normalize(blank.textContent);
+      const correctAnswer = normalize(blank.dataset.answer);
+
       if (studentAnswer === correctAnswer) {
         blank.classList.add("correct");
         blank.classList.remove("incorrect");
@@ -199,6 +246,7 @@ function grade() {
         questionCorrect = false;
       }
     });
+
     const item = document.createElement("li");
     item.textContent = questionCorrect ? "Correct" : "Incorrect";
     item.style.color = questionCorrect ? "var(--ok)" : "var(--bad)";
@@ -207,8 +255,10 @@ function grade() {
 
   const score = Math.round((correct / blanks.length) * 100);
   document.getElementById("result").innerHTML = score === 100
-    ? "Score: 100% — Passed!"
-    : "Score: " + score + "% — Retry until you reach 100%.";
+    ? "Score: 100% -- Passed!"
+    : "Score: " + score + "% -- This attempt is locked. Retake the full test to try again.";
+
+  lockAttempt();
 }
 
 buildQuiz();
