@@ -4,112 +4,417 @@
 <meta charset="UTF-8">
 <title>General Safety Drag-and-Drop Quiz</title>
 <style>
-:root{ --border:#9aa4b2; --focus:#2563eb; --light:#eef4ff; --ok:#15803d; --bad:#b91c1c; }
-body { font-family: Arial; margin:20px; background:#f7f7f8;}
-.container{max-width:980px;margin:auto;background:white;padding:24px;border-radius:14px;}
-.word-bank{display:flex;flex-wrap:wrap;gap:10px;padding:14px;border:2px solid #ccc;border-radius:12px;margin-bottom:20px;position:sticky;top:0;background:#fff;}
-.word{padding:8px 12px;background:#e5e7eb;border-radius:20px;cursor:grab;}
-.blank{display:inline-flex;min-width:150px;min-height:40px;border:2px dashed #999;margin:0 5px;align-items:center;justify-content:center;}
-.blank:empty::before{content:"Drop here";color:#777;font-size:12px;}
-.correct{background:#d1fae5;}
-.incorrect{background:#fee2e2;}
+  :root{ --border:#9aa4b2; --focus:#2563eb; --light:#eef4ff; --ok:#15803d; --bad:#b91c1c; }
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f7f7f8; color: #111827; }
+  .container { max-width: 980px; margin: auto; background: white; padding: 24px; border-radius: 14px; box-shadow: 0 3px 16px rgba(0,0,0,.08); }
+  h1 { margin-top: 0; }
+  .student-info { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+  label { font-weight: bold; }
+  input { width: 100%; box-sizing: border-box; padding: 10px; margin-top: 5px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; }
+  .instructions { background: #f1f5f9; border-left: 5px solid #64748b; padding: 12px 14px; border-radius: 8px; margin: 12px 0 18px; }
+  .word-bank-title { font-weight: bold; margin: 18px 0 8px; }
+  .word-bank { display: flex; flex-wrap: wrap; gap: 10px; padding: 14px; min-height: 70px; background: #f8fafc; border: 2px solid #d1d5db; border-radius: 12px; margin-bottom: 22px; position: sticky; top: 0; z-index: 2; }
+  .word { padding: 10px 14px; background: #e5e7eb; border: 1px solid #9ca3af; border-radius: 999px; cursor: grab; user-select: none; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,.08); }
+  .word:active { cursor: grabbing; }
+  .word.disabled { opacity: .45; cursor: not-allowed; }
+  .question { line-height: 2.35; font-size: 18px; margin-bottom: 18px; padding: 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff; }
+  .blank { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; min-width: 170px; min-height: 46px; margin: 0 6px; padding: 4px 10px; border: 3px dashed var(--border); border-radius: 10px; background: #f9fafb; color: #374151; font-weight: bold; box-sizing: border-box; transition: all .15s ease; }
+  .blank:empty::before { content: "Drop here"; color: #6b7280; font-size: 14px; font-weight: normal; }
+  .blank.drag-over { background: var(--light); border-color: var(--focus); transform: scale(1.04); box-shadow: 0 0 0 4px rgba(37,99,235,.16); }
+  .blank.filled { border-style: solid; border-color: #64748b; background: #f8fafc; }
+  .blank.correct { border-color: var(--ok); background: #ecfdf5; color: var(--ok); }
+  .blank.incorrect { border-color: var(--bad); background: #fef2f2; color: var(--bad); }
+  .locked-note, .certificate-note { background: #fff7ed; border-left: 5px solid #f97316; padding: 12px 14px; border-radius: 8px; margin-top: 14px; display: none; }
+  .certificate-note { background: #ecfdf5; border-left-color: var(--ok); }
+  .buttons { margin-top: 22px; display: flex; gap: 10px; flex-wrap: wrap; }
+  button { padding: 12px 18px; font-size: 16px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  #gradeBtn { background: #2563eb; color: white; }
+  #retryBtn { background: #e5e7eb; color: #111827; }
+  #certificateBtn { background: #16a34a; color: white; display:none; }
+  #result { font-size: 20px; font-weight: bold; margin-top: 18px; }
+  .feedback-list { margin-top: 8px; padding-left: 0; list-style: none; }
+  .feedback-list li { padding: 6px 0; }
+  @media (max-width: 800px) { .student-info { grid-template-columns: 1fr; } .blank { min-width: 145px; } }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>General Safety Quiz</h2>
+  <h1>General Safety Quiz</h1>
 
-Name: <input id="name"><br><br>
-Email: <input id="email"><br><br>
+  <div class="student-info">
+    <label>First Name<input type="text" id="firstName" autocomplete="given-name" required></label>
+    <label>Last Name<input type="text" id="lastName" autocomplete="family-name" required></label>
+    <label>Student ID<input type="text" id="studentId" required></label>
+  </div>
 
-<div id="quiz"></div>
+  <div class="instructions">
+    Drag each word or phrase from the alphabetical word bank into a <strong>Drop here</strong> box.
+    You can replace an answer before grading. After grading, the attempt locks and you must retake the full test to try again.
+  </div>
 
-<button onclick="grade()">Grade Test</button>
-<button onclick="buildQuiz()">Retry</button>
+  <div id="quiz"></div>
 
-<p id="result"></p>
+  <div id="lockedNote" class="locked-note">
+    This attempt is locked after grading. To change answers, click <strong>Retry / Shuffle Again</strong> and retake the full test.
+  </div>
+
+  <div id="certificateNote" class="certificate-note">
+    Congratulations! You scored 100%. Download your certificate and submit it to your teacher.
+  </div>
+
+  <div class="buttons">
+    <button id="gradeBtn" onclick="grade()">Grade Test</button>
+    <button id="retryBtn" onclick="buildQuiz()">Retry / Shuffle Again</button>
+    <button id="certificateBtn" onclick="downloadCertificate()">Download Certificate</button>
+  </div>
+
+  <div id="result"></div>
+  <ul id="feedback" class="feedback-list"></ul>
+</div>
 
 <script>
 const questions = [
-{q:"It is vital to your general safety that you ____ and ____ all safety rules.",a:["learn","obey"]},
-{q:"Remember, a machine can be very unforgiving of ____.",a:["error"]},
-{q:"Only work approved by the ____ is to be done.",a:["teacher"]},
-{q:"All injuries must be reported to the ____.",a:["teacher"]}
+  {q: "It is vital to your general safety that you ____ and ____ all safety rules.", a:["learn","obey"]},
+  {q: "Remember, a machine can be very unforgiving of ____ on the part of the operator.", a:["error"]},
+  {q: "Only work approved by the ____ is to be done in the lab.", a:["teacher"]},
+  {q: "All injuries, no matter how small, must be reported to the ____ immediately.", a:["teacher"]},
+  {q: "Loose fitting ____ is a hazard.", a:["clothing"]},
+  {q: "Roll up ____ above the elbow.", a:["sleeves"]},
+  {q: "Remove all ____ before working in the shop.", a:["jewelry"]},
+  {q: "Caution anyone you observe ____ a safety rule.", a:["breaking"]},
+  {q: "The floor, aisles, and passageways should be kept ____ of parts, tools, and materials.", a:["clear"]},
+  {q: "Prevent tools and materials from ____ over the edges of tables and benches.", a:["hanging"]},
+  {q: "____ leave vise jaws tightened together when not in use.", a:["Never"]},
+  {q: "Vise handles are to be left in a ____ position.", a:["vertical"]},
+  {q: "Tools, equipment, materials, and projects are to be stored in ____ locations.", a:["designated"]},
+  {q: "Clean up all spills ____.", a:["immediately"]},
+  {q: "Exercise ____ in handling large and long pieces. Obtain help when needed, ____ attempt to lift large or heavy objects on your own.", a:["caution","never"]},
+  {q: "When using ____ air, direct the ____ away from yourself and other people.", a:["compressed","nozzle"]},
+  {q: "Long loose locks of ____ can easily be caught in revolving machinery and ripped out causing serious scalp lacerations.", a:["hair"]},
+  {q: "Testing the sharpness of a tool should be done on scrap material and NOT your ____.", a:["skin"]},
+  {q: "Keep your ____ parts clear of the blade.", a:["body"]},
+  {q: "Keep ____ tight and in good condition on all tools.", a:["handles"]},
+  {q: "Use ____ only for their intended purpose. DO NOT PLAY!", a:["tools"]},
+  {q: "Do not ____ anything in class.", a:["throw"]},
+  {q: "____ must be worn while in the lab.", a:["Safety glasses"]},
+  {q: "Arrange ____ so that they are not a tripping hazard.", a:["power cords"]},
+  {q: "Be aware of your ____ at all times when in the lab.", a:["surroundings"]},
+  {q: "While operating the drill press, material must be clamped securely or in a ____.", a:["vise"]},
+  {q: "____ immediately when finished working.", a:["Clean up"]}
 ];
 
-let locked=false;
+let attemptLocked = false;
+let latestScore = 0;
+let certificateId = "";
+let completionTimestamp = "";
 
-function shuffle(arr){return arr.sort(()=>Math.random()-0.5);}
-
-function buildQuiz(){
-locked=false;
-let quiz=document.getElementById("quiz");
-quiz.innerHTML="";
-let qlist=shuffle([...questions]);
-
-let bank=[];
-qlist.forEach(q=>q.a.forEach(a=>bank.push(a)));
-
-// ALPHABETICAL WORD BANK
-bank.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));
-
-let bankDiv=document.createElement("div");
-bankDiv.className="word-bank";
-
-bank.forEach(w=>{
-let span=document.createElement("span");
-span.className="word";
-span.draggable=true;
-span.innerText=w;
-span.ondragstart=e=>e.dataTransfer.setData("text",w);
-bankDiv.appendChild(span);
-});
-
-quiz.appendChild(bankDiv);
-
-qlist.forEach(q=>{
-let div=document.createElement("div");
-let parts=q.q.split("____");
-
-parts.forEach((p,i)=>{
-div.appendChild(document.createTextNode(p));
-if(i<parts.length-1){
-let b=document.createElement("span");
-b.className="blank";
-b.dataset.answer=q.a[i];
-b.ondragover=e=>{if(!locked)e.preventDefault();}
-b.ondrop=e=>{
-if(locked)return;
-e.preventDefault();
-b.innerText=e.dataTransfer.getData("text");
-};
-div.appendChild(b);
-}
-});
-quiz.appendChild(div);
-});
+function normalize(text) {
+  return text.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function grade(){
-locked=true;
-let blanks=document.querySelectorAll(".blank");
-let correct=0;
-
-blanks.forEach(b=>{
-if(b.innerText.toLowerCase()===b.dataset.answer.toLowerCase()){
-b.classList.add("correct");
-correct++;
-}else{
-b.classList.add("incorrect");
+function shuffle(array) {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
-});
 
-let score=Math.round(correct/blanks.length*100);
-document.getElementById("result").innerText="Score: "+score+"%";
+function getStudentInfo() {
+  return {
+    firstName: document.getElementById("firstName").value.trim(),
+    lastName: document.getElementById("lastName").value.trim(),
+    studentId: document.getElementById("studentId").value.trim()
+  };
+}
+
+function validateStudentInfo() {
+  const s = getStudentInfo();
+  if (!s.firstName || !s.lastName || !s.studentId) {
+    alert("Please enter your first name, last name, and student ID before grading.");
+    return false;
+  }
+  return true;
+}
+
+function buildQuiz() {
+  attemptLocked = false;
+  latestScore = 0;
+  document.getElementById("gradeBtn").disabled = false;
+  document.getElementById("lockedNote").style.display = "none";
+  document.getElementById("certificateNote").style.display = "none";
+  document.getElementById("certificateBtn").style.display = "none";
+  document.getElementById("result").innerHTML = "";
+  document.getElementById("feedback").innerHTML = "";
+
+  const quizDiv = document.getElementById("quiz");
+  quizDiv.innerHTML = "";
+
+  const currentQuestions = shuffle(questions);
+  const wordBank = [];
+  currentQuestions.forEach(item => item.a.forEach(ans => wordBank.push(ans)));
+
+  wordBank.sort((a,b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+  const title = document.createElement("div");
+  title.className = "word-bank-title";
+  title.textContent = "Word Bank";
+
+  const bankDiv = document.createElement("div");
+  bankDiv.className = "word-bank";
+  bankDiv.id = "wordBank";
+
+  wordBank.forEach((word, index) => {
+    const span = document.createElement("span");
+    span.className = "word";
+    span.draggable = true;
+    span.textContent = word;
+    span.id = "word-" + index + "-" + Math.random().toString(16).slice(2);
+    span.addEventListener("dragstart", drag);
+    bankDiv.appendChild(span);
+  });
+
+  quizDiv.appendChild(title);
+  quizDiv.appendChild(bankDiv);
+
+  currentQuestions.forEach((item, qIndex) => {
+    const div = document.createElement("div");
+    div.className = "question";
+    const parts = item.q.split("____");
+
+    parts.forEach((part, blankIndex) => {
+      div.appendChild(document.createTextNode(part));
+      if (blankIndex < parts.length - 1) {
+        const blank = document.createElement("span");
+        blank.className = "blank";
+        blank.dataset.answer = normalize(item.a[blankIndex]);
+        blank.dataset.questionIndex = qIndex;
+        blank.dataset.blankIndex = blankIndex;
+        blank.addEventListener("dragover", allowDrop);
+        blank.addEventListener("dragenter", dragEnter);
+        blank.addEventListener("dragleave", dragLeave);
+        blank.addEventListener("drop", drop);
+        div.appendChild(blank);
+      }
+    });
+
+    quizDiv.appendChild(div);
+  });
+}
+
+function allowDrop(event) {
+  if (!attemptLocked) event.preventDefault();
+}
+
+function dragEnter(event) {
+  if (attemptLocked) return;
+  const target = event.target.closest(".blank");
+  if (target) target.classList.add("drag-over");
+}
+
+function dragLeave(event) {
+  const target = event.target.closest(".blank");
+  if (target) target.classList.remove("drag-over");
+}
+
+function drag(event) {
+  if (attemptLocked) {
+    event.preventDefault();
+    return;
+  }
+  event.dataTransfer.setData("text/plain", event.target.textContent);
+}
+
+function drop(event) {
+  if (attemptLocked) return;
+  event.preventDefault();
+  const target = event.target.closest(".blank");
+  if (!target) return;
+  const text = event.dataTransfer.getData("text/plain");
+  target.textContent = text;
+  target.classList.add("filled");
+  target.classList.remove("drag-over", "correct", "incorrect");
+}
+
+function lockAttempt() {
+  attemptLocked = true;
+  document.getElementById("gradeBtn").disabled = true;
+  document.getElementById("lockedNote").style.display = "block";
+
+  document.querySelectorAll(".word").forEach(word => {
+    word.draggable = false;
+    word.classList.add("disabled");
+  });
+  document.querySelectorAll(".blank").forEach(blank => blank.classList.remove("drag-over"));
+}
+
+function grade() {
+  if (attemptLocked) return;
+  if (!validateStudentInfo()) return;
+
+  const blanks = document.querySelectorAll(".blank");
+  let correct = 0;
+  const feedback = document.getElementById("feedback");
+  feedback.innerHTML = "";
+
+  document.querySelectorAll(".question").forEach((questionDiv) => {
+    const questionBlanks = questionDiv.querySelectorAll(".blank");
+    let questionCorrect = true;
+
+    questionBlanks.forEach(blank => {
+      const studentAnswer = normalize(blank.textContent);
+      const correctAnswer = normalize(blank.dataset.answer);
+
+      if (studentAnswer === correctAnswer) {
+        blank.classList.add("correct");
+        blank.classList.remove("incorrect");
+        correct++;
+      } else {
+        blank.classList.add("incorrect");
+        blank.classList.remove("correct");
+        questionCorrect = false;
+      }
+    });
+
+    const item = document.createElement("li");
+    item.textContent = questionCorrect ? "Correct" : "Incorrect";
+    item.style.color = questionCorrect ? "var(--ok)" : "var(--bad)";
+    feedback.appendChild(item);
+  });
+
+  latestScore = Math.round((correct / blanks.length) * 100);
+  document.getElementById("result").innerHTML = latestScore === 100
+    ? "Score: 100% — Passed!"
+    : "Score: " + latestScore + "% — This attempt is locked. Retake the full test to try again.";
+
+  if (latestScore === 100) {
+    const s = getStudentInfo();
+    completionTimestamp = new Date().toISOString();
+    generateCertificateId(s.firstName, s.lastName, s.studentId, completionTimestamp).then(id => {
+      certificateId = id;
+      document.getElementById("certificateNote").innerHTML =
+        "Congratulations! You scored 100%. Download your certificate and submit it to your teacher.<br><strong>Certificate ID:</strong> " + certificateId;
+      document.getElementById("certificateNote").style.display = "block";
+      document.getElementById("certificateBtn").style.display = "inline-block";
+    });
+  }
+
+  lockAttempt();
+}
+
+async function generateCertificateId(firstName, lastName, studentId, timestamp) {
+  const raw = `${firstName.trim().toLowerCase()}|${lastName.trim().toLowerCase()}|${studentId.trim().toLowerCase()}|${timestamp}|general-safety-test`;
+  const encoder = new TextEncoder();
+  const data = encoder.encode(raw);
+
+  if (crypto && crypto.subtle) {
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16).toUpperCase().match(/.{1,4}/g).join("-");
+  }
+
+  // Fallback for older/local browsers
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+    hash |= 0;
+  }
+  return "LOCAL-" + Math.abs(hash).toString(16).toUpperCase().padStart(8, "0");
+}
+
+async function downloadCertificate() {
+  if (latestScore !== 100) return;
+  if (!validateStudentInfo()) return;
+
+  const s = getStudentInfo();
+  const fullName = s.firstName + " " + s.lastName;
+  if (!certificateId) {
+    completionTimestamp = new Date().toISOString();
+    certificateId = await generateCertificateId(s.firstName, s.lastName, s.studentId, completionTimestamp);
+  }
+
+  const completedDate = new Date(completionTimestamp);
+  const date = completedDate.toLocaleDateString();
+  const time = completedDate.toLocaleTimeString();
+
+  const certificateHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Safety Test Certificate</title>
+<style>
+  body { font-family: Georgia, serif; background: #f8fafc; margin: 0; padding: 40px; }
+  .certificate {
+    max-width: 900px;
+    margin: auto;
+    background: white;
+    border: 12px double #1f2937;
+    padding: 60px;
+    text-align: center;
+    min-height: 560px;
+    box-sizing: border-box;
+  }
+  h1 { font-size: 42px; margin-bottom: 10px; }
+  h2 { font-size: 28px; margin: 30px 0; }
+  .name { font-size: 38px; font-weight: bold; border-bottom: 2px solid #111827; display: inline-block; padding: 8px 40px; margin: 20px 0; }
+  .details { font-family: Arial, sans-serif; font-size: 18px; margin-top: 30px; line-height: 1.8; }
+  .small { font-family: Arial, sans-serif; font-size: 14px; margin-top: 45px; color: #4b5563; }
+  @media print {
+    body { background: white; }
+    .certificate { page-break-inside: avoid; }
+    .no-print { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="certificate">
+  <h1>Certificate of Completion</h1>
+  <p>This certifies that</p>
+  <div class="name">${escapeHtml(fullName)}</div>
+  <h2>has successfully completed the<br>General Safety Test</h2>
+  <div class="details">
+    Score: <strong>100%</strong><br>
+    Student ID: <strong>${escapeHtml(s.studentId)}</strong><br>
+    Date Completed: <strong>${escapeHtml(date)}</strong><br>
+    Time Completed: <strong>${escapeHtml(time)}</strong><br>
+    Certificate ID: <strong>${escapeHtml(certificateId)}</strong>
+  </div>
+  <div class="small">
+    Teacher verification: compare the student name, student ID, completion date/time, and Certificate ID. Duplicate certificates will have the same Certificate ID. If a name or student ID was edited after download, the Certificate ID will not match the displayed information.
+    <br><br>
+    Verification string: ${escapeHtml(s.firstName.trim().toLowerCase())}|${escapeHtml(s.lastName.trim().toLowerCase())}|${escapeHtml(s.studentId.trim().toLowerCase())}|${escapeHtml(completionTimestamp)}
+  </div>
+</div>
+<script>
+  window.onload = function(){ window.print(); };
+<\/script>
+</body>
+</html>`;
+
+  const blob = new Blob([certificateHtml], {type: "text/html"});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const safeName = (s.lastName + "_" + s.firstName + "_Safety_Certificate").replace(/[^a-z0-9_\-]/gi, "_");
+  link.href = url;
+  link.download = safeName + ".html";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 buildQuiz();
 </script>
-</div>
 </body>
 </html>
