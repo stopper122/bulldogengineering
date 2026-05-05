@@ -324,6 +324,10 @@ async function generateCertificateId(firstName, lastName, studentId, timestamp) 
   return "LOCAL-" + Math.abs(hash).toString(16).toUpperCase().padStart(8, "0");
 }
 
+function makeQrUrl(text) {
+  return "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(text);
+}
+
 async function downloadCertificate() {
   if (latestScore !== 100) return;
   if (!validateStudentInfo()) return;
@@ -338,6 +342,16 @@ async function downloadCertificate() {
   const completedDate = new Date(completionTimestamp);
   const date = completedDate.toLocaleDateString();
   const time = completedDate.toLocaleTimeString();
+
+  const qrText =
+    "General Safety Test Completion\n" +
+    "Name: " + fullName + "\n" +
+    "Student ID: " + s.studentId + "\n" +
+    "Date Completed: " + date + "\n" +
+    "Time Completed: " + time + "\n" +
+    "Certificate ID: " + certificateId;
+
+  const qrUrl = makeQrUrl(qrText);
 
   const certificateHtml = `<!DOCTYPE html>
 <html>
@@ -360,7 +374,10 @@ async function downloadCertificate() {
   h2 { font-size: 28px; margin: 30px 0; }
   .name { font-size: 38px; font-weight: bold; border-bottom: 2px solid #111827; display: inline-block; padding: 8px 40px; margin: 20px 0; }
   .details { font-family: Arial, sans-serif; font-size: 18px; margin-top: 30px; line-height: 1.8; }
-  .small { font-family: Arial, sans-serif; font-size: 14px; margin-top: 45px; color: #4b5563; }
+  .small { font-family: Arial, sans-serif; font-size: 14px; margin-top: 30px; color: #4b5563; }
+  .qr-section { margin-top: 30px; font-family: Arial, sans-serif; }
+  .qr-section img { width: 180px; height: 180px; border: 1px solid #ddd; padding: 8px; background: white; }
+  .qr-caption { font-size: 14px; margin-top: 8px; color: #374151; }
   @media print {
     body { background: white; }
     .certificate { page-break-inside: avoid; }
@@ -381,10 +398,15 @@ async function downloadCertificate() {
     Time Completed: <strong>${escapeHtml(time)}</strong><br>
     Certificate ID: <strong>${escapeHtml(certificateId)}</strong>
   </div>
+  <div class="qr-section">
+    <img src="${qrUrl}" alt="QR code for certificate verification">
+    <div class="qr-caption">Scan to view student name, ID, completion date/time, and Certificate ID.</div>
+  </div>
   <div class="small">
-    Teacher verification: compare the student name, student ID, completion date/time, and Certificate ID. Duplicate certificates will have the same Certificate ID. If a name or student ID was edited after download, the Certificate ID will not match the displayed information.
+    Teacher verification: scan the QR code and compare it to the visible certificate. Duplicate certificates will have the same Certificate ID. If a certificate was edited after download, the scanned QR details will not match the visible information.
     <br><br>
-    Verification string: ${escapeHtml(s.firstName.trim().toLowerCase())}|${escapeHtml(s.lastName.trim().toLowerCase())}|${escapeHtml(s.studentId.trim().toLowerCase())}|${escapeHtml(completionTimestamp)}
+    QR text:<br>
+    ${escapeHtml(qrText).replace(/\n/g, "<br>")}
   </div>
 </div>
 <script>
