@@ -333,12 +333,13 @@ async function downloadCertificate() {
   if (!validateStudentInfo()) return;
 
   const s = getStudentInfo();
-  const fullName = s.firstName + " " + s.lastName;
+
   if (!certificateId) {
     completionTimestamp = new Date().toISOString();
     certificateId = await generateCertificateId(s.firstName, s.lastName, s.studentId, completionTimestamp);
   }
 
+  const fullName = s.firstName + " " + s.lastName;
   const completedDate = new Date(completionTimestamp);
   const date = completedDate.toLocaleDateString();
   const time = completedDate.toLocaleTimeString();
@@ -353,78 +354,91 @@ async function downloadCertificate() {
 
   const qrUrl = makeQrUrl(qrText);
 
-  const certificateHtml = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Safety Test Certificate</title>
-<style>
-  body { font-family: Georgia, serif; background: #f8fafc; margin: 0; padding: 40px; }
-  .certificate {
-    max-width: 900px;
-    margin: auto;
-    background: white;
-    border: 12px double #1f2937;
-    padding: 60px;
-    text-align: center;
-    min-height: 560px;
-    box-sizing: border-box;
-  }
-  h1 { font-size: 42px; margin-bottom: 10px; }
-  h2 { font-size: 28px; margin: 30px 0; }
-  .name { font-size: 38px; font-weight: bold; border-bottom: 2px solid #111827; display: inline-block; padding: 8px 40px; margin: 20px 0; }
-  .details { font-family: Arial, sans-serif; font-size: 18px; margin-top: 30px; line-height: 1.8; }
-  .small { font-family: Arial, sans-serif; font-size: 14px; margin-top: 30px; color: #4b5563; }
-  .qr-section { margin-top: 30px; font-family: Arial, sans-serif; }
-  .qr-section img { width: 180px; height: 180px; border: 1px solid #ddd; padding: 8px; background: white; }
-  .qr-caption { font-size: 14px; margin-top: 8px; color: #374151; }
-  @media print {
-    body { background: white; }
-    .certificate { page-break-inside: avoid; }
-    .no-print { display: none; }
-  }
-</style>
-</head>
-<body>
-<div class="certificate">
-  <h1>Certificate of Completion</h1>
-  <p>This certifies that</p>
-  <div class="name">${escapeHtml(fullName)}</div>
-  <h2>has successfully completed the<br>General Safety Test</h2>
-  <div class="details">
-    Score: <strong>100%</strong><br>
-    Student ID: <strong>${escapeHtml(s.studentId)}</strong><br>
-    Date Completed: <strong>${escapeHtml(date)}</strong><br>
-    Time Completed: <strong>${escapeHtml(time)}</strong><br>
-    Certificate ID: <strong>${escapeHtml(certificateId)}</strong>
-  </div>
-  <div class="qr-section">
-    <img src="${qrUrl}" alt="QR code for certificate verification">
-    <div class="qr-caption">Scan to view student name, ID, completion date/time, and Certificate ID.</div>
-  </div>
-  <div class="small">
-    Teacher verification: scan the QR code and compare it to the visible certificate. Duplicate certificates will have the same Certificate ID. If a certificate was edited after download, the scanned QR details will not match the visible information.
-    <br><br>
-    QR text:<br>
-    ${escapeHtml(qrText).replace(/\n/g, "<br>")}
-  </div>
-</div>
-<script>
-  window.onload = function(){ window.print(); };
-<\/script>
-</body>
-</html>`;
+  const canvas = document.createElement("canvas");
+  canvas.width = 1400;
+  canvas.height = 1000;
+  const ctx = canvas.getContext("2d");
 
-  const blob = new Blob([certificateHtml], {type: "text/html"});
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  // Background
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Certificate panel
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(80, 80, 1240, 840);
+
+  // Border
+  ctx.strokeStyle = "#111827";
+  ctx.lineWidth = 12;
+  ctx.strokeRect(95, 95, 1210, 810);
+  ctx.lineWidth = 3;
+  ctx.strokeRect(120, 120, 1160, 760);
+
+  // Header
+  ctx.fillStyle = "#111827";
+  ctx.textAlign = "center";
+  ctx.font = "bold 58px Georgia";
+  ctx.fillText("Certificate of Completion", 700, 210);
+
+  ctx.font = "28px Georgia";
+  ctx.fillText("This certifies that", 700, 285);
+
+  // Name
+  ctx.font = "bold 54px Georgia";
+  ctx.fillText(fullName, 700, 375);
+
+  ctx.strokeStyle = "#111827";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(360, 395);
+  ctx.lineTo(1040, 395);
+  ctx.stroke();
+
+  ctx.font = "bold 36px Georgia";
+  ctx.fillText("has successfully completed the", 700, 470);
+  ctx.fillText("General Safety Test", 700, 520);
+
+  // Details
+  ctx.font = "24px Arial";
+  ctx.fillText("Score: 100%", 700, 590);
+  ctx.fillText("Student ID: " + s.studentId, 700, 630);
+  ctx.fillText("Date Completed: " + date, 700, 670);
+  ctx.fillText("Time Completed: " + time, 700, 710);
+  ctx.fillText("Certificate ID: " + certificateId, 700, 750);
+
+  // QR code
+  try {
+    const qrImg = new Image();
+    qrImg.crossOrigin = "anonymous";
+    qrImg.onload = function() {
+      ctx.drawImage(qrImg, 590, 775, 220, 220);
+
+      ctx.font = "18px Arial";
+      ctx.fillStyle = "#374151";
+      ctx.fillText("Scan QR code to verify student name, ID, date/time, and Certificate ID.", 700, 960);
+
+      saveCanvasAsPng(canvas, s);
+    };
+    qrImg.onerror = function() {
+      ctx.font = "18px Arial";
+      ctx.fillStyle = "#b91c1c";
+      ctx.fillText("QR code could not be loaded. Check internet access and try again.", 700, 850);
+      saveCanvasAsPng(canvas, s);
+    };
+    qrImg.src = qrUrl;
+  } catch (err) {
+    saveCanvasAsPng(canvas, s);
+  }
+}
+
+function saveCanvasAsPng(canvas, s) {
   const safeName = (s.lastName + "_" + s.firstName + "_Safety_Certificate").replace(/[^a-z0-9_\-]/gi, "_");
-  link.href = url;
-  link.download = safeName + ".html";
+  const link = document.createElement("a");
+  link.download = safeName + ".png";
+  link.href = canvas.toDataURL("image/png");
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
 }
 
 function escapeHtml(text) {
