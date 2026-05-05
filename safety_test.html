@@ -255,6 +255,13 @@ function grade() {
   if (!validateStudentInfo()) return;
 
   const blanks = document.querySelectorAll(".blank");
+  const emptyBlanks = Array.from(blanks).filter(b => b.textContent.trim() === "");
+  if (emptyBlanks.length > 0) {
+    const proceed = confirm("You have " + emptyBlanks.length + " unanswered blank(s). Submit anyway?");
+    if (!proceed) return;
+  }
+
+  const blanks = document.querySelectorAll(".blank");
   let correct = 0;
   const feedback = document.getElementById("feedback");
   feedback.innerHTML = "";
