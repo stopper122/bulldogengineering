@@ -11,7 +11,7 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 120px;
+            min-width: 140px;
             height: 2rem;
             border: 2px dashed #94a3b8;
             background-color: #f8fafc;
@@ -65,8 +65,8 @@
             border-style: solid !important;
         }
         .question-row {
-            line-height: 2.5rem;
-            padding: 0.75rem;
+            line-height: 2.8rem;
+            padding: 1rem;
             border-bottom: 1px solid #f1f5f9;
         }
         @media print {
@@ -132,7 +132,9 @@
                     <p class="text-xl text-slate-600 mb-8">This certifies that</p>
                     <p id="certName" class="text-3xl font-bold border-b-2 border-slate-800 inline-block px-8 mb-8 text-blue-900">STUDENT NAME</p>
                     <p class="text-xl text-slate-600 mb-8">has successfully demonstrated comprehensive knowledge of</p>
-                    <h2 class="text-2xl font-bold text-slate-800 uppercase tracking-widest mb-12">General Shop Safety</h2>
+                    <h2 class="text-2xl font-bold text-slate-800 uppercase tracking-widest mb-4">General Shop Safety</h2>
+                    <p class="text-sm text-slate-400 font-mono mb-8" id="certHash">Verification: 0000-0000-0000</p>
+                    
                     <div class="flex justify-between items-end mt-12">
                         <div class="text-left">
                             <p class="font-bold border-t border-slate-800 pt-1" id="certDate">Date</p>
@@ -140,7 +142,7 @@
                         </div>
                         <div class="text-right">
                             <p class="font-bold border-t border-slate-800 pt-1">Shop Instructor</p>
-                            <p class="text-xs uppercase text-slate-500">Verified by System</p>
+                            <p class="text-xs uppercase text-slate-500">Verified System Record</p>
                         </div>
                     </div>
                 </div>
@@ -153,42 +155,42 @@
     </div>
 
     <script>
+        // Updated data with combined terms and single-sentence structure
         const originalQuizData = [
-            { text: "It is vital to your general safety that you", blanks: ["learn", "obey"], suffix: "all safety rules." },
-            { text: "Remember, a machine can be very unforgiving of", blanks: ["error"], suffix: "on the part of the operator." },
-            { text: "Only work approved by the", blanks: ["teacher"], suffix: "is to be done in the lab." },
-            { text: "All injuries, no matter how small, must be reported to the", blanks: ["teacher"], suffix: "immediately." },
-            { text: "Loose fitting", blanks: ["clothing"], suffix: "is a hazard." },
-            { text: "Roll up", blanks: ["sleeves"], suffix: "above the elbow." },
-            { text: "Remove all", blanks: ["jewelry"], suffix: "(watches, rings, chains, etc.) before working in the shop." },
-            { text: "Caution anyone you observe", blanks: ["breaking"], suffix: "a safety rule." },
-            { text: "The floor, aisles, and passageways should be kept", blanks: ["clear"], suffix: "of parts, tools, and materials." },
-            { text: "Prevent tools and materials from", blanks: ["hanging"], suffix: "over the edges of tables and benches." },
-            { text: "", blanks: ["Never"], suffix: "leave vise jaws tightened together when not in use." },
-            { text: "Vise handles are to be left in a", blanks: ["vertical"], suffix: "position." },
-            { text: "Tools, equipment, materials, and projects are to be stored in", blanks: ["designated"], suffix: "locations." },
-            { text: "Clean up all spills", blanks: ["immediately"], suffix: "." },
-            { text: "Exercise", blanks: ["caution"], suffix: "in handling large and long pieces. Obtain help when needed," },
-            { text: "", blanks: ["never"], suffix: "attempt to lift large or heavy objects on your own." },
-            { text: "When using", blanks: ["compressed"], suffix: "air, direct the" },
-            { text: "", blanks: ["nozzle"], suffix: "away from yourself and other people." },
-            { text: "Long loose locks of", blanks: ["hair"], suffix: "can easily be caught in revolving machinery." },
-            { text: "Testing the sharpness of a tool should be done on scrap material and NOT your", blanks: ["skin"], suffix: "." },
-            { text: "Keep your", blanks: ["body"], suffix: "parts clear of the blade." },
-            { text: "Keep", blanks: ["handles"], suffix: "tight and in good condition on all tools." },
-            { text: "Use", blanks: ["tools"], suffix: "only for their intended purpose. DO NOT PLAY!" },
-            { text: "Do not", blanks: ["throw"], suffix: "anything in class." },
-            { text: "", blanks: ["Safety", "glasses"], suffix: "must be worn while in the lab." },
-            { text: "Arrange", blanks: ["power", "cords"], suffix: "so that they are not a tripping hazard." },
-            { text: "Be aware of your", blanks: ["surroundings"], suffix: "at all times when in the lab." },
-            { text: "While operating the drill press, material must be clamped securely or in a", blanks: ["vise"], suffix: "." },
-            { text: "", blanks: ["Cleanup"], suffix: "immediately when finished working." }
+            { segments: ["It is vital to your general safety that you", "blank", "and", "blank", "all safety rules."], blanks: ["learn", "obey"] },
+            { segments: ["Remember, a machine can be very unforgiving of", "blank", "on the part of the operator."], blanks: ["error"] },
+            { segments: ["Only work approved by the", "blank", "is to be done in the lab."], blanks: ["teacher"] },
+            { segments: ["All injuries, no matter how small, must be reported to the", "blank", "immediately."], blanks: ["teacher"] },
+            { segments: ["Loose fitting", "blank", "is a hazard."], blanks: ["clothing"] },
+            { segments: ["Roll up", "blank", "above the elbow."], blanks: ["sleeves"] },
+            { segments: ["Remove all", "blank", "(watches, rings, chains, etc.) before working in the shop."], blanks: ["jewelry"] },
+            { segments: ["Caution anyone you observe", "blank", "a safety rule."], blanks: ["breaking"] },
+            { segments: ["The floor, aisles, and passageways should be kept", "blank", "of parts, tools, and materials."], blanks: ["clear"] },
+            { segments: ["Prevent tools and materials from", "blank", "over the edges of tables and benches."], blanks: ["hanging"] },
+            { segments: ["blank", "leave vise jaws tightened together when not in use."], blanks: ["Never"] },
+            { segments: ["Vise handles are to be left in a", "blank", "position."], blanks: ["vertical"] },
+            { segments: ["Tools, equipment, materials, and projects are to be stored in", "blank", "locations."], blanks: ["designated"] },
+            { segments: ["Clean up all spills", "blank", "."], blanks: ["immediately"] },
+            { segments: ["Exercise", "blank", "in handling large and long pieces. Obtain help when needed,"], blanks: ["caution"] },
+            { segments: ["blank", "attempt to lift large or heavy objects on your own."], blanks: ["never"] },
+            { segments: ["When using", "blank", "air, direct the", "blank", "away from yourself and other people."], blanks: ["compressed", "nozzle"] },
+            { segments: ["Long loose locks of", "blank", "can easily be caught in revolving machinery."], blanks: ["hair"] },
+            { segments: ["Testing the sharpness of a tool should be done on scrap material and NOT your", "blank", "."], blanks: ["skin"] },
+            { segments: ["Keep your", "blank", "parts clear of the blade."], blanks: ["body"] },
+            { segments: ["Keep", "blank", "tight and in good condition on all tools."], blanks: ["handles"] },
+            { segments: ["Use", "blank", "only for their intended purpose. DO NOT PLAY!"], blanks: ["tools"] },
+            { segments: ["Do not", "blank", "anything in class."], blanks: ["throw"] },
+            { segments: ["blank", "must be worn while in the lab."], blanks: ["Safety glasses"] },
+            { segments: ["Arrange", "blank", "so that they are not a tripping hazard."], blanks: ["power cords"] },
+            { segments: ["Be aware of your", "blank", "at all times when in the lab."], blanks: ["surroundings"] },
+            { segments: ["While operating the drill press, material must be clamped securely or in a", "blank", "."], blanks: ["vise"] },
+            { segments: ["blank", "immediately when finished working."], blanks: ["Cleanup"] }
         ];
 
         // Shuffle questions
         const shuffledQuizData = [...originalQuizData].sort(() => Math.random() - 0.5);
 
-        // Calculate word counts for duplication tracking
+        // Word usage counts
         const wordCounts = {};
         originalQuizData.forEach(q => {
             q.blanks.forEach(word => {
@@ -196,9 +198,7 @@
             });
         });
 
-        // Alphabetized unique word bank
         const uniqueWords = Object.keys(wordCounts).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-
         let selectedWord = null;
 
         function updateWordBankVisibility() {
@@ -218,7 +218,6 @@
 
                 if (currentlyUsed >= maxAllowed) {
                     btn.classList.add('hidden-word');
-                    // Deselect if it just got hidden
                     if (selectedWord === word) {
                         selectedWord = null;
                         btn.classList.remove('selected-word');
@@ -229,11 +228,22 @@
             });
         }
 
+        function generateVerificationHash(name, date) {
+            const secret = "SAFETY-PRO-2024";
+            const str = `${name.toUpperCase()}-${date}-${secret}`;
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash |= 0; 
+            }
+            const absHash = Math.abs(hash).toString(36).toUpperCase();
+            return `VERIFY: ${absHash.slice(0,4)}-${absHash.slice(4,8)}-${absHash.slice(8,12)}`.padEnd(20, 'X');
+        }
+
         function initQuiz() {
             const wordBank = document.getElementById('wordBank');
             const questionsContainer = document.getElementById('questions');
 
-            // Render Alphabetized Word Bank
             uniqueWords.forEach(word => {
                 const span = document.createElement('span');
                 span.className = "draggable bg-white border border-slate-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 hover:border-blue-400 transition-all shadow-sm active:shadow-inner";
@@ -244,11 +254,7 @@
                     e.dataTransfer.setData('text/plain', word);
                     span.classList.add('opacity-50');
                 });
-
-                span.addEventListener('dragend', () => {
-                    span.classList.remove('opacity-50');
-                });
-
+                span.addEventListener('dragend', () => span.classList.remove('opacity-50'));
                 span.addEventListener('click', () => {
                     document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
                     if (selectedWord === word) {
@@ -258,61 +264,49 @@
                         span.classList.add('selected-word');
                     }
                 });
-
                 wordBank.appendChild(span);
             });
 
-            // Render Shuffled Questions
             shuffledQuizData.forEach((q, qIndex) => {
                 const div = document.createElement('div');
                 div.className = "question-row hover:bg-slate-50 transition-colors";
                 
-                let content = q.text ? q.text + " " : "";
-                div.appendChild(document.createTextNode(content));
-                
-                q.blanks.forEach((_, bIndex) => {
-                    const dropZone = document.createElement('span');
-                    dropZone.className = "drop-zone";
-                    dropZone.dataset.qIndex = qIndex;
-                    dropZone.dataset.bIndex = bIndex;
+                let blankCounter = 0;
+                q.segments.forEach((seg) => {
+                    if (seg === "blank") {
+                        const dropZone = document.createElement('span');
+                        dropZone.className = "drop-zone";
+                        dropZone.dataset.qIndex = qIndex;
+                        dropZone.dataset.bIndex = blankCounter;
+                        blankCounter++;
 
-                    dropZone.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                        dropZone.classList.add('drag-over');
-                    });
+                        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+                        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+                        dropZone.addEventListener('drop', (e) => {
+                            e.preventDefault();
+                            dropZone.classList.remove('drag-over');
+                            const word = e.dataTransfer.getData('text/plain');
+                            if (word) { fillZone(dropZone, word); updateWordBankVisibility(); }
+                        });
 
-                    dropZone.addEventListener('dragleave', () => {
-                        dropZone.classList.remove('drag-over');
-                    });
-
-                    dropZone.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        dropZone.classList.remove('drag-over');
-                        const word = e.dataTransfer.getData('text/plain');
-                        if (word) {
-                            fillZone(dropZone, word);
-                            updateWordBankVisibility();
-                        }
-                    });
-
-                    dropZone.addEventListener('click', () => {
-                        if (selectedWord) {
-                            fillZone(dropZone, selectedWord);
-                            selectedWord = null;
-                            document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
-                            updateWordBankVisibility();
-                        } else if (dropZone.textContent !== "") {
-                            dropZone.textContent = "";
-                            dropZone.classList.remove('bg-blue-100', 'incorrect', 'correct', 'border-blue-500');
-                            dropZone.classList.add('bg-slate-50');
-                            updateWordBankVisibility();
-                        }
-                    });
-
-                    div.appendChild(dropZone);
+                        dropZone.addEventListener('click', () => {
+                            if (selectedWord) {
+                                fillZone(dropZone, selectedWord);
+                                selectedWord = null;
+                                document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
+                                updateWordBankVisibility();
+                            } else if (dropZone.textContent !== "") {
+                                dropZone.textContent = "";
+                                dropZone.classList.remove('bg-blue-100', 'incorrect', 'correct', 'border-blue-500');
+                                dropZone.classList.add('bg-slate-50');
+                                updateWordBankVisibility();
+                            }
+                        });
+                        div.appendChild(dropZone);
+                    } else {
+                        div.appendChild(document.createTextNode(" " + seg + " "));
+                    }
                 });
-
-                div.appendChild(document.createTextNode(" " + q.suffix));
                 questionsContainer.appendChild(div);
             });
 
@@ -347,17 +341,12 @@
                     } else {
                         rowIsPerfect = false;
                         zone.classList.remove('correct');
-                        if (userVal !== "") {
-                            zone.classList.add('incorrect');
-                        }
+                        if (userVal !== "") zone.classList.add('incorrect');
                     }
                 });
 
-                if (rowIsPerfect) {
-                    rows[qIndex].classList.add('bg-green-50');
-                } else {
-                    rows[qIndex].classList.remove('bg-green-50');
-                }
+                if (rowIsPerfect) rows[qIndex].classList.add('bg-green-50');
+                else rows[qIndex].classList.remove('bg-green-50');
             });
 
             const scorePercent = Math.round((correctBlanks / totalBlanks) * 100);
@@ -386,6 +375,7 @@
 
             document.getElementById('certName').textContent = nameInput;
             document.getElementById('certDate').textContent = dateInput || new Date().toLocaleDateString();
+            document.getElementById('certHash').textContent = generateVerificationHash(nameInput, dateInput);
             document.getElementById('certWrapper').classList.remove('hidden');
         }
 
