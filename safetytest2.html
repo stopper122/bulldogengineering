@@ -17,10 +17,12 @@
             text-align: center;
             transition: all 0.2s;
             cursor: pointer;
+            min-height: 1.5em;
         }
         .drop-zone.drag-over {
             background-color: #f1f5f9;
             border-color: #3b82f6;
+            transform: scale(1.05);
         }
         .draggable {
             cursor: grab;
@@ -29,6 +31,11 @@
         }
         .draggable:active {
             cursor: grabbing;
+        }
+        .draggable.selected-word {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #2563eb;
         }
         .correct {
             background-color: #dcfce7 !important;
@@ -49,7 +56,7 @@
         <!-- Header -->
         <header class="mb-8 text-center no-print">
             <h1 class="text-3xl font-bold text-slate-800 mb-2">General Safety Test</h1>
-            <p class="text-slate-600 italic">Complete the safety rules by dragging the correct terms into the blanks.</p>
+            <p class="text-slate-600 italic">Drag words from the bank into the blanks, or click a word then click a blank.</p>
         </header>
 
         <!-- Student Info -->
@@ -92,7 +99,7 @@
             </div>
         </div>
 
-        <!-- Certificate Container (Hidden until 100%) -->
+        <!-- Certificate Container -->
         <div id="certWrapper" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
             <div class="bg-white p-4 rounded-lg shadow-2xl max-w-2xl w-full">
                 <div id="certificate" class="relative border-[12px] border-double border-slate-800 p-12 text-center bg-white">
@@ -154,7 +161,6 @@
             { text: "", blanks: ["Cleanup"], suffix: "immediately when finished working." }
         ];
 
-        // All possible answers for the word bank (deduplicated)
         const allWords = [
             "learn", "obey", "error", "teacher", "clothing", "sleeves", "jewelry", 
             "breaking", "clear", "hanging", "Never", "vertical", "designated", 
@@ -163,7 +169,7 @@
             "power", "cords", "surroundings", "vise", "Cleanup"
         ].sort(() => Math.random() - 0.5);
 
-        let draggedElement = null;
+        let selectedWord = null;
 
         function initQuiz() {
             const wordBank = document.getElementById('wordBank');
@@ -175,14 +181,30 @@
                 span.className = "draggable bg-slate-100 border border-slate-300 px-3 py-1 rounded text-sm hover:bg-blue-50 hover:border-blue-300 transition-colors shadow-sm";
                 span.draggable = true;
                 span.textContent = word;
-                span.addEventListener('dragstart', handleDragStart);
+                
+                // Drag Events
+                span.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', word);
+                });
+
+                // Click Selection (for accessibility/mobile)
+                span.addEventListener('click', () => {
+                    document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
+                    if (selectedWord === word) {
+                        selectedWord = null;
+                    } else {
+                        selectedWord = word;
+                        span.classList.add('selected-word');
+                    }
+                });
+
                 wordBank.appendChild(span);
             });
 
             // Render Questions
             quizData.forEach((q, qIndex) => {
                 const p = document.createElement('p');
-                p.className = "question-row";
+                p.className = "question-row p-1 rounded transition-colors";
                 p.innerHTML = q.text ? q.text + " " : "";
                 
                 q.blanks.forEach((_, bIndex) => {
@@ -190,10 +212,36 @@
                     dropZone.className = "drop-zone";
                     dropZone.dataset.qIndex = qIndex;
                     dropZone.dataset.bIndex = bIndex;
-                    dropZone.addEventListener('dragover', handleDragOver);
-                    dropZone.addEventListener('dragleave', handleDragLeave);
-                    dropZone.addEventListener('drop', handleDrop);
-                    dropZone.addEventListener('click', handleZoneClick);
+
+                    // Drop Events
+                    dropZone.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        dropZone.classList.add('drag-over');
+                    });
+
+                    dropZone.addEventListener('dragleave', () => {
+                        dropZone.classList.remove('drag-over');
+                    });
+
+                    dropZone.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        dropZone.classList.remove('drag-over');
+                        const word = e.dataTransfer.getData('text/plain');
+                        if (word) fillZone(dropZone, word);
+                    });
+
+                    // Click to Fill / Clear
+                    dropZone.addEventListener('click', () => {
+                        if (selectedWord) {
+                            fillZone(dropZone, selectedWord);
+                            selectedWord = null;
+                            document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
+                        } else {
+                            dropZone.textContent = "";
+                            dropZone.classList.remove('bg-blue-50', 'incorrect', 'correct');
+                        }
+                    });
+
                     p.appendChild(dropZone);
                 });
 
@@ -204,47 +252,17 @@
             document.getElementById('testDate').valueAsDate = new Date();
         }
 
-        function handleDragStart(e) {
-            draggedElement = e.target;
-            e.dataTransfer.setData('text/plain', e.target.textContent);
-        }
-
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.target.classList.add('drag-over');
-        }
-
-        function handleDragLeave(e) {
-            e.target.classList.remove('drag-over');
-        }
-
-        function handleDrop(e) {
-            e.preventDefault();
-            const zone = e.target;
-            zone.classList.remove('drag-over');
-            const word = e.dataTransfer.getData('text/plain');
-            
-            // If zone already has a word, we can swap it or just replace
+        function fillZone(zone, word) {
             zone.textContent = word;
             zone.classList.add('bg-blue-50');
             zone.classList.remove('incorrect', 'correct');
-        }
-
-        function handleZoneClick(e) {
-            // Clear zone on click
-            if(e.target.textContent !== "") {
-                e.target.textContent = "";
-                e.target.classList.remove('bg-blue-50', 'incorrect', 'correct');
-            }
         }
 
         function gradeQuiz() {
             const zones = document.querySelectorAll('.drop-zone');
             let totalBlanks = 0;
             let correctBlanks = 0;
-            let rowsCorrect = 0;
-
-            const questionElements = document.querySelectorAll('.question-row');
+            const questionRows = document.querySelectorAll('.question-row');
 
             quizData.forEach((q, qIndex) => {
                 const rowZones = Array.from(zones).filter(z => z.dataset.qIndex == qIndex);
@@ -262,15 +280,16 @@
                     } else {
                         rowIsPerfect = false;
                         zone.classList.remove('correct');
-                        zone.classList.add('incorrect');
+                        if (userVal !== "") {
+                            zone.classList.add('incorrect');
+                        }
                     }
                 });
 
                 if (rowIsPerfect) {
-                    questionElements[qIndex].classList.add('text-green-700');
-                    rowsCorrect++;
+                    questionRows[qIndex].classList.add('bg-green-50');
                 } else {
-                    questionElements[qIndex].classList.remove('text-green-700');
+                    questionRows[qIndex].classList.remove('bg-green-50');
                 }
             });
 
@@ -317,7 +336,6 @@
         }
 
         document.getElementById('submitBtn').addEventListener('click', gradeQuiz);
-
         window.onload = initQuiz;
     </script>
 </body>
