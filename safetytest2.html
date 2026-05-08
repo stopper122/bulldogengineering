@@ -51,6 +51,9 @@
             color: white !important;
             border-color: #2563eb !important;
         }
+        .draggable.hidden-word {
+            display: none;
+        }
         .correct {
             background-color: #dcfce7 !important;
             border-color: #22c55e !important;
@@ -185,23 +188,53 @@
         // Shuffle questions
         const shuffledQuizData = [...originalQuizData].sort(() => Math.random() - 0.5);
 
-        // Alphabetized word bank
-        const allWords = [
-            "learn", "obey", "error", "teacher", "clothing", "sleeves", "jewelry", 
-            "breaking", "clear", "hanging", "Never", "vertical", "designated", 
-            "immediately", "caution", "never", "compressed", "nozzle", "hair", 
-            "skin", "body", "handles", "tools", "throw", "Safety", "glasses", 
-            "power", "cords", "surroundings", "vise", "Cleanup"
-        ].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        // Calculate word counts for duplication tracking
+        const wordCounts = {};
+        originalQuizData.forEach(q => {
+            q.blanks.forEach(word => {
+                wordCounts[word] = (wordCounts[word] || 0) + 1;
+            });
+        });
+
+        // Alphabetized unique word bank
+        const uniqueWords = Object.keys(wordCounts).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 
         let selectedWord = null;
+
+        function updateWordBankVisibility() {
+            const currentAnswers = Array.from(document.querySelectorAll('.drop-zone'))
+                .map(zone => zone.textContent.trim())
+                .filter(val => val !== "");
+
+            const countsInUse = {};
+            currentAnswers.forEach(word => {
+                countsInUse[word] = (countsInUse[word] || 0) + 1;
+            });
+
+            document.querySelectorAll('.draggable').forEach(btn => {
+                const word = btn.textContent;
+                const maxAllowed = wordCounts[word] || 1;
+                const currentlyUsed = countsInUse[word] || 0;
+
+                if (currentlyUsed >= maxAllowed) {
+                    btn.classList.add('hidden-word');
+                    // Deselect if it just got hidden
+                    if (selectedWord === word) {
+                        selectedWord = null;
+                        btn.classList.remove('selected-word');
+                    }
+                } else {
+                    btn.classList.remove('hidden-word');
+                }
+            });
+        }
 
         function initQuiz() {
             const wordBank = document.getElementById('wordBank');
             const questionsContainer = document.getElementById('questions');
 
             // Render Alphabetized Word Bank
-            allWords.forEach(word => {
+            uniqueWords.forEach(word => {
                 const span = document.createElement('span');
                 span.className = "draggable bg-white border border-slate-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 hover:border-blue-400 transition-all shadow-sm active:shadow-inner";
                 span.draggable = true;
@@ -256,7 +289,10 @@
                         e.preventDefault();
                         dropZone.classList.remove('drag-over');
                         const word = e.dataTransfer.getData('text/plain');
-                        if (word) fillZone(dropZone, word);
+                        if (word) {
+                            fillZone(dropZone, word);
+                            updateWordBankVisibility();
+                        }
                     });
 
                     dropZone.addEventListener('click', () => {
@@ -264,10 +300,12 @@
                             fillZone(dropZone, selectedWord);
                             selectedWord = null;
                             document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
+                            updateWordBankVisibility();
                         } else if (dropZone.textContent !== "") {
                             dropZone.textContent = "";
                             dropZone.classList.remove('bg-blue-100', 'incorrect', 'correct', 'border-blue-500');
                             dropZone.classList.add('bg-slate-50');
+                            updateWordBankVisibility();
                         }
                     });
 
