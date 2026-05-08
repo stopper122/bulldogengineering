@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>General Safety Test & Certification</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        .drop-zone {
+            display: inline-block;
+            min-width: 100px;
+            border-bottom: 2px solid #cbd5e1;
+            margin: 0 4px;
+            padding: 2px 8px;
+            vertical-align: bottom;
+            text-align: center;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .drop-zone.drag-over {
+            background-color: #f1f5f9;
+            border-color: #3b82f6;
+        }
+        .draggable {
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+        }
+        .draggable:active {
+            cursor: grabbing;
+        }
+        .correct {
+            background-color: #dcfce7 !important;
+            border-color: #22c55e !important;
+        }
+        .incorrect {
+            background-color: #fee2e2 !important;
+            border-color: #ef4444 !important;
+        }
+        @media print {
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8 font-sans">
+
+    <div id="app" class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <header class="mb-8 text-center no-print">
+            <h1 class="text-3xl font-bold text-slate-800 mb-2">General Safety Test</h1>
+            <p class="text-slate-600 italic">Complete the safety rules by dragging the correct terms into the blanks.</p>
+        </header>
+
+        <!-- Student Info -->
+        <div class="bg-white rounded-xl shadow-sm p-6 mb-8 border border-slate-200 no-print">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700">Student Name</label>
+                    <input type="text" id="studentName" class="w-full mt-1 p-2 border rounded-md" placeholder="Enter your full name">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700">Date</label>
+                    <input type="date" id="testDate" class="w-full mt-1 p-2 border rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700">Period</label>
+                    <input type="text" id="period" class="w-full mt-1 p-2 border rounded-md" placeholder="e.g. 1st">
+                </div>
+            </div>
+        </div>
+
+        <!-- Word Bank -->
+        <div id="wordBankSection" class="bg-white rounded-xl shadow-md p-6 mb-8 border-2 border-blue-100 sticky top-4 z-10 no-print">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-blue-600 mb-4">Word Bank</h2>
+            <div id="wordBank" class="flex flex-wrap gap-2">
+                <!-- Words injected by JS -->
+            </div>
+        </div>
+
+        <!-- Quiz Section -->
+        <div id="quizContainer" class="bg-white rounded-xl shadow-sm p-8 border border-slate-200 mb-8 no-print">
+            <div id="questions" class="space-y-6 leading-relaxed text-slate-800 text-lg">
+                <!-- Questions injected by JS -->
+            </div>
+
+            <div class="mt-12 flex flex-col items-center gap-4">
+                <button id="submitBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-12 rounded-full transition-all shadow-lg active:transform active:scale-95">
+                    Submit for Grading
+                </button>
+                <p id="scoreDisplay" class="text-xl font-bold hidden"></p>
+            </div>
+        </div>
+
+        <!-- Certificate Container (Hidden until 100%) -->
+        <div id="certWrapper" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+            <div class="bg-white p-4 rounded-lg shadow-2xl max-w-2xl w-full">
+                <div id="certificate" class="relative border-[12px] border-double border-slate-800 p-12 text-center bg-white">
+                    <div class="absolute top-4 left-4 right-4 bottom-4 border-2 border-slate-300"></div>
+                    <h1 class="text-4xl font-serif font-bold text-slate-900 mb-4">Certificate of Training</h1>
+                    <p class="text-xl text-slate-600 mb-8">This certifies that</p>
+                    <p id="certName" class="text-3xl font-bold border-b-2 border-slate-800 inline-block px-8 mb-8 text-blue-900">STUDENT NAME</p>
+                    <p class="text-xl text-slate-600 mb-8">has successfully demonstrated comprehensive knowledge of</p>
+                    <h2 class="text-2xl font-bold text-slate-800 uppercase tracking-widest mb-12">General Shop Safety</h2>
+                    <div class="flex justify-between items-end mt-12">
+                        <div class="text-left">
+                            <p class="font-bold border-t border-slate-800 pt-1" id="certDate">Date</p>
+                            <p class="text-xs uppercase text-slate-500">Completion Date</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold border-t border-slate-800 pt-1">Shop Instructor</p>
+                            <p class="text-xs uppercase text-slate-500">Verified by System</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 flex gap-4">
+                    <button onclick="downloadCert()" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">Download Certificate (PNG)</button>
+                    <button onclick="closeCert()" class="px-6 py-3 border border-slate-300 rounded-lg font-bold hover:bg-slate-50">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const quizData = [
+            { text: "It is vital to your general safety that you", blanks: ["learn", "obey"], suffix: "all safety rules." },
+            { text: "Remember, a machine can be very unforgiving of", blanks: ["error"], suffix: "on the part of the operator." },
+            { text: "Only work approved by the", blanks: ["teacher"], suffix: "is to be done in the lab." },
+            { text: "All injuries, no matter how small, must be reported to the", blanks: ["teacher"], suffix: "immediately." },
+            { text: "Loose fitting", blanks: ["clothing"], suffix: "is a hazard." },
+            { text: "Roll up", blanks: ["sleeves"], suffix: "above the elbow." },
+            { text: "Remove all", blanks: ["jewelry"], suffix: "(watches, rings, chains, etc.) before working in the shop." },
+            { text: "Caution anyone you observe", blanks: ["breaking"], suffix: "a safety rule." },
+            { text: "The floor, aisles, and passageways should be kept", blanks: ["clear"], suffix: "of parts, tools, and materials." },
+            { text: "Prevent tools and materials from", blanks: ["hanging"], suffix: "over the edges of tables and benches." },
+            { text: "", blanks: ["Never"], suffix: "leave vise jaws tightened together when not in use." },
+            { text: "Vise handles are to be left in a", blanks: ["vertical"], suffix: "position." },
+            { text: "Tools, equipment, materials, and projects are to be stored in", blanks: ["designated"], suffix: "locations." },
+            { text: "Clean up all spills", blanks: ["immediately"], suffix: "." },
+            { text: "Exercise", blanks: ["caution"], suffix: "in handling large and long pieces. Obtain help when needed," },
+            { text: "", blanks: ["never"], suffix: "attempt to lift large or heavy objects on your own." },
+            { text: "When using", blanks: ["compressed"], suffix: "air, direct the" },
+            { text: "", blanks: ["nozzle"], suffix: "away from yourself and other people." },
+            { text: "Long loose locks of", blanks: ["hair"], suffix: "can easily be caught in revolving machinery." },
+            { text: "Testing the sharpness of a tool should be done on scrap material and NOT your", blanks: ["skin"], suffix: "." },
+            { text: "Keep your", blanks: ["body"], suffix: "parts clear of the blade." },
+            { text: "Keep", blanks: ["handles"], suffix: "tight and in good condition on all tools." },
+            { text: "Use", blanks: ["tools"], suffix: "only for their intended purpose. DO NOT PLAY!" },
+            { text: "Do not", blanks: ["throw"], suffix: "anything in class." },
+            { text: "", blanks: ["Safety", "glasses"], suffix: "must be worn while in the lab." },
+            { text: "Arrange", blanks: ["power", "cords"], suffix: "so that they are not a tripping hazard." },
+            { text: "Be aware of your", blanks: ["surroundings"], suffix: "at all times when in the lab." },
+            { text: "While operating the drill press, material must be clamped securely or in a", blanks: ["vise"], suffix: "." },
+            { text: "", blanks: ["Cleanup"], suffix: "immediately when finished working." }
+        ];
+
+        // All possible answers for the word bank (deduplicated)
+        const allWords = [
+            "learn", "obey", "error", "teacher", "clothing", "sleeves", "jewelry", 
+            "breaking", "clear", "hanging", "Never", "vertical", "designated", 
+            "immediately", "caution", "never", "compressed", "nozzle", "hair", 
+            "skin", "body", "handles", "tools", "throw", "Safety", "glasses", 
+            "power", "cords", "surroundings", "vise", "Cleanup"
+        ].sort(() => Math.random() - 0.5);
+
+        let draggedElement = null;
+
+        function initQuiz() {
+            const wordBank = document.getElementById('wordBank');
+            const questionsContainer = document.getElementById('questions');
+
+            // Render Word Bank
+            allWords.forEach(word => {
+                const span = document.createElement('span');
+                span.className = "draggable bg-slate-100 border border-slate-300 px-3 py-1 rounded text-sm hover:bg-blue-50 hover:border-blue-300 transition-colors shadow-sm";
+                span.draggable = true;
+                span.textContent = word;
+                span.addEventListener('dragstart', handleDragStart);
+                wordBank.appendChild(span);
+            });
+
+            // Render Questions
+            quizData.forEach((q, qIndex) => {
+                const p = document.createElement('p');
+                p.className = "question-row";
+                p.innerHTML = q.text ? q.text + " " : "";
+                
+                q.blanks.forEach((_, bIndex) => {
+                    const dropZone = document.createElement('span');
+                    dropZone.className = "drop-zone";
+                    dropZone.dataset.qIndex = qIndex;
+                    dropZone.dataset.bIndex = bIndex;
+                    dropZone.addEventListener('dragover', handleDragOver);
+                    dropZone.addEventListener('dragleave', handleDragLeave);
+                    dropZone.addEventListener('drop', handleDrop);
+                    dropZone.addEventListener('click', handleZoneClick);
+                    p.appendChild(dropZone);
+                });
+
+                p.innerHTML += " " + q.suffix;
+                questionsContainer.appendChild(p);
+            });
+
+            document.getElementById('testDate').valueAsDate = new Date();
+        }
+
+        function handleDragStart(e) {
+            draggedElement = e.target;
+            e.dataTransfer.setData('text/plain', e.target.textContent);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.target.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.target.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const zone = e.target;
+            zone.classList.remove('drag-over');
+            const word = e.dataTransfer.getData('text/plain');
+            
+            // If zone already has a word, we can swap it or just replace
+            zone.textContent = word;
+            zone.classList.add('bg-blue-50');
+            zone.classList.remove('incorrect', 'correct');
+        }
+
+        function handleZoneClick(e) {
+            // Clear zone on click
+            if(e.target.textContent !== "") {
+                e.target.textContent = "";
+                e.target.classList.remove('bg-blue-50', 'incorrect', 'correct');
+            }
+        }
+
+        function gradeQuiz() {
+            const zones = document.querySelectorAll('.drop-zone');
+            let totalBlanks = 0;
+            let correctBlanks = 0;
+            let rowsCorrect = 0;
+
+            const questionElements = document.querySelectorAll('.question-row');
+
+            quizData.forEach((q, qIndex) => {
+                const rowZones = Array.from(zones).filter(z => z.dataset.qIndex == qIndex);
+                let rowIsPerfect = true;
+
+                rowZones.forEach((zone, bIndex) => {
+                    totalBlanks++;
+                    const userVal = zone.textContent.trim().toLowerCase();
+                    const correctVal = q.blanks[bIndex].toLowerCase();
+
+                    if (userVal === correctVal) {
+                        correctBlanks++;
+                        zone.classList.remove('incorrect');
+                        zone.classList.add('correct');
+                    } else {
+                        rowIsPerfect = false;
+                        zone.classList.remove('correct');
+                        zone.classList.add('incorrect');
+                    }
+                });
+
+                if (rowIsPerfect) {
+                    questionElements[qIndex].classList.add('text-green-700');
+                    rowsCorrect++;
+                } else {
+                    questionElements[qIndex].classList.remove('text-green-700');
+                }
+            });
+
+            const scorePercent = Math.round((correctBlanks / totalBlanks) * 100);
+            const display = document.getElementById('scoreDisplay');
+            display.classList.remove('hidden');
+            display.textContent = `Your Score: ${scorePercent}% (${correctBlanks} of ${totalBlanks} blanks correct)`;
+            
+            if (scorePercent === 100) {
+                display.className = "text-xl font-bold text-green-600 mt-4";
+                showCertificate();
+            } else {
+                display.className = "text-xl font-bold text-red-600 mt-4";
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            }
+        }
+
+        function showCertificate() {
+            const nameInput = document.getElementById('studentName').value;
+            const dateInput = document.getElementById('testDate').value;
+            
+            if(!nameInput) {
+                alert("Please enter your name in the Student Info section to receive your certificate!");
+                return;
+            }
+
+            document.getElementById('certName').textContent = nameInput;
+            document.getElementById('certDate').textContent = dateInput || new Date().toLocaleDateString();
+            document.getElementById('certWrapper').classList.remove('hidden');
+        }
+
+        function closeCert() {
+            document.getElementById('certWrapper').classList.add('hidden');
+        }
+
+        function downloadCert() {
+            const cert = document.getElementById('certificate');
+            html2canvas(cert).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Safety_Certificate_${document.getElementById('certName').textContent.replace(/\s/g, '_')}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        }
+
+        document.getElementById('submitBtn').addEventListener('click', gradeQuiz);
+
+        window.onload = initQuiz;
+    </script>
+</body>
+</html>
