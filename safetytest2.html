@@ -8,20 +8,34 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         .drop-zone {
-            display: inline-block;
-            min-width: 100px;
-            border-bottom: 2px solid #cbd5e1;
-            margin: 0 4px;
-            padding: 2px 8px;
-            vertical-align: bottom;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 120px;
+            height: 2rem;
+            border: 2px dashed #94a3b8;
+            background-color: #f8fafc;
+            border-radius: 0.375rem;
+            margin: 0 6px;
+            padding: 0 10px;
+            vertical-align: middle;
             text-align: center;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
             cursor: pointer;
-            min-height: 1.5em;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        .drop-zone:empty::before {
+            content: "Drop here";
+            color: #94a3b8;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         .drop-zone.drag-over {
-            background-color: #f1f5f9;
+            background-color: #dbeafe;
             border-color: #3b82f6;
+            border-style: solid;
             transform: scale(1.05);
         }
         .draggable {
@@ -33,17 +47,24 @@
             cursor: grabbing;
         }
         .draggable.selected-word {
-            background-color: #3b82f6;
-            color: white;
-            border-color: #2563eb;
+            background-color: #3b82f6 !important;
+            color: white !important;
+            border-color: #2563eb !important;
         }
         .correct {
             background-color: #dcfce7 !important;
             border-color: #22c55e !important;
+            border-style: solid !important;
         }
         .incorrect {
             background-color: #fee2e2 !important;
             border-color: #ef4444 !important;
+            border-style: solid !important;
+        }
+        .question-row {
+            line-height: 2.5rem;
+            padding: 0.75rem;
+            border-bottom: 1px solid #f1f5f9;
         }
         @media print {
             .no-print { display: none; }
@@ -56,7 +77,7 @@
         <!-- Header -->
         <header class="mb-8 text-center no-print">
             <h1 class="text-3xl font-bold text-slate-800 mb-2">General Safety Test</h1>
-            <p class="text-slate-600 italic">Drag words from the bank into the blanks, or click a word then click a blank.</p>
+            <p class="text-slate-600 italic">Drag words from the bank into the boxes below, or click a word then click a box.</p>
         </header>
 
         <!-- Student Info -->
@@ -86,13 +107,13 @@
         </div>
 
         <!-- Quiz Section -->
-        <div id="quizContainer" class="bg-white rounded-xl shadow-sm p-8 border border-slate-200 mb-8 no-print">
-            <div id="questions" class="space-y-6 leading-relaxed text-slate-800 text-lg">
+        <div id="quizContainer" class="bg-white rounded-xl shadow-sm border border-slate-200 mb-8 no-print overflow-hidden">
+            <div id="questions" class="divide-y divide-slate-100 text-slate-800 text-lg">
                 <!-- Questions injected by JS -->
             </div>
 
-            <div class="mt-12 flex flex-col items-center gap-4">
-                <button id="submitBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-12 rounded-full transition-all shadow-lg active:transform active:scale-95">
+            <div class="p-8 bg-slate-50 border-t border-slate-200 flex flex-col items-center gap-4">
+                <button id="submitBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-16 rounded-full transition-all shadow-lg active:transform active:scale-95">
                     Submit for Grading
                 </button>
                 <p id="scoreDisplay" class="text-xl font-bold hidden"></p>
@@ -101,8 +122,8 @@
 
         <!-- Certificate Container -->
         <div id="certWrapper" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-            <div class="bg-white p-4 rounded-lg shadow-2xl max-w-2xl w-full">
-                <div id="certificate" class="relative border-[12px] border-double border-slate-800 p-12 text-center bg-white">
+            <div class="bg-white p-4 rounded-lg shadow-2xl max-w-2xl w-full overflow-auto max-h-[90vh]">
+                <div id="certificate" class="relative border-[12px] border-double border-slate-800 p-12 text-center bg-white min-w-[600px]">
                     <div class="absolute top-4 left-4 right-4 bottom-4 border-2 border-slate-300"></div>
                     <h1 class="text-4xl font-serif font-bold text-slate-900 mb-4">Certificate of Training</h1>
                     <p class="text-xl text-slate-600 mb-8">This certifies that</p>
@@ -121,8 +142,8 @@
                     </div>
                 </div>
                 <div class="mt-6 flex gap-4">
-                    <button onclick="downloadCert()" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">Download Certificate (PNG)</button>
-                    <button onclick="closeCert()" class="px-6 py-3 border border-slate-300 rounded-lg font-bold hover:bg-slate-50">Close</button>
+                    <button onclick="downloadCert()" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition-colors">Download Certificate (PNG)</button>
+                    <button onclick="closeCert()" class="px-6 py-3 border border-slate-300 rounded-lg font-bold hover:bg-slate-50 transition-colors">Close</button>
                 </div>
             </div>
         </div>
@@ -178,16 +199,19 @@
             // Render Word Bank
             allWords.forEach(word => {
                 const span = document.createElement('span');
-                span.className = "draggable bg-slate-100 border border-slate-300 px-3 py-1 rounded text-sm hover:bg-blue-50 hover:border-blue-300 transition-colors shadow-sm";
+                span.className = "draggable bg-white border border-slate-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 hover:border-blue-400 transition-all shadow-sm active:shadow-inner";
                 span.draggable = true;
                 span.textContent = word;
                 
-                // Drag Events
                 span.addEventListener('dragstart', (e) => {
                     e.dataTransfer.setData('text/plain', word);
+                    span.classList.add('opacity-50');
                 });
 
-                // Click Selection (for accessibility/mobile)
+                span.addEventListener('dragend', () => {
+                    span.classList.remove('opacity-50');
+                });
+
                 span.addEventListener('click', () => {
                     document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
                     if (selectedWord === word) {
@@ -203,9 +227,11 @@
 
             // Render Questions
             quizData.forEach((q, qIndex) => {
-                const p = document.createElement('p');
-                p.className = "question-row p-1 rounded transition-colors";
-                p.innerHTML = q.text ? q.text + " " : "";
+                const div = document.createElement('div');
+                div.className = "question-row hover:bg-slate-50 transition-colors";
+                
+                let content = q.text ? q.text + " " : "";
+                div.appendChild(document.createTextNode(content));
                 
                 q.blanks.forEach((_, bIndex) => {
                     const dropZone = document.createElement('span');
@@ -213,7 +239,6 @@
                     dropZone.dataset.qIndex = qIndex;
                     dropZone.dataset.bIndex = bIndex;
 
-                    // Drop Events
                     dropZone.addEventListener('dragover', (e) => {
                         e.preventDefault();
                         dropZone.classList.add('drag-over');
@@ -230,23 +255,23 @@
                         if (word) fillZone(dropZone, word);
                     });
 
-                    // Click to Fill / Clear
                     dropZone.addEventListener('click', () => {
                         if (selectedWord) {
                             fillZone(dropZone, selectedWord);
                             selectedWord = null;
                             document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
-                        } else {
+                        } else if (dropZone.textContent !== "") {
                             dropZone.textContent = "";
-                            dropZone.classList.remove('bg-blue-50', 'incorrect', 'correct');
+                            dropZone.classList.remove('bg-blue-100', 'incorrect', 'correct', 'border-blue-500');
+                            dropZone.classList.add('bg-slate-50');
                         }
                     });
 
-                    p.appendChild(dropZone);
+                    div.appendChild(dropZone);
                 });
 
-                p.innerHTML += " " + q.suffix;
-                questionsContainer.appendChild(p);
+                div.appendChild(document.createTextNode(" " + q.suffix));
+                questionsContainer.appendChild(div);
             });
 
             document.getElementById('testDate').valueAsDate = new Date();
@@ -254,15 +279,15 @@
 
         function fillZone(zone, word) {
             zone.textContent = word;
-            zone.classList.add('bg-blue-50');
-            zone.classList.remove('incorrect', 'correct');
+            zone.classList.remove('bg-slate-50', 'incorrect', 'correct');
+            zone.classList.add('bg-blue-100', 'border-blue-500', 'border-solid');
         }
 
         function gradeQuiz() {
             const zones = document.querySelectorAll('.drop-zone');
             let totalBlanks = 0;
             let correctBlanks = 0;
-            const questionRows = document.querySelectorAll('.question-row');
+            const rows = document.querySelectorAll('.question-row');
 
             quizData.forEach((q, qIndex) => {
                 const rowZones = Array.from(zones).filter(z => z.dataset.qIndex == qIndex);
@@ -287,16 +312,16 @@
                 });
 
                 if (rowIsPerfect) {
-                    questionRows[qIndex].classList.add('bg-green-50');
+                    rows[qIndex].classList.add('bg-green-50');
                 } else {
-                    questionRows[qIndex].classList.remove('bg-green-50');
+                    rows[qIndex].classList.remove('bg-green-50');
                 }
             });
 
             const scorePercent = Math.round((correctBlanks / totalBlanks) * 100);
             const display = document.getElementById('scoreDisplay');
             display.classList.remove('hidden');
-            display.textContent = `Your Score: ${scorePercent}% (${correctBlanks} of ${totalBlanks} blanks correct)`;
+            display.textContent = `Your Score: ${scorePercent}% (${correctBlanks} of ${totalBlanks} items correct)`;
             
             if (scorePercent === 100) {
                 display.className = "text-xl font-bold text-green-600 mt-4";
@@ -312,7 +337,8 @@
             const dateInput = document.getElementById('testDate').value;
             
             if(!nameInput) {
-                alert("Please enter your name in the Student Info section to receive your certificate!");
+                alert("Great job! You got 100%. Please enter your name at the top to generate your certificate.");
+                window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
 
@@ -327,10 +353,10 @@
 
         function downloadCert() {
             const cert = document.getElementById('certificate');
-            html2canvas(cert).then(canvas => {
+            html2canvas(cert, { scale: 2 }).then(canvas => {
                 const link = document.createElement('a');
-                link.download = `Safety_Certificate_${document.getElementById('certName').textContent.replace(/\s/g, '_')}.png`;
-                link.href = canvas.toDataURL();
+                link.download = `Shop_Safety_Cert_${document.getElementById('certName').textContent.replace(/\s/g, '_')}.png`;
+                link.href = canvas.toDataURL("image/png");
                 link.click();
             });
         }
