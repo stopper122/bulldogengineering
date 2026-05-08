@@ -36,6 +36,61 @@
   .feedback-list { margin-top: 8px; padding-left: 0; list-style: none; }
   .feedback-list li { padding: 6px 0; }
   @media (max-width: 800px) { .student-info { grid-template-columns: 1fr; } .blank { min-width: 145px; } }
+
+  #certificateArea {
+    display: none;
+    margin-top: 28px;
+    padding: 36px;
+    border: 10px double #111827;
+    background: white;
+    text-align: center;
+    page-break-inside: avoid;
+  }
+  #certificateArea h2 {
+    font-family: Georgia, serif;
+    font-size: 38px;
+    margin: 0 0 18px;
+  }
+  #certStudentName {
+    font-family: Georgia, serif;
+    font-size: 34px;
+    font-weight: bold;
+    border-bottom: 2px solid #111827;
+    display: inline-block;
+    padding: 8px 40px;
+    margin: 18px 0;
+  }
+  .cert-details {
+    font-size: 18px;
+    line-height: 1.8;
+    margin-top: 18px;
+  }
+  .completion-code {
+    font-size: 28px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin-top: 14px;
+  }
+  .print-only-note {
+    font-size: 13px;
+    color: #4b5563;
+    margin-top: 28px;
+  }
+  @media print {
+    body * { visibility: hidden; }
+    #certificateArea, #certificateArea * { visibility: visible; }
+    #certificateArea {
+      display: block !important;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 90%;
+      margin: 20px;
+      box-shadow: none;
+    }
+    .no-print { display: none !important; }
+  }
+
 </style>
 </head>
 <body>
@@ -60,17 +115,36 @@
   </div>
 
   <div id="certificateNote" class="certificate-note">
-    Congratulations! You scored 100%. Download your certificate and submit it to your teacher.
+    Congratulations! You scored 100%. Show and print/save your certificate and submit it to your teacher.
   </div>
 
   <div class="buttons">
     <button id="gradeBtn" onclick="grade()">Grade Test</button>
     <button id="retryBtn" onclick="buildQuiz()">Retry / Shuffle Again</button>
-    <button id="certificateBtn" onclick="downloadCertificate()">Download Certificate</button>
+    <button id="certificateBtn" onclick="showCertificate()">Show / Print Certificate</button>
   </div>
 
   <div id="result"></div>
   <ul id="feedback" class="feedback-list"></ul>
+
+  <div id="certificateArea">
+    <h2>Certificate of Completion</h2>
+    <p>This certifies that</p>
+    <div id="certStudentName"></div>
+    <h3>has successfully completed the<br>General Safety Test</h3>
+    <div class="cert-details">
+      Score: <strong>100%</strong><br>
+      Student ID: <strong id="certStudentId"></strong><br>
+      Date Completed: <strong id="certDate"></strong><br>
+      Time Completed: <strong id="certTime"></strong><br>
+      Completion Code:
+      <div class="completion-code" id="certCode"></div>
+    </div>
+    <div class="print-only-note">
+      Teacher verification: compare the name, student ID, date/time, and completion code. Duplicate or copied certificates will show the same completion code.
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -300,7 +374,7 @@ function grade() {
     generateCertificateId(s.firstName, s.lastName, s.studentId, completionTimestamp).then(id => {
       certificateId = id;
       document.getElementById("certificateNote").innerHTML =
-        "Congratulations! You scored 100%. Download your certificate and submit it to your teacher.<br><strong>Completion Code:</strong> " + certificateId;
+        "Congratulations! You scored 100%. Show and print/save your certificate and submit it to your teacher.<br><strong>Completion Code:</strong> " + certificateId;
       document.getElementById("certificateNote").style.display = "block";
       document.getElementById("certificateBtn").style.display = "inline-block";
     });
@@ -333,7 +407,7 @@ function makeQrUrl(text) {
   return "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(text);
 }
 
-async function downloadCertificate() {
+async function showCertificate() {
   if (latestScore !== 100) return;
   if (!validateStudentInfo()) return;
 
@@ -349,75 +423,26 @@ async function downloadCertificate() {
   const date = completedDate.toLocaleDateString();
   const time = completedDate.toLocaleTimeString();
 
-  const canvas = document.createElement("canvas");
-  canvas.width = 1400;
-  canvas.height = 1000;
-  const ctx = canvas.getContext("2d");
+  document.getElementById("certStudentName").textContent = fullName;
+  document.getElementById("certStudentId").textContent = s.studentId;
+  document.getElementById("certDate").textContent = date;
+  document.getElementById("certTime").textContent = time;
+  document.getElementById("certCode").textContent = certificateId;
 
-  ctx.fillStyle = "#f8fafc";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  document.getElementById("certificateArea").style.display = "block";
+  document.getElementById("certificateArea").scrollIntoView({ behavior: "smooth", block: "start" });
 
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(80, 80, 1240, 840);
-
-  ctx.strokeStyle = "#111827";
-  ctx.lineWidth = 12;
-  ctx.strokeRect(95, 95, 1210, 810);
-  ctx.lineWidth = 3;
-  ctx.strokeRect(120, 120, 1160, 760);
-
-  ctx.fillStyle = "#111827";
-  ctx.textAlign = "center";
-
-  ctx.font = "bold 58px Georgia";
-  ctx.fillText("Certificate of Completion", 700, 210);
-
-  ctx.font = "28px Georgia";
-  ctx.fillText("This certifies that", 700, 285);
-
-  ctx.font = "bold 54px Georgia";
-  ctx.fillText(fullName, 700, 375);
-
-  ctx.strokeStyle = "#111827";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(360, 395);
-  ctx.lineTo(1040, 395);
-  ctx.stroke();
-
-  ctx.fillStyle = "#111827";
-  ctx.font = "bold 36px Georgia";
-  ctx.fillText("has successfully completed the", 700, 470);
-  ctx.fillText("General Safety Test", 700, 520);
-
-  ctx.font = "24px Arial";
-  ctx.fillText("Score: 100%", 700, 590);
-  ctx.fillText("Student ID: " + s.studentId, 700, 630);
-  ctx.fillText("Date Completed: " + date, 700, 670);
-  ctx.fillText("Time Completed: " + time, 700, 710);
-
-  ctx.font = "bold 30px Arial";
-  ctx.fillText("Completion Code:", 700, 790);
-
-  ctx.font = "bold 36px Arial";
-  ctx.fillText(certificateId, 700, 840);
-
-  ctx.font = "18px Arial";
-  ctx.fillStyle = "#374151";
-  ctx.fillText("Teacher verification: compare the name, student ID, date/time, and completion code.", 700, 910);
-  ctx.fillText("Duplicate or copied certificates will show the same completion code.", 700, 940);
-
-  saveCanvasAsPng(canvas, s);
-}
-
-function saveCanvasAsPng(canvas, s) {
-  const safeName = (s.lastName + "_" + s.firstName + "_Safety_Certificate").replace(/[^a-z0-9_\-]/gi, "_");
-  const link = document.createElement("a");
-  link.download = safeName + ".png";
-  link.href = canvas.toDataURL("image/png");
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  if (!document.getElementById("printCertificateBtn")) {
+    const btn = document.createElement("button");
+    btn.id = "printCertificateBtn";
+    btn.className = "no-print";
+    btn.textContent = "Print / Save Certificate";
+    btn.style.background = "#16a34a";
+    btn.style.color = "white";
+    btn.style.marginTop = "14px";
+    btn.onclick = function() { window.print(); };
+    document.getElementById("certificateArea").appendChild(btn);
+  }
 }
 
 function escapeHtml(text) {
