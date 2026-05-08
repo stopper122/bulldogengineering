@@ -100,8 +100,8 @@
 
         <!-- Word Bank -->
         <div id="wordBankSection" class="bg-white rounded-xl shadow-md p-6 mb-8 border-2 border-blue-100 sticky top-4 z-10 no-print">
-            <h2 class="text-sm font-bold uppercase tracking-wider text-blue-600 mb-4">Word Bank</h2>
-            <div id="wordBank" class="flex flex-wrap gap-2">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 text-center">Word Bank (Alphabetical)</h2>
+            <div id="wordBank" class="flex flex-wrap gap-2 justify-center">
                 <!-- Words injected by JS -->
             </div>
         </div>
@@ -150,7 +150,7 @@
     </div>
 
     <script>
-        const quizData = [
+        const originalQuizData = [
             { text: "It is vital to your general safety that you", blanks: ["learn", "obey"], suffix: "all safety rules." },
             { text: "Remember, a machine can be very unforgiving of", blanks: ["error"], suffix: "on the part of the operator." },
             { text: "Only work approved by the", blanks: ["teacher"], suffix: "is to be done in the lab." },
@@ -182,13 +182,17 @@
             { text: "", blanks: ["Cleanup"], suffix: "immediately when finished working." }
         ];
 
+        // Shuffle questions
+        const shuffledQuizData = [...originalQuizData].sort(() => Math.random() - 0.5);
+
+        // Alphabetized word bank
         const allWords = [
             "learn", "obey", "error", "teacher", "clothing", "sleeves", "jewelry", 
             "breaking", "clear", "hanging", "Never", "vertical", "designated", 
             "immediately", "caution", "never", "compressed", "nozzle", "hair", 
             "skin", "body", "handles", "tools", "throw", "Safety", "glasses", 
             "power", "cords", "surroundings", "vise", "Cleanup"
-        ].sort(() => Math.random() - 0.5);
+        ].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 
         let selectedWord = null;
 
@@ -196,7 +200,7 @@
             const wordBank = document.getElementById('wordBank');
             const questionsContainer = document.getElementById('questions');
 
-            // Render Word Bank
+            // Render Alphabetized Word Bank
             allWords.forEach(word => {
                 const span = document.createElement('span');
                 span.className = "draggable bg-white border border-slate-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 hover:border-blue-400 transition-all shadow-sm active:shadow-inner";
@@ -225,8 +229,8 @@
                 wordBank.appendChild(span);
             });
 
-            // Render Questions
-            quizData.forEach((q, qIndex) => {
+            // Render Shuffled Questions
+            shuffledQuizData.forEach((q, qIndex) => {
                 const div = document.createElement('div');
                 div.className = "question-row hover:bg-slate-50 transition-colors";
                 
@@ -289,7 +293,7 @@
             let correctBlanks = 0;
             const rows = document.querySelectorAll('.question-row');
 
-            quizData.forEach((q, qIndex) => {
+            shuffledQuizData.forEach((q, qIndex) => {
                 const rowZones = Array.from(zones).filter(z => z.dataset.qIndex == qIndex);
                 let rowIsPerfect = true;
 
