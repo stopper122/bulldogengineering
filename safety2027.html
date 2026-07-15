@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>General Safety Test & Certification</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Html2Canvas for PDF/Image download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        .drop-zone {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 140px;
+            height: 2rem;
+            border: 2px dashed #94a3b8;
+            background-color: #f8fafc;
+            border-radius: 0.375rem;
+            margin: 0 6px;
+            padding: 0 10px;
+            vertical-align: middle;
+            text-align: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        .drop-zone:empty::before {
+            content: "Drop here";
+            color: #94a3b8;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .drop-zone.drag-over {
+            background-color: #dbeafe;
+            border-color: #3b82f6;
+            border-style: solid;
+            transform: scale(1.05);
+        }
+        .drop-zone.locked {
+            cursor: default;
+            pointer-events: none;
+        }
+        .draggable {
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+        }
+        .draggable:active {
+            cursor: grabbing;
+        }
+        .draggable.selected-word {
+            background-color: #3b82f6 !important;
+            color: white !important;
+            border-color: #2563eb !important;
+        }
+        .draggable.hidden-word {
+            display: none;
+        }
+        .draggable.locked {
+            cursor: default;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .correct {
+            background-color: #dcfce7 !important;
+            border-color: #22c55e !important;
+            border-style: solid !important;
+        }
+        .incorrect {
+            background-color: #fee2e2 !important;
+            border-color: #ef4444 !important;
+            border-style: solid !important;
+        }
+        .question-row {
+            line-height: 2.8rem;
+            padding: 1rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        @media print {
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8 font-sans">
+
+    <div id="app" class="max-w-4xl mx-auto">
+        <!-- Notification Modal (Replaces default alerts) -->
+        <div id="customAlert" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full text-center border border-slate-100">
+                <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800 mb-2" id="alertTitle">Attention</h3>
+                <p class="text-slate-600 text-sm mb-6" id="alertMessage">Message text goes here.</p>
+                <button onclick="closeCustomAlert()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                    Acknowledge
+                </button>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <header class="mb-8 flex flex-col md:flex-row justify-between items-center gap-4 no-print">
+            <div class="text-center md:text-left">
+                <h1 class="text-3xl font-bold text-slate-800 mb-1">General Safety Test</h1>
+                <p class="text-slate-600 italic">Drag words from the bank into the boxes below, or click a word then click a box.</p>
+            </div>
+            <button id="openTeacherPortalBtn" class="bg-slate-800 hover:bg-slate-900 text-white font-medium py-2 px-4 rounded-lg transition-all text-sm flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                Teacher Portal
+            </button>
+        </header>
+
+        <!-- Teacher Portal Section (Hidden by default) -->
+        <div id="teacherPortal" class="hidden bg-white rounded-xl shadow-lg border border-slate-200 p-6 mb-8 no-print animate-fade-in">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4 mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Teacher Control Panel</h2>
+                    <p class="text-sm text-slate-500">View real-time records and verify digital safety certificates.</p>
+                </div>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <button onclick="exportToCSV()" class="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Export CSV
+                    </button>
+                    <button onclick="exitTeacherPortal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">
+                        Back to Quiz
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <input type="text" id="teacherSearch" oninput="filterResultsTable()" placeholder="Search by name or ID..." class="p-2 border rounded-md text-sm">
+                <select id="teacherPeriodFilter" onchange="filterResultsTable()" class="p-2 border rounded-md text-sm">
+                    <option value="">All Periods</option>
+                </select>
+                <select id="teacherPassFilter" onchange="filterResultsTable()" class="p-2 border rounded-md text-sm">
+                    <option value="">All Scores</option>
+                    <option value="passed">Passed (100%)</option>
+                    <option value="failed">Incomplete (< 100%)</option>
+                </select>
+            </div>
+
+            <!-- Results Table -->
+            <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                <table class="w-full text-left border-collapse text-sm text-slate-700">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                        <tr>
+                            <th class="p-3">Timestamp</th>
+                            <th class="p-3">Student Name</th>
+                            <th class="p-3">Student ID</th>
+                            <th class="p-3">Period</th>
+                            <th class="p-3 text-center">Score</th>
+                            <th class="p-3 text-center">Status</th>
+                            <th class="p-3">Verification Hash</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody">
+                        <tr>
+                            <td colspan="7" class="p-8 text-center text-slate-400 italic">No records stored yet. Waiting for student submissions...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="quizInterface">
+            <!-- Student Info Form -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-8 border border-slate-200 no-print">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700">Student Name</label>
+                        <input type="text" id="studentName" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Full Name">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700">Student ID #</label>
+                        <input type="text" id="studentID" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ID Number">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700">Date</label>
+                        <input type="date" id="testDate" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700">Period</label>
+                        <input type="text" id="period" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. 1st">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Word Bank -->
+            <div id="wordBankSection" class="bg-white rounded-xl shadow-md p-6 mb-8 border-2 border-blue-100 sticky top-4 z-10 no-print">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 text-center">Word Bank (Alphabetical)</h2>
+                <div id="wordBank" class="flex flex-wrap gap-2 justify-center">
+                    <!-- Words injected by JS -->
+                </div>
+            </div>
+
+            <!-- Quiz Section -->
+            <div id="quizContainer" class="bg-white rounded-xl shadow-sm border border-slate-200 mb-8 no-print overflow-hidden">
+                <div id="questions" class="divide-y divide-slate-100 text-slate-800 text-lg">
+                    <!-- Questions injected by JS -->
+                </div>
+
+                <div class="p-8 bg-slate-50 border-t border-slate-200 flex flex-col items-center gap-4">
+                    <button id="submitBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-16 rounded-full transition-all shadow-lg active:transform active:scale-95">
+                        Submit for Grading & Save
+                    </button>
+                    <p id="scoreDisplay" class="text-xl font-bold hidden"></p>
+                    <button id="refreshBtn" class="hidden text-sm text-slate-500 hover:text-slate-800 underline mt-2" onclick="location.reload()">Reset Test & Try Again</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Certificate Container -->
+        <div id="certWrapper" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+            <div class="bg-white p-4 rounded-lg shadow-2xl max-w-2xl w-full overflow-auto max-h-[90vh]">
+                <div id="certificate" class="relative border-[12px] border-double border-slate-800 p-12 text-center bg-white min-w-[600px]">
+                    <div class="absolute top-4 left-4 right-4 bottom-4 border-2 border-slate-300"></div>
+                    <h1 class="text-4xl font-serif font-bold text-slate-900 mb-4">Certificate of Training</h1>
+                    <p class="text-xl text-slate-600 mb-4">This certifies that</p>
+                    <p id="certName" class="text-3xl font-bold border-b-2 border-slate-800 inline-block px-8 mb-2 text-blue-900">STUDENT NAME</p>
+                    <p id="certID" class="text-sm text-slate-500 mb-8 block">ID: 000000</p>
+                    <p class="text-xl text-slate-600 mb-8">has successfully demonstrated comprehensive knowledge of</p>
+                    <h2 class="text-2xl font-bold text-slate-800 uppercase tracking-widest mb-4">General Shop Safety</h2>
+                    <p class="text-sm text-slate-400 font-mono mb-8" id="certHash">Verification: 0000-0000-0000</p>
+                    
+                    <div class="flex justify-between items-end mt-12">
+                        <div class="text-left">
+                            <p class="font-bold border-t border-slate-800 pt-1">
+                                <span id="certDate">Date</span> | Period: <span id="certPeriod">--</span>
+                            </p>
+                            <p class="text-xs uppercase text-slate-500">Completion Details</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold border-t border-slate-800 pt-1">Shop Instructor</p>
+                            <p class="text-xs uppercase text-slate-500">Verified System Record</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 flex gap-4">
+                    <button onclick="downloadCert()" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition-colors">Download Certificate (PNG)</button>
+                    <button onclick="closeCert()" class="px-6 py-3 border border-slate-300 rounded-lg font-bold hover:bg-slate-50 transition-colors">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Password Entry Modal (Replaces unsafe window.prompt) -->
+        <div id="passwordModal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full border border-slate-100">
+                <h3 class="text-lg font-bold text-slate-800 mb-2">Teacher Authorization</h3>
+                <p class="text-slate-600 text-sm mb-4">Enter the access passkey to view dashboard data.</p>
+                <input type="password" id="portalPassword" class="w-full p-2 border rounded-md mb-4 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Passkey">
+                <div class="flex gap-2">
+                    <button onclick="submitPortalPassword()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-colors">
+                        Access
+                    </button>
+                    <button onclick="closePasswordModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 rounded-lg transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global state objects
+        let db = null;
+        let auth = null;
+        let isLocked = false;
+        let loadedResults = [];
+
+        // Application Identifier Configurations
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'safety-quiz-persisted';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Custom Modal Warning Dialog Handlers (Strictly avoiding Native Alerts)
+        function triggerCustomAlert(title, message) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('customAlert').classList.remove('hidden');
+        }
+        window.closeCustomAlert = function() {
+            document.getElementById('customAlert').classList.add('hidden');
+        }
+
+        // Initialize Cloud Storage Database safely (RULE 3)
+        async function setupCloudService() {
+            if (!firebaseConfig) {
+                console.warn("Storage warning: Cloud database environment config is missing. Operating locally.");
+                return;
+            }
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Auth Before Queries
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                setupRealtimeListener();
+            } catch (err) {
+                console.error("Cloud configuration initialization error: ", err);
+            }
+        }
+
+        const originalQuizData = [
+            { segments: ["It is vital to your general safety that you", "blank", "and", "blank", "all safety rules."], blanks: ["learn", "obey"] },
+            { segments: ["Remember, a machine can be very unforgiving of", "blank", "on the part of the operator."], blanks: ["error"] },
+            { segments: ["Only work approved by the", "blank", "is to be done in the lab."], blanks: ["teacher"] },
+            { segments: ["All injuries, no matter how small, must be reported to the", "blank", "immediately."], blanks: ["teacher"] },
+            { segments: ["Loose fitting", "blank", "is a hazard."], blanks: ["clothing"] },
+            { segments: ["Roll up", "blank", "above the elbow."], blanks: ["sleeves"] },
+            { segments: ["Remove all", "blank", "(watches, rings, chains, etc.) before working in the shop."], blanks: ["jewelry"] },
+            { segments: ["Caution anyone you observe", "blank", "a safety rule."], blanks: ["breaking"] },
+            { segments: ["The floor, aisles, and passageways should be kept", "blank", "of parts, tools, and materials."], blanks: ["clear"] },
+            { segments: ["Prevent tools and materials from", "blank", "hanging over the edges of tables and benches."], blanks: ["hanging"] },
+            { segments: ["blank", "leave vise jaws tightened together when not in use."], blanks: ["Never"] },
+            { segments: ["Vise handles are to be left in a", "blank", "position."], blanks: ["vertical"] },
+            { segments: ["Tools, equipment, materials, and projects are to be stored in", "blank", "locations."], blanks: ["designated"] },
+            { segments: ["Clean up all spills", "blank", "."], blanks: ["immediately"] },
+            { segments: ["Exercise", "blank", "in handling large and long pieces. Obtain help when needed,"], blanks: ["caution"] },
+            { segments: ["blank", "attempt to lift large or heavy objects on your own."], blanks: ["never"] },
+            { segments: ["When using", "blank", "compressed air, direct the", "blank", "away from yourself and other people."], blanks: ["compressed", "nozzle"] },
+            { segments: ["Long loose locks of", "blank", "can easily be caught in revolving machinery."], blanks: ["hair"] },
+            { segments: ["Testing the sharpness of a tool should be done on scrap material and NOT your", "blank", "."], blanks: ["skin"] },
+            { segments: ["Keep your", "blank", "parts clear of the blade."], blanks: ["body"] },
+            { segments: ["Keep", "blank", "tight and in good condition on all tools."], blanks: ["handles"] },
+            { segments: ["Use", "blank", "only for their intended purpose. DO NOT PLAY!"], blanks: ["tools"] },
+            { segments: ["Do not", "blank", "anything in class."], blanks: ["throw"] },
+            { segments: ["blank", "must be worn while in the lab."], blanks: ["Safety glasses"] },
+            { segments: ["Arrange", "blank", "so that they are not a tripping hazard."], blanks: ["power cords"] },
+            { segments: ["Be aware of your", "blank", "at all times when in the lab."], blanks: ["surroundings"] },
+            { segments: ["While operating the drill press, material must be clamped securely or in a", "blank", "."], blanks: ["vise"] },
+            { segments: ["blank", "immediately when finished working."], blanks: ["Cleanup"] }
+        ];
+
+        const shuffledQuizData = [...originalQuizData].sort(() => Math.random() - 0.5);
+
+        const wordCounts = {};
+        originalQuizData.forEach(q => {
+            q.blanks.forEach(word => {
+                wordCounts[word] = (wordCounts[word] || 0) + 1;
+            });
+        });
+
+        const uniqueWords = Object.keys(wordCounts).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        let selectedWord = null;
+
+        // Dynamic visual update of remaining words
+        function updateWordBankVisibility() {
+            if (isLocked) return;
+            const currentAnswers = Array.from(document.querySelectorAll('.drop-zone'))
+                .map(zone => zone.textContent.trim())
+                .filter(val => val !== "");
+
+            const countsInUse = {};
+            currentAnswers.forEach(word => {
+                countsInUse[word] = (countsInUse[word] || 0) + 1;
+            });
+
+            document.querySelectorAll('.draggable').forEach(btn => {
+                const word = btn.textContent;
+                const maxAllowed = wordCounts[word] || 1;
+                const currentlyUsed = countsInUse[word] || 0;
+
+                if (currentlyUsed >= maxAllowed) {
+                    btn.classList.add('hidden-word');
+                    if (selectedWord === word) {
+                        selectedWord = null;
+                        btn.classList.remove('selected-word');
+                    }
+                } else {
+                    btn.classList.remove('hidden-word');
+                }
+            });
+        }
+
+        function generateVerificationHash(name, id, date) {
+            const secret = "SAFETY-PRO-2024-LOCKED";
+            const str = `${name.toUpperCase()}-${id}-${date}-${secret}`;
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash |= 0; 
+            }
+            const absHash = Math.abs(hash).toString(36).toUpperCase();
+            return `VERIFY-${absHash.slice(0,4)}-${absHash.slice(4,8)}-${absHash.slice(8,12)}`.padEnd(21, 'X');
+        }
+
+        // Injecting interactive Elements
+        function initQuiz() {
+            const wordBank = document.getElementById('wordBank');
+            const questionsContainer = document.getElementById('questions');
+
+            uniqueWords.forEach(word => {
+                const span = document.createElement('span');
+                span.className = "draggable bg-white border border-slate-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 hover:border-blue-400 transition-all shadow-sm active:shadow-inner";
+                span.draggable = true;
+                span.textContent = word;
+                
+                span.addEventListener('dragstart', (e) => {
+                    if (isLocked) return;
+                    e.dataTransfer.setData('text/plain', word);
+                    span.classList.add('opacity-50');
+                });
+                span.addEventListener('dragend', () => span.classList.remove('opacity-50'));
+                span.addEventListener('click', () => {
+                    if (isLocked) return;
+                    document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
+                    if (selectedWord === word) {
+                        selectedWord = null;
+                    } else {
+                        selectedWord = word;
+                        span.classList.add('selected-word');
+                    }
+                });
+                wordBank.appendChild(span);
+            });
+
+            shuffledQuizData.forEach((q, qIndex) => {
+                const div = document.createElement('div');
+                div.className = "question-row hover:bg-slate-50 transition-colors";
+                
+                let blankCounter = 0;
+                q.segments.forEach((seg) => {
+                    if (seg === "blank") {
+                        const dropZone = document.createElement('span');
+                        dropZone.className = "drop-zone";
+                        dropZone.dataset.qIndex = qIndex;
+                        dropZone.dataset.bIndex = blankCounter;
+                        blankCounter++;
+
+                        dropZone.addEventListener('dragover', (e) => { 
+                            if (isLocked) return;
+                            e.preventDefault(); 
+                            dropZone.classList.add('drag-over'); 
+                        });
+                        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+                        dropZone.addEventListener('drop', (e) => {
+                            if (isLocked) return;
+                            e.preventDefault();
+                            dropZone.classList.remove('drag-over');
+                            const word = e.dataTransfer.getData('text/plain');
+                            if (word) { fillZone(dropZone, word); updateWordBankVisibility(); }
+                        });
+
+                        dropZone.addEventListener('click', () => {
+                            if (isLocked) return;
+                            if (selectedWord) {
+                                fillZone(dropZone, selectedWord);
+                                selectedWord = null;
+                                document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
+                                updateWordBankVisibility();
+                            } else if (dropZone.textContent !== "") {
+                                dropZone.textContent = "";
+                                dropZone.classList.remove('bg-blue-100', 'incorrect', 'correct', 'border-blue-500');
+                                dropZone.classList.add('bg-slate-50');
+                                updateWordBankVisibility();
+                            }
+                        });
+                        div.appendChild(dropZone);
+                    } else {
+                        div.appendChild(document.createTextNode(" " + seg + " "));
+                    }
+                });
+                questionsContainer.appendChild(div);
+            });
+
+            document.getElementById('testDate').valueAsDate = new Date();
+        }
+
+        function fillZone(zone, word) {
+            zone.textContent = word;
+            zone.classList.remove('bg-slate-50', 'incorrect', 'correct');
+            zone.classList.add('bg-blue-100', 'border-blue-500', 'border-solid');
+        }
+
+        async function commitResult(name, id, date, period, score, passed, hash) {
+            if (!db) {
+                console.warn("Storage notice: Run locally. Result omitted from cloud sync.");
+                return;
+            }
+            try {
+                // RULE 1: strict collection path
+                const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'results');
+                await addDoc(collectionRef, {
+                    name,
+                    studentID: id,
+                    date,
+                    period,
+                    score,
+                    passed,
+                    verificationHash: hash,
+                    timestamp: serverTimestamp()
+                });
+                console.log("Record securely logged.");
+            } catch (err) {
+                console.error("Storage Error: Failed to write entry to database.", err);
+            }
+        }
+
+        function lockQuiz() {
+            isLocked = true;
+            document.querySelectorAll('.drop-zone').forEach(z => z.classList.add('locked'));
+            document.querySelectorAll('.draggable').forEach(d => d.classList.add('locked'));
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('submitBtn').classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('refreshBtn').classList.remove('hidden');
+            
+            document.getElementById('studentName').readOnly = true;
+            document.getElementById('studentID').readOnly = true;
+            document.getElementById('period').readOnly = true;
+            document.getElementById('testDate').readOnly = true;
+        }
+
+        // Main evaluation routine
+        async function gradeQuiz() {
+            const nameInput = document.getElementById('studentName').value.trim();
+            const idInput = document.getElementById('studentID').value.trim();
+            const periodInput = document.getElementById('period').value.trim();
+            const dateInput = document.getElementById('testDate').value;
+
+            if (!nameInput || !idInput || !periodInput) {
+                triggerCustomAlert("Missing Credentials", "Please enter your Name, Student ID, and Class Period before submitting your quiz.");
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            const zones = document.querySelectorAll('.drop-zone');
+            let totalBlanks = 0;
+            let correctBlanks = 0;
+            const rows = document.querySelectorAll('.question-row');
+
+            shuffledQuizData.forEach((q, qIndex) => {
+                const rowZones = Array.from(zones).filter(z => z.dataset.qIndex == qIndex);
+                let rowIsPerfect = true;
+
+                rowZones.forEach((zone, bIndex) => {
+                    totalBlanks++;
+                    const userVal = zone.textContent.trim().toLowerCase();
+                    const correctVal = q.blanks[bIndex].toLowerCase();
+
+                    if (userVal === correctVal) {
+                        correctBlanks++;
+                        zone.classList.remove('incorrect');
+                        zone.classList.add('correct');
+                    } else {
+                        rowIsPerfect = false;
+                        zone.classList.remove('correct');
+                        if (userVal !== "") zone.classList.add('incorrect');
+                    }
+                });
+
+                if (rowIsPerfect) rows[qIndex].classList.add('bg-green-50');
+                else rows[qIndex].classList.remove('bg-green-50');
+            });
+
+            const scorePercent = Math.round((correctBlanks / totalBlanks) * 100);
+            const display = document.getElementById('scoreDisplay');
+            display.classList.remove('hidden');
+            display.textContent = `Your Score: ${scorePercent}% (${correctBlanks} of ${totalBlanks} items correct)`;
+            
+            const verificationHash = generateVerificationHash(nameInput, idInput, dateInput);
+            const isPerfect = scorePercent === 100;
+
+            lockQuiz();
+            await commitResult(nameInput, idInput, dateInput, periodInput, scorePercent, isPerfect, verificationHash);
+
+            if (isPerfect) {
+                display.className = "text-xl font-bold text-green-600 mt-4";
+                showCertificate(nameInput, idInput, periodInput, dateInput, verificationHash);
+            } else {
+                display.className = "text-xl font-bold text-red-600 mt-4";
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            }
+        }
+
+        function showCertificate(name, id, period, date, hash) {
+            document.getElementById('certName').textContent = name;
+            document.getElementById('certID').textContent = `ID: ${id}`;
+            document.getElementById('certPeriod').textContent = period;
+            document.getElementById('certDate').textContent = date || new Date().toLocaleDateString();
+            document.getElementById('certHash').textContent = hash;
+            document.getElementById('certWrapper').classList.remove('hidden');
+        }
+
+        window.closeCert = function() {
+            document.getElementById('certWrapper').classList.add('hidden');
+        }
+
+        window.downloadCert = function() {
+            const cert = document.getElementById('certificate');
+            html2canvas(cert, { scale: 2 }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Safety_Cert_${document.getElementById('certName').textContent.replace(/\s/g, '_')}.png`;
+                link.href = canvas.toDataURL("image/png");
+                link.click();
+            });
+        }
+
+        // Realtime sync & Teacher Panel Logic
+        function setupRealtimeListener() {
+            if (!db) return;
+            const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'results');
+            // RULE 2: No complex queries inside onSnapshot
+            onSnapshot(collectionRef, (snapshot) => {
+                loadedResults = [];
+                snapshot.forEach(doc => {
+                    loadedResults.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Sort client side (RULE 2 compliance)
+                loadedResults.sort((a, b) => {
+                    const timeA = a.timestamp?.seconds || 0;
+                    const timeB = b.timestamp?.seconds || 0;
+                    return timeB - timeA; 
+                });
+
+                populatePeriodDropdown();
+                renderTable();
+            }, (error) => {
+                console.error("Teacher dashboard realtime sync failed: ", error);
+            });
+        }
+
+        function populatePeriodDropdown() {
+            const select = document.getElementById('teacherPeriodFilter');
+            const periods = [...new Set(loadedResults.map(r => r.period))].filter(Boolean).sort();
+            
+            select.innerHTML = '<option value="">All Periods</option>';
+            periods.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = `Period: ${p}`;
+                select.appendChild(opt);
+            });
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('resultsTableBody');
+            if (loadedResults.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 italic">No submissions collected yet.</td></tr>`;
+                return;
+            }
+
+            const searchVal = document.getElementById('teacherSearch').value.toLowerCase().trim();
+            const periodVal = document.getElementById('teacherPeriodFilter').value;
+            const passVal = document.getElementById('teacherPassFilter').value;
+
+            let filtered = loadedResults.filter(r => {
+                const matchesSearch = (r.name || "").toLowerCase().includes(searchVal) || (r.studentID || "").toLowerCase().includes(searchVal);
+                const matchesPeriod = !periodVal || r.period === periodVal;
+                const matchesPass = !passVal || (passVal === 'passed' ? r.passed : !r.passed);
+                return matchesSearch && matchesPeriod && matchesPass;
+            });
+
+            tbody.innerHTML = "";
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 italic">No records match the current filters.</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(r => {
+                const dateStr = r.timestamp ? new Date(r.timestamp.seconds * 1000).toLocaleString() : 'Saving...';
+                const statusBadge = r.passed 
+                    ? `<span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Passed</span>`
+                    : `<span class="bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Incomplete</span>`;
+
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-slate-100 hover:bg-slate-50 transition-colors";
+                tr.innerHTML = `
+                    <td class="p-3 font-mono text-xs text-slate-500">${dateStr}</td>
+                    <td class="p-3 font-semibold text-slate-800">${r.name || 'Anonymous'}</td>
+                    <td class="p-3 font-mono">${r.studentID || 'None'}</td>
+                    <td class="p-3 font-medium text-slate-600">${r.period || 'None'}</td>
+                    <td class="p-3 text-center font-bold text-slate-700">${r.score}%</td>
+                    <td class="p-3 text-center">${statusBadge}</td>
+                    <td class="p-3 font-mono text-xs text-slate-400 select-all">${r.verificationHash || 'LOCAL-PREV-VERIFY'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.filterResultsTable = function() {
+            renderTable();
+        }
+
+        // Password access control sequence (custom prompt alternative)
+        document.getElementById('openTeacherPortalBtn').addEventListener('click', () => {
+            document.getElementById('passwordModal').classList.remove('hidden');
+            document.getElementById('portalPassword').focus();
+        });
+
+        window.submitPortalPassword = function() {
+            const pw = document.getElementById('portalPassword').value;
+            // Configurable secret key
+            if (pw === "admin" || pw === "safetypass") {
+                document.getElementById('passwordModal').classList.add('hidden');
+                document.getElementById('portalPassword').value = "";
+                document.getElementById('quizInterface').classList.add('hidden');
+                document.getElementById('teacherPortal').classList.remove('hidden');
+                renderTable();
+            } else {
+                triggerCustomAlert("Access Denied", "Incorrect teacher authentication passkey.");
+            }
+        }
+
+        window.closePasswordModal = function() {
+            document.getElementById('passwordModal').classList.add('hidden');
+            document.getElementById('portalPassword').value = "";
+        }
+
+        window.exitTeacherPortal = function() {
+            document.getElementById('teacherPortal').classList.add('hidden');
+            document.getElementById('quizInterface').classList.remove('hidden');
+        }
+
+        window.exportToCSV = function() {
+            if (loadedResults.length === 0) {
+                triggerCustomAlert("Empty Dataset", "There are no student results to export.");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Timestamp,Student Name,Student ID,Period,Score,Status,Verification Hash\r\n";
+
+            loadedResults.forEach(r => {
+                const dateStr = r.timestamp ? new Date(r.timestamp.seconds * 1000).toLocaleString().replace(/,/g, '') : 'None';
+                const row = [
+                    `"${dateStr}"`,
+                    `"${(r.name || '').replace(/"/g, '""')}"`,
+                    `"${r.studentID || ''}"`,
+                    `"${r.period || ''}"`,
+                    `"${r.score}%"`,
+                    `"${r.passed ? 'Passed' : 'Failed'}"`,
+                    `"${r.verificationHash || ''}"`
+                ];
+                csvContent += row.join(",") + "\r\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `General_Safety_Test_Scores.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // DOM Initializations
+        document.getElementById('submitBtn').addEventListener('click', gradeQuiz);
+        setupCloudService();
+        initQuiz();
+    </script>
+</body>
+</html>
