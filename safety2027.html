@@ -167,13 +167,33 @@
                 </div>
             </div>
 
+            <!-- Test Submission Generator (Simulator Tool) -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <h3 class="text-sm font-bold text-blue-900 mb-1 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Test Submission Generator (System Test Tool)
+                </h3>
+                <p class="text-xs text-blue-700 mb-3">Send a simulated student result to your Google Sheet & Drive without having to take the full test.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2 mb-3">
+                    <input type="text" id="simFirstName" placeholder="First Name" value="Test" class="p-2 border rounded-md text-xs">
+                    <input type="text" id="simLastName" placeholder="Last Name" value="Student" class="p-2 border rounded-md text-xs">
+                    <input type="text" id="simID" placeholder="Student ID" value="99999" class="p-2 border rounded-md text-xs">
+                    <input type="text" id="simPeriod" placeholder="Period (e.g. 1, RAWC)" value="Period 1" class="p-2 border rounded-md text-xs">
+                    <input type="number" id="simScore" placeholder="Score %" value="100" min="0" max="100" class="p-2 border rounded-md text-xs">
+                </div>
+                <button id="runSimulatedTestBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-md text-xs transition-colors flex items-center gap-2">
+                    🚀 Send Test Submission & Certificate
+                </button>
+            </div>
+
             <!-- Results Table -->
             <div class="overflow-x-auto border border-slate-200 rounded-lg">
                 <table class="w-full text-left border-collapse text-sm text-slate-700">
                     <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
                         <tr>
                             <th class="p-3">Timestamp</th>
-                            <th class="p-3">Student Name</th>
+                            <th class="p-3">First Name</th>
+                            <th class="p-3">Last Name</th>
                             <th class="p-3">Student ID</th>
                             <th class="p-3">Period</th>
                             <th class="p-3 text-center">Score</th>
@@ -183,7 +203,7 @@
                     </thead>
                     <tbody id="resultsTableBody">
                         <tr>
-                            <td colspan="7" class="p-8 text-center text-slate-400 italic">No submissions collected yet.</td>
+                            <td colspan="8" class="p-8 text-center text-slate-400 italic">No submissions collected yet.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -395,7 +415,7 @@
             { segments: ["Clean up all spills", "blank", "."], blanks: ["immediately"] },
             { segments: ["Exercise", "blank", "in handling large and long pieces. Obtain help when needed,"], blanks: ["caution"] },
             { segments: ["blank", "attempt to lift large or heavy objects on your own."], blanks: ["never"] },
-            { segments: ["When using", "blank", "compressed air, direct the", "blank", "away from yourself and other people."], blanks: ["compressed", "nozzle"] },
+            { segments: ["When using", "blank", "air, direct the", "blank", "away from yourself and other people."], blanks: ["compressed", "nozzle"] },
             { segments: ["Long loose locks of", "blank", "can easily be caught in revolving machinery."], blanks: ["hair"] },
             { segments: ["Testing the sharpness of a tool should be done on scrap material and NOT your", "blank", "."], blanks: ["skin"] },
             { segments: ["Keep your", "blank", "parts clear of the blade."], blanks: ["body"] },
@@ -410,154 +430,14 @@
         ];
 
         let shuffledQuizData = [];
-
-        const wordCounts = {};
-        originalQuizData.forEach(q => {
-            q.blanks.forEach(word => {
-                wordCounts[word] = (wordCounts[word] || 0) + 1;
-            });
-        });
-
-        const uniqueWords = Object.keys(wordCounts).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-        let selectedWord = null;
-
-        function updateWordBankVisibility() {
-            if (isLocked) return;
-            const currentAnswers = Array.from(document.querySelectorAll('.drop-zone'))
-                .map(zone => zone.textContent.trim())
-                .filter(val => val !== "");
-
-            const countsInUse = {};
-            currentAnswers.forEach(word => {
-                countsInUse[word] = (countsInUse[word] || 0) + 1;
-            });
-
-            document.querySelectorAll('.draggable').forEach(btn => {
-                const word = btn.textContent;
-                const maxAllowed = wordCounts[word] || 1;
-                const currentlyUsed = countsInUse[word] || 0;
-
-                if (currentlyUsed >= maxAllowed) {
-                    btn.classList.add('hidden-word');
-                    if (selectedWord === word) {
-                        selectedWord = null;
-                        btn.classList.remove('selected-word');
-                    }
-                } else {
-                    btn.classList.remove('hidden-word');
-                }
-            });
-        }
-
-        function generateVerificationHash(name, id, date) {
-            const secret = "SAFETY-PRO-2024-LOCKED";
-            const str = `${(name||'').toUpperCase()}-${id||''}-${date||''}-${secret}`;
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                hash = ((hash << 5) - hash) + str.charCodeAt(i);
-                hash |= 0; 
-            }
-            const absHash = Math.abs(hash).toString(36).toUpperCase();
-            return `VERIFY-${absHash.slice(0,4)}-${absHash.slice(4,8)}-${absHash.slice(8,12)}`.padEnd(21, 'X');
-        }
-
-        function initQuiz() {
-            shuffledQuizData = [...originalQuizData].sort(() => Math.random() - 0.5);
-            
-            const wordBank = document.getElementById('wordBank');
-            const questionsContainer = document.getElementById('questions');
-
-            wordBank.innerHTML = "";
-            questionsContainer.innerHTML = "";
-
-            uniqueWords.forEach(word => {
-                const span = document.createElement('span');
-                span.className = "draggable bg-white border border-slate-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 hover:border-blue-400 transition-all shadow-sm active:shadow-inner";
-                span.draggable = true;
-                span.textContent = word;
-                
-                span.addEventListener('dragstart', (e) => {
-                    if (isLocked) return;
-                    e.dataTransfer.setData('text/plain', word);
-                    span.classList.add('opacity-50');
-                });
-                span.addEventListener('dragend', () => span.classList.remove('opacity-50'));
-                span.addEventListener('click', () => {
-                    if (isLocked) return;
-                    document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
-                    if (selectedWord === word) {
-                        selectedWord = null;
-                    } else {
-                        selectedWord = word;
-                        span.classList.add('selected-word');
-                    }
-                });
-                wordBank.appendChild(span);
-            });
-
-            shuffledQuizData.forEach((q, qIndex) => {
-                const div = document.createElement('div');
-                div.className = "question-row hover:bg-slate-50 transition-colors";
-                
-                let blankCounter = 0;
-                q.segments.forEach((seg) => {
-                    if (seg === "blank") {
-                        const dropZone = document.createElement('span');
-                        dropZone.className = "drop-zone";
-                        dropZone.dataset.qIndex = qIndex;
-                        dropZone.dataset.bIndex = blankCounter;
-                        blankCounter++;
-
-                        dropZone.addEventListener('dragover', (e) => { 
-                            if (isLocked) return;
-                            e.preventDefault(); 
-                            dropZone.classList.add('drag-over'); 
-                        });
-                        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-                        dropZone.addEventListener('drop', (e) => {
-                            if (isLocked) return;
-                            e.preventDefault();
-                            dropZone.classList.remove('drag-over');
-                            const word = e.dataTransfer.getData('text/plain');
-                            if (word) { fillZone(dropZone, word); updateWordBankVisibility(); }
-                        });
-
-                        dropZone.addEventListener('click', () => {
-                            if (isLocked) return;
-                            if (selectedWord) {
-                                fillZone(dropZone, selectedWord);
-                                selectedWord = null;
-                                document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
-                                updateWordBankVisibility();
-                            } else if (dropZone.textContent !== "") {
-                                dropZone.textContent = "";
-                                dropZone.classList.remove('bg-blue-100', 'incorrect', 'correct', 'border-blue-500');
-                                dropZone.classList.add('bg-slate-50');
-                                updateWordBankVisibility();
-                            }
-                        });
-                        div.appendChild(dropZone);
-                    } else {
-                        div.appendChild(document.createTextNode(" " + seg + " "));
-                    }
-                });
-                questionsContainer.appendChild(div);
-            });
-
-            document.getElementById('testDate').valueAsDate = new Date();
-        }
-
-        function fillZone(zone, word) {
-            zone.textContent = word;
-            zone.classList.remove('bg-slate-50', 'incorrect', 'correct');
-            zone.classList.add('bg-blue-100', 'border-blue-500', 'border-solid');
-        }
-
-        async function commitResult(name, id, date, period, score, passed, hash) {
+        async function commitResult(firstName, lastName, id, date, period, score, passed, hash, certBase64 = null) {
             const timestampNow = Math.floor(Date.now() / 1000);
+            const fullName = `${firstName} ${lastName}`.trim();
             const record = {
                 id: 'local-' + timestampNow + '-' + Math.random().toString(36).substring(2,6),
-                name,
+                firstName,
+                lastName,
+                name: fullName,
                 studentID: id,
                 date,
                 period,
@@ -573,15 +453,17 @@
 
             // Send to Google Sheet Webhook if configured
             if (googleSheetWebhookUrl) {
-                sendToGoogleSheet(record);
+                sendToGoogleSheet(record, certBase64);
             }
 
-            // Save to Firestore if available (RULE 1 & RULE 3)
+            // Save to Firestore if available
             if (db && auth?.currentUser) {
                 try {
                     const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'results');
                     await addDoc(collectionRef, {
-                        name,
+                        firstName,
+                        lastName,
+                        name: fullName,
                         studentID: id,
                         date,
                         period,
@@ -596,7 +478,7 @@
             }
         }
 
-        function sendToGoogleSheet(record) {
+        function sendToGoogleSheet(record, certBase64 = null) {
             if (!googleSheetWebhookUrl) {
                 console.warn("Google Sheet Webhook URL is not set. Submission skipped.");
                 return;
@@ -605,22 +487,24 @@
             try {
                 const payload = {
                     timestamp: new Date().toLocaleString(),
+                    firstName: record.firstName || (record.name ? record.name.split(" ")[0] : "Student"),
+                    lastName: record.lastName || (record.name ? record.name.split(" ").slice(1).join(" ") : ""),
                     name: record.name,
                     studentID: record.studentID,
                     period: record.period,
                     score: record.score + '%',
                     status: record.passed ? 'Passed' : 'Incomplete',
-                    hash: record.verificationHash
+                    hash: record.verificationHash,
+                    imageB64: certBase64 || ""
                 };
 
-                // Using text/plain prevents browser CORS preflight blocks on Google Apps Script
                 fetch(googleSheetWebhookUrl, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify(payload)
                 })
-                .then(() => console.log("Result successfully dispatched to Google Sheet Webhook."))
+                .then(() => console.log("Result & Certificate successfully dispatched to Google Sheet & Drive."))
                 .catch(err => console.error("Google Sheets sync failed:", err));
             } catch (err) {
                 console.error("Error sending payload to Google Sheet:", err);
@@ -693,16 +577,26 @@
             const verificationHash = generateVerificationHash(nameInput, idInput, dateInput);
             const isPerfect = scorePercent === 100;
 
-            lockQuiz();
-            await commitResult(nameInput, idInput, dateInput, periodInput, scorePercent, isPerfect, verificationHash);
-
+            let certBase64 = null;
             if (isPerfect) {
                 display.className = "text-xl font-bold text-green-600 mt-4";
                 showCertificate(nameInput, idInput, periodInput, dateInput, verificationHash);
+                
+                // Automatically capture certificate snapshot for Google Drive file storage
+                try {
+                    const certElem = document.getElementById('certificate');
+                    const canvas = await html2canvas(certElem, { scale: 1.5 });
+                    certBase64 = canvas.toDataURL("image/png");
+                } catch (err) {
+                    console.error("Certificate image generation error:", err);
+                }
             } else {
                 display.className = "text-xl font-bold text-red-600 mt-4";
                 window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
             }
+
+            lockQuiz();
+            await commitResult(nameInput, idInput, dateInput, periodInput, scorePercent, isPerfect, verificationHash, certBase64);
         }
 
         function showCertificate(name, id, period, date, hash) {
@@ -781,7 +675,7 @@
         function renderTable() {
             const tbody = document.getElementById('resultsTableBody');
             if (loadedResults.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 italic">No submissions collected yet.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400 italic">No submissions collected yet.</td></tr>`;
                 return;
             }
 
@@ -790,7 +684,8 @@
             const passVal = document.getElementById('teacherPassFilter').value;
 
             let filtered = loadedResults.filter(r => {
-                const matchesSearch = (r.name || "").toLowerCase().includes(searchVal) || (r.studentID || "").toLowerCase().includes(searchVal);
+                const fullName = r.name || `${r.firstName || ''} ${r.lastName || ''}`;
+                const matchesSearch = fullName.toLowerCase().includes(searchVal) || (r.studentID || "").toLowerCase().includes(searchVal);
                 const matchesPeriod = !periodVal || r.period === periodVal;
                 const matchesPass = !passVal || (passVal === 'passed' ? r.passed : !r.passed);
                 return matchesSearch && matchesPeriod && matchesPass;
@@ -798,7 +693,7 @@
 
             tbody.innerHTML = "";
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 italic">No records match the current filters.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400 italic">No records match the current filters.</td></tr>`;
                 return;
             }
 
@@ -808,11 +703,15 @@
                     ? `<span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Passed</span>`
                     : `<span class="bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Incomplete</span>`;
 
+                const fName = r.firstName || (r.name ? r.name.split(" ")[0] : "Student");
+                const lName = r.lastName || (r.name ? r.name.split(" ").slice(1).join(" ") : "");
+
                 const tr = document.createElement('tr');
                 tr.className = "border-b border-slate-100 hover:bg-slate-50 transition-colors";
                 tr.innerHTML = `
                     <td class="p-3 font-mono text-xs text-slate-500">${dateStr}</td>
-                    <td class="p-3 font-semibold text-slate-800">${r.name || 'Anonymous'}</td>
+                    <td class="p-3 font-semibold text-slate-800">${fName}</td>
+                    <td class="p-3 font-semibold text-slate-800">${lName}</td>
                     <td class="p-3 font-mono">${r.studentID || 'None'}</td>
                     <td class="p-3 font-medium text-slate-600">${r.period || 'None'}</td>
                     <td class="p-3 text-center font-bold text-slate-700">${r.score}%</td>
@@ -878,13 +777,16 @@
             }
 
             let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += "Timestamp,Student Name,Student ID,Period,Score,Status,Verification Hash\r\n";
+            csvContent += "Timestamp,First Name,Last Name,Student ID,Period,Score,Status,Verification Hash\r\n";
 
             loadedResults.forEach(r => {
                 const dateStr = r.timestamp ? new Date(r.timestamp.seconds * 1000).toLocaleString().replace(/,/g, '') : 'None';
+                const fName = r.firstName || (r.name ? r.name.split(" ")[0] : "");
+                const lName = r.lastName || (r.name ? r.name.split(" ").slice(1).join(" ") : "");
                 const row = [
                     `"${dateStr}"`,
-                    `"${(r.name || '').replace(/"/g, '""')}"`,
+                    `"${fName.replace(/"/g, '""')}"`,
+                    `"${lName.replace(/"/g, '""')}"`,
                     `"${r.studentID || ''}"`,
                     `"${r.period || ''}"`,
                     `"${r.score}%"`,
@@ -903,26 +805,34 @@
             document.body.removeChild(link);
         });
 
-        document.getElementById('resetTestBtn').addEventListener('click', () => {
-            isLocked = false;
-            document.getElementById('submitBtn').disabled = false;
-            document.getElementById('submitBtn').classList.remove('opacity-50', 'cursor-not-allowed');
-            document.getElementById('resetTestBtn').classList.add('hidden');
-            document.getElementById('scoreDisplay').classList.add('hidden');
+        // Event listener for the Test Submission Generator (Simulator Tool)
+        document.getElementById('runSimulatedTestBtn').addEventListener('click', async () => {
+            const fName = document.getElementById('simFirstName').value.trim() || "Test";
+            const lName = document.getElementById('simLastName').value.trim() || "Student";
+            const sId = document.getElementById('simID').value.trim() || "99999";
+            const sPeriod = document.getElementById('simPeriod').value.trim() || "Period 1";
+            const scoreVal = parseInt(document.getElementById('simScore').value, 10) || 100;
+            const isPerfect = scoreVal === 100;
+            const testDate = new Date().toISOString().split('T')[0];
+            const fullName = `${fName} ${lName}`;
+            const verificationHash = generateVerificationHash(fullName, sId, testDate);
 
-            document.getElementById('firstName').readOnly = false;
-            document.getElementById('lastName').readOnly = false;
-            document.getElementById('studentID').readOnly = false;
-            document.getElementById('period').readOnly = false;
-            document.getElementById('testDate').readOnly = false;
+            let certBase64 = null;
+            if (isPerfect) {
+                showCertificate(fullName, sId, sPeriod, testDate, verificationHash);
+                await new Promise(resolve => setTimeout(resolve, 300));
+                try {
+                    const certElem = document.getElementById('certificate');
+                    const canvas = await html2canvas(certElem, { scale: 1.0, logging: false });
+                    certBase64 = canvas.toDataURL("image/png");
+                } catch (err) {
+                    console.error("Simulator cert canvas capture error:", err);
+                }
+                document.getElementById('certWrapper').classList.add('hidden');
+            }
 
-            document.getElementById('firstName').value = "";
-            document.getElementById('lastName').value = "";
-            document.getElementById('studentID').value = "";
-            document.getElementById('period').value = "";
-
-            initQuiz();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            await commitResult(fName, lName, sId, testDate, sPeriod, scoreVal, isPerfect, verificationHash, certBase64);
+            triggerCustomAlert("Test Submission Sent", `Simulated entry for ${fullName} (${scoreVal}%) sent to Google Sheet & Drive!`);
         });
 
         // DOM Initializations
