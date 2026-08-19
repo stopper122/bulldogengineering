@@ -193,10 +193,14 @@
         <div id="quizInterface">
             <!-- Student Info Form -->
             <div class="bg-white rounded-xl shadow-sm p-6 mb-8 border border-slate-200 no-print">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
                     <div>
-                        <label class="block text-sm font-semibold text-slate-700">Student Name</label>
-                        <input type="text" id="studentName" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Full Name">
+                        <label class="block text-sm font-semibold text-slate-700">First Name</label>
+                        <input type="text" id="firstName" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="First Name">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700">Last Name</label>
+                        <input type="text" id="lastName" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Last Name">
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-slate-700">Student ID #</label>
@@ -593,6 +597,11 @@
         }
 
         function sendToGoogleSheet(record) {
+            if (!googleSheetWebhookUrl) {
+                console.warn("Google Sheet Webhook URL is not set. Submission skipped.");
+                return;
+            }
+
             try {
                 const payload = {
                     timestamp: new Date().toLocaleString(),
@@ -604,12 +613,15 @@
                     hash: record.verificationHash
                 };
 
+                // Using text/plain prevents browser CORS preflight blocks on Google Apps Script
                 fetch(googleSheetWebhookUrl, {
                     method: 'POST',
                     mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify(payload)
-                }).catch(err => console.error("Google Sheets sync failed:", err));
+                })
+                .then(() => console.log("Result successfully dispatched to Google Sheet Webhook."))
+                .catch(err => console.error("Google Sheets sync failed:", err));
             } catch (err) {
                 console.error("Error sending payload to Google Sheet:", err);
             }
@@ -623,20 +635,23 @@
             document.getElementById('submitBtn').classList.add('opacity-50', 'cursor-not-allowed');
             document.getElementById('resetTestBtn').classList.remove('hidden');
             
-            document.getElementById('studentName').readOnly = true;
+            document.getElementById('firstName').readOnly = true;
+            document.getElementById('lastName').readOnly = true;
             document.getElementById('studentID').readOnly = true;
             document.getElementById('period').readOnly = true;
             document.getElementById('testDate').readOnly = true;
         }
 
         async function gradeQuiz() {
-            const nameInput = document.getElementById('studentName').value.trim();
+            const firstNameInput = document.getElementById('firstName').value.trim();
+            const lastNameInput = document.getElementById('lastName').value.trim();
+            const nameInput = `${firstNameInput} ${lastNameInput}`.trim();
             const idInput = document.getElementById('studentID').value.trim();
             const periodInput = document.getElementById('period').value.trim();
             const dateInput = document.getElementById('testDate').value;
 
-            if (!nameInput || !idInput || !periodInput) {
-                triggerCustomAlert("Missing Credentials", "Please fill in your Name, Student ID, and Class Period before submitting your quiz.");
+            if (!firstNameInput || !lastNameInput || !idInput || !periodInput) {
+                triggerCustomAlert("Missing Credentials", "Please fill in your First Name, Last Name, Student ID, and Class Period before submitting your quiz.");
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
@@ -895,12 +910,14 @@
             document.getElementById('resetTestBtn').classList.add('hidden');
             document.getElementById('scoreDisplay').classList.add('hidden');
 
-            document.getElementById('studentName').readOnly = false;
+            document.getElementById('firstName').readOnly = false;
+            document.getElementById('lastName').readOnly = false;
             document.getElementById('studentID').readOnly = false;
             document.getElementById('period').readOnly = false;
             document.getElementById('testDate').readOnly = false;
 
-            document.getElementById('studentName').value = "";
+            document.getElementById('firstName').value = "";
+            document.getElementById('lastName').value = "";
             document.getElementById('studentID').value = "";
             document.getElementById('period').value = "";
 
