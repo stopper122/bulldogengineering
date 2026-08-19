@@ -322,6 +322,7 @@
         let db = null;
         let auth = null;
         let isLocked = false;
+        let selectedWord = null;
         let localResults = [];
         let cloudResults = [];
         let loadedResults = [];
@@ -337,66 +338,6 @@
             console.warn("Firebase configuration parsing error:", err);
         }
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        async function setupCloudService() {
-            const statusDot = document.getElementById('cloudStatusDot');
-            const statusText = document.getElementById('cloudStatusText');
-            
-            updateSheetStatusUI();
-
-            if (!firebaseConfig) {
-                console.warn("Cloud storage environment config not found. Operating in local mode.");
-                if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-slate-400 inline-block";
-                if (statusText) statusText.textContent = "Cloud Sync: Standalone / Local Session Mode";
-                return;
-            }
-            try {
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-
-                // Auth Before Queries (RULE 3)
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                
-                if (auth.currentUser) {
-                    if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-green-500 inline-block";
-                    if (statusText) statusText.textContent = "Cloud Sync: Connected & Live";
-                    setupRealtimeListener();
-                }
-            } catch (err) {
-                console.error("Cloud service initialization failed: ", err);
-                if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-red-500 inline-block";
-                if (statusText) statusText.textContent = "Cloud Sync: Offline (Local Mode Active)";
-            }
-        }
-
-        function updateSheetStatusUI() {
-            const sheetInput = document.getElementById('googleSheetWebhookInput');
-            const sheetText = document.getElementById('sheetStatusText');
-            if (sheetInput && googleSheetWebhookUrl) {
-                sheetInput.value = googleSheetWebhookUrl;
-            }
-            if (sheetText) {
-                sheetText.textContent = googleSheetWebhookUrl 
-                    ? "Google Sheets: Connected & Syncing Active" 
-                    : "Google Sheets: Disconnected (Add webhook URL below to enable permanent sync)";
-                sheetText.className = googleSheetWebhookUrl ? "text-green-700 font-semibold" : "text-slate-500";
-            }
-        }
-
-        // Custom Modal Alert System
-        function triggerCustomAlert(title, message) {
-            document.getElementById('alertTitle').textContent = title;
-            document.getElementById('alertMessage').textContent = message;
-            document.getElementById('customAlert').classList.remove('hidden');
-        }
-        document.getElementById('closeAlertBtn').addEventListener('click', () => {
-            document.getElementById('customAlert').classList.add('hidden');
-        });
 
         const originalQuizData = [
             { segments: ["It is vital to your general safety that you", "blank", "and", "blank", "all safety rules."], blanks: ["learn", "obey"] },
@@ -429,94 +370,217 @@
             { segments: ["blank", "immediately when finished working."], blanks: ["Cleanup"] }
         ];
 
-        let shuffledQuizData = [];
-        async function commitResult(firstName, lastName, id, date, period, score, passed, hash, certBase64 = null) {
-            const timestampNow = Math.floor(Date.now() / 1000);
-            const fullName = `${firstName} ${lastName}`.trim();
-            const record = {
-                id: 'local-' + timestampNow + '-' + Math.random().toString(36).substring(2,6),
-                firstName,
-                lastName,
-                name: fullName,
-                studentID: id,
-                date,
-                period,
-                score,
-                passed,
-                verificationHash: hash,
-                timestamp: { seconds: timestampNow }
-            };
+        let shuffledQuizData = [...originalQuizData].sort(() => Math.random() - 0.5);
 
-            // Always save to local session list so Teacher Portal has immediate access
-            localResults.unshift(record);
-            updateCombinedResults();
+        // Word usage counts
+        const wordCounts = {};
+        originalQuizData.forEach(q => {
+            q.blanks.forEach(word => {
+                wordCounts[word] = (wordCounts[word] || 0) + 1;
+            });
+        });
 
-            // Send to Google Sheet Webhook if configured
-            if (googleSheetWebhookUrl) {
-                sendToGoogleSheet(record, certBase64);
+        const uniqueWords = Object.keys(wordCounts).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+        function triggerCustomAlert(title, message) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('customAlert').classList.remove('hidden');
+        }
+        document.getElementById('closeAlertBtn').addEventListener('click', () => {
+            document.getElementById('customAlert').classList.add('hidden');
+        });
+
+        function generateVerificationHash(name, id, date) {
+            const secret = "SAFETY-PRO-2026-LOCKED";
+            const str = `${(name||'').toUpperCase()}-${id||''}-${date||''}-${secret}`;
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash |= 0; 
             }
+            const absHash = Math.abs(hash).toString(36).toUpperCase();
+            return `VERIFY: ${absHash.slice(0,4)}-${absHash.slice(4,8)}-${absHash.slice(8,12)}`.padEnd(20, 'X');
+        }
 
-            // Save to Firestore if available
-            if (db && auth?.currentUser) {
-                try {
-                    const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'results');
-                    await addDoc(collectionRef, {
-                        firstName,
-                        lastName,
-                        name: fullName,
-                        studentID: id,
-                        date,
-                        period,
-                        score,
-                        passed,
-                        verificationHash: hash,
-                        timestamp: serverTimestamp()
-                    });
-                } catch (err) {
-                    console.error("Cloud storage commit error (record preserved locally):", err);
+        async function setupCloudService() {
+            const statusDot = document.getElementById('cloudStatusDot');
+            const statusText = document.getElementById('cloudStatusText');
+            
+            updateSheetStatusUI();
+
+            if (!firebaseConfig) {
+                if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-slate-400 inline-block";
+                if (statusText) statusText.textContent = "Cloud Sync: Standalone / Local Session Mode";
+                return;
+            }
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
                 }
+                
+                if (auth.currentUser) {
+                    if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-green-500 inline-block";
+                    if (statusText) statusText.textContent = "Cloud Sync: Connected & Live";
+                    setupRealtimeListener();
+                }
+            } catch (err) {
+                console.error("Cloud service initialization failed: ", err);
+                if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-red-500 inline-block";
+                if (statusText) statusText.textContent = "Cloud Sync: Offline (Local Mode Active)";
             }
         }
 
-        function sendToGoogleSheet(record, certBase64 = null) {
-            if (!googleSheetWebhookUrl) {
-                console.warn("Google Sheet Webhook URL is not set. Submission skipped.");
-                return;
+        function updateSheetStatusUI() {
+            const sheetInput = document.getElementById('googleSheetWebhookInput');
+            const sheetText = document.getElementById('sheetStatusText');
+            if (sheetInput && googleSheetWebhookUrl) {
+                sheetInput.value = googleSheetWebhookUrl;
             }
-
-            try {
-                const payload = {
-                    timestamp: new Date().toLocaleString(),
-                    firstName: record.firstName || (record.name ? record.name.split(" ")[0] : "Student"),
-                    lastName: record.lastName || (record.name ? record.name.split(" ").slice(1).join(" ") : ""),
-                    name: record.name,
-                    studentID: record.studentID,
-                    period: record.period,
-                    score: record.score + '%',
-                    status: record.passed ? 'Passed' : 'Incomplete',
-                    hash: record.verificationHash,
-                    imageB64: certBase64 || ""
-                };
-
-                fetch(googleSheetWebhookUrl, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify(payload)
-                })
-                .then(() => console.log("Result & Certificate successfully dispatched to Google Sheet & Drive."))
-                .catch(err => console.error("Google Sheets sync failed:", err));
-            } catch (err) {
-                console.error("Error sending payload to Google Sheet:", err);
+            if (sheetText) {
+                sheetText.textContent = googleSheetWebhookUrl 
+                    ? "Google Sheets: Connected & Syncing Active" 
+                    : "Google Sheets: Disconnected (Add webhook URL below to enable permanent sync)";
+                sheetText.className = googleSheetWebhookUrl ? "text-green-700 font-semibold" : "text-slate-500";
             }
+        }
+
+        function updateWordBankVisibility() {
+            if (isLocked) return;
+            const currentAnswers = Array.from(document.querySelectorAll('.drop-zone'))
+                .map(zone => zone.textContent.trim())
+                .filter(val => val !== "");
+
+            const countsInUse = {};
+            currentAnswers.forEach(word => {
+                countsInUse[word] = (countsInUse[word] || 0) + 1;
+            });
+
+            document.querySelectorAll('.draggable').forEach(btn => {
+                const word = btn.textContent;
+                const maxAllowed = wordCounts[word] || 1;
+                const currentlyUsed = countsInUse[word] || 0;
+
+                if (currentlyUsed >= maxAllowed) {
+                    btn.classList.add('hidden-word');
+                    if (selectedWord === word) {
+                        selectedWord = null;
+                        btn.classList.remove('selected-word');
+                    }
+                } else {
+                    btn.classList.remove('hidden-word');
+                }
+            });
+        }
+
+        function initQuiz() {
+            const wordBank = document.getElementById('wordBank');
+            const questionsContainer = document.getElementById('questions');
+
+            if (!wordBank || !questionsContainer) return;
+            wordBank.innerHTML = "";
+            questionsContainer.innerHTML = "";
+
+            uniqueWords.forEach(word => {
+                const span = document.createElement('span');
+                span.className = "draggable bg-white border border-slate-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 hover:border-blue-400 transition-all shadow-sm active:shadow-inner cursor-pointer";
+                span.draggable = true;
+                span.textContent = word;
+                
+                span.addEventListener('dragstart', (e) => {
+                    if (isLocked) return;
+                    e.dataTransfer.setData('text/plain', word);
+                    span.classList.add('opacity-50');
+                });
+                span.addEventListener('dragend', () => span.classList.remove('opacity-50'));
+                span.addEventListener('click', () => {
+                    if (isLocked) return;
+                    document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
+                    if (selectedWord === word) {
+                        selectedWord = null;
+                    } else {
+                        selectedWord = word;
+                        span.classList.add('selected-word');
+                    }
+                });
+                wordBank.appendChild(span);
+            });
+
+            shuffledQuizData.forEach((q, qIndex) => {
+                const div = document.createElement('div');
+                div.className = "question-row hover:bg-slate-50 transition-colors";
+                
+                let blankCounter = 0;
+                q.segments.forEach((seg) => {
+                    if (seg === "blank") {
+                        const dropZone = document.createElement('span');
+                        dropZone.className = "drop-zone";
+                        dropZone.dataset.qIndex = qIndex;
+                        dropZone.dataset.bIndex = blankCounter;
+                        blankCounter++;
+
+                        dropZone.addEventListener('dragover', (e) => { 
+                            if (isLocked) return;
+                            e.preventDefault(); 
+                            dropZone.classList.add('drag-over'); 
+                        });
+                        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+                        dropZone.addEventListener('drop', (e) => {
+                            if (isLocked) return;
+                            e.preventDefault();
+                            dropZone.classList.remove('drag-over');
+                            const word = e.dataTransfer.getData('text/plain');
+                            if (word) { fillZone(dropZone, word); updateWordBankVisibility(); }
+                        });
+
+                        dropZone.addEventListener('click', () => {
+                            if (isLocked) return;
+                            if (selectedWord) {
+                                fillZone(dropZone, selectedWord);
+                                selectedWord = null;
+                                document.querySelectorAll('.draggable').forEach(d => d.classList.remove('selected-word'));
+                                updateWordBankVisibility();
+                            } else if (dropZone.textContent !== "") {
+                                dropZone.textContent = "";
+                                dropZone.classList.remove('bg-blue-100', 'incorrect', 'correct', 'border-blue-500');
+                                dropZone.classList.add('bg-slate-50');
+                                updateWordBankVisibility();
+                            }
+                        });
+                        div.appendChild(dropZone);
+                    } else {
+                        div.appendChild(document.createTextNode(" " + seg + " "));
+                    }
+                });
+                questionsContainer.appendChild(div);
+            });
+
+            const testDateElem = document.getElementById('testDate');
+            if (testDateElem && !testDateElem.value) {
+                testDateElem.valueAsDate = new Date();
+            }
+        }
+
+        function fillZone(zone, word) {
+            zone.textContent = word;
+            zone.classList.remove('bg-slate-50', 'incorrect', 'correct');
+            zone.classList.add('bg-blue-100', 'border-blue-500', 'border-solid');
         }
 
         function lockQuiz() {
             isLocked = true;
             document.querySelectorAll('.drop-zone').forEach(z => z.classList.add('locked'));
             document.querySelectorAll('.draggable').forEach(d => d.classList.add('locked'));
-            document.getElementById('submitBtn').disabled = true;
-            document.getElementById('submitBtn').classList.add('opacity-50', 'cursor-not-allowed');
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
             document.getElementById('resetTestBtn').classList.remove('hidden');
             
             document.getElementById('firstName').readOnly = true;
@@ -526,10 +590,32 @@
             document.getElementById('testDate').readOnly = true;
         }
 
+        function resetQuiz() {
+            isLocked = false;
+            selectedWord = null;
+            
+            document.getElementById('firstName').readOnly = false;
+            document.getElementById('lastName').readOnly = false;
+            document.getElementById('studentID').readOnly = false;
+            document.getElementById('period').readOnly = false;
+            document.getElementById('testDate').readOnly = false;
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('scoreDisplay').classList.add('hidden');
+            document.getElementById('resetTestBtn').classList.add('hidden');
+
+            shuffledQuizData.length = 0;
+            shuffledQuizData.push(...[...originalQuizData].sort(() => Math.random() - 0.5));
+
+            initQuiz();
+            updateWordBankVisibility();
+        }
+
         async function gradeQuiz() {
             const firstNameInput = document.getElementById('firstName').value.trim();
             const lastNameInput = document.getElementById('lastName').value.trim();
-            const nameInput = `${firstNameInput} ${lastNameInput}`.trim();
             const idInput = document.getElementById('studentID').value.trim();
             const periodInput = document.getElementById('period').value.trim();
             const dateInput = document.getElementById('testDate').value;
@@ -540,6 +626,7 @@
                 return;
             }
 
+            const nameInput = `${firstNameInput} ${lastNameInput}`.trim();
             const zones = document.querySelectorAll('.drop-zone');
             let totalBlanks = 0;
             let correctBlanks = 0;
@@ -582,7 +669,6 @@
                 display.className = "text-xl font-bold text-green-600 mt-4";
                 showCertificate(nameInput, idInput, periodInput, dateInput, verificationHash);
                 
-                // Automatically capture certificate snapshot for Google Drive file storage
                 try {
                     const certElem = document.getElementById('certificate');
                     const canvas = await html2canvas(certElem, { scale: 1.5 });
@@ -596,7 +682,82 @@
             }
 
             lockQuiz();
-            await commitResult(nameInput, idInput, dateInput, periodInput, scorePercent, isPerfect, verificationHash, certBase64);
+            await commitResult(firstNameInput, lastNameInput, idInput, dateInput, periodInput, scorePercent, isPerfect, verificationHash, certBase64);
+        }
+
+        async function commitResult(firstName, lastName, id, date, period, score, passed, hash, certBase64 = null) {
+            const timestampNow = Math.floor(Date.now() / 1000);
+            const fullName = `${firstName} ${lastName}`.trim();
+            const record = {
+                id: 'local-' + timestampNow + '-' + Math.random().toString(36).substring(2,6),
+                firstName,
+                lastName,
+                name: fullName,
+                studentID: id,
+                date,
+                period,
+                score,
+                passed,
+                verificationHash: hash,
+                timestamp: { seconds: timestampNow }
+            };
+
+            localResults.unshift(record);
+            updateCombinedResults();
+
+            if (googleSheetWebhookUrl) {
+                sendToGoogleSheet(record, certBase64);
+            }
+
+            if (db && auth?.currentUser) {
+                try {
+                    const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'results');
+                    await addDoc(collectionRef, {
+                        firstName,
+                        lastName,
+                        name: fullName,
+                        studentID: id,
+                        date,
+                        period,
+                        score,
+                        passed,
+                        verificationHash: hash,
+                        timestamp: serverTimestamp()
+                    });
+                } catch (err) {
+                    console.error("Cloud storage commit error (record preserved locally):", err);
+                }
+            }
+        }
+
+        function sendToGoogleSheet(record, certBase64 = null) {
+            if (!googleSheetWebhookUrl) return;
+
+            try {
+                const payload = {
+                    timestamp: new Date().toLocaleString(),
+                    firstName: record.firstName || (record.name ? record.name.split(" ")[0] : "Student"),
+                    lastName: record.lastName || (record.name ? record.name.split(" ").slice(1).join(" ") : ""),
+                    name: record.name,
+                    studentID: record.studentID,
+                    period: record.period,
+                    score: record.score + '%',
+                    status: record.passed ? 'Passed' : 'Incomplete',
+                    hash: record.verificationHash,
+                    imageB64: certBase64 || ""
+                };
+
+                fetch(googleSheetWebhookUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(payload)
+                })
+                .then(() => console.log("Result & Certificate successfully dispatched to Google Sheet & Drive."))
+                .catch(err => console.error("Google Sheets sync failed:", err));
+            } catch (err) {
+                console.error("Error sending payload to Google Sheet:", err);
+            }
         }
 
         function showCertificate(name, id, period, date, hash) {
@@ -608,24 +769,9 @@
             document.getElementById('certWrapper').classList.remove('hidden');
         }
 
-        document.getElementById('closeCertBtn').addEventListener('click', () => {
-            document.getElementById('certWrapper').classList.add('hidden');
-        });
-
-        document.getElementById('downloadCertBtn').addEventListener('click', () => {
-            const cert = document.getElementById('certificate');
-            html2canvas(cert, { scale: 2 }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = `Safety_Cert_${document.getElementById('certName').textContent.replace(/\s/g, '_')}.png`;
-                link.href = canvas.toDataURL("image/png");
-                link.click();
-            });
-        });
-
         function setupRealtimeListener() {
             if (!db) return;
             const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'results');
-            // RULE 2: No complex queries inside onSnapshot
             onSnapshot(collectionRef, (snapshot) => {
                 cloudResults = [];
                 snapshot.forEach(doc => {
@@ -638,7 +784,6 @@
         }
 
         function updateCombinedResults() {
-            // Combine cloud and local results, avoiding duplicates by verification hash or ID
             const map = new Map();
             cloudResults.forEach(r => map.set(r.verificationHash + '-' + r.name + '-' + r.score, r));
             localResults.forEach(r => {
@@ -659,6 +804,7 @@
 
         function populatePeriodDropdown() {
             const select = document.getElementById('teacherPeriodFilter');
+            if (!select) return;
             const currentSelected = select.value;
             const periods = [...new Set(loadedResults.map(r => r.period))].filter(Boolean).sort();
             
@@ -674,6 +820,7 @@
 
         function renderTable() {
             const tbody = document.getElementById('resultsTableBody');
+            if (!tbody) return;
             if (loadedResults.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400 italic">No submissions collected yet.</td></tr>`;
                 return;
@@ -721,6 +868,20 @@
                 tbody.appendChild(tr);
             });
         }
+
+        document.getElementById('closeCertBtn').addEventListener('click', () => {
+            document.getElementById('certWrapper').classList.add('hidden');
+        });
+
+        document.getElementById('downloadCertBtn').addEventListener('click', () => {
+            const cert = document.getElementById('certificate');
+            html2canvas(cert, { scale: 2 }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Safety_Cert_${document.getElementById('certName').textContent.replace(/\s/g, '_')}.png`;
+                link.href = canvas.toDataURL("image/png");
+                link.click();
+            });
+        });
 
         document.getElementById('teacherSearch').addEventListener('input', renderTable);
         document.getElementById('teacherPeriodFilter').addEventListener('change', renderTable);
@@ -805,7 +966,6 @@
             document.body.removeChild(link);
         });
 
-        // Event listener for the Test Submission Generator (Simulator Tool)
         document.getElementById('runSimulatedTestBtn').addEventListener('click', async () => {
             const fName = document.getElementById('simFirstName').value.trim() || "Test";
             const lName = document.getElementById('simLastName').value.trim() || "Student";
@@ -835,8 +995,10 @@
             triggerCustomAlert("Test Submission Sent", `Simulated entry for ${fullName} (${scoreVal}%) sent to Google Sheet & Drive!`);
         });
 
-        // DOM Initializations
         document.getElementById('submitBtn').addEventListener('click', gradeQuiz);
+        document.getElementById('resetTestBtn').addEventListener('click', resetQuiz);
+
+        // Run Initializations
         setupCloudService();
         initQuiz();
     </script>
