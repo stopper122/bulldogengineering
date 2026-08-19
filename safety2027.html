@@ -315,8 +315,8 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE TO KEEP IT PERMANENT ACROSS REFRESHES
-        const DEFAULT_GOOGLE_SHEET_WEBHOOK = ""; 
+        // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE TO KEEP IT PERMANENT ACROSS ALL COMPUTERS/REFRESHES
+        const DEFAULT_GOOGLE_SHEET_WEBHOOK = "https://script.google.com/macros/s/AKfycbz52tTQ9uwGJYLdZ27EAOdBpWwkuqX_wVVLwc3AfxKHJBVfadeUFU4vvAjlgxaJqzXV/exec"; 
 
         // Global State Objects
         let db = null;
@@ -967,6 +967,11 @@
         });
 
         document.getElementById('runSimulatedTestBtn').addEventListener('click', async () => {
+            if (!googleSheetWebhookUrl) {
+                triggerCustomAlert("Webhook Disconnected", "Please paste your Google Apps Script Web App URL into the 'Google Sheets Sync Endpoint' box above and click 'Save Endpoint' before running a test.");
+                return;
+            }
+
             const fName = document.getElementById('simFirstName').value.trim() || "Test";
             const lName = document.getElementById('simLastName').value.trim() || "Student";
             const sId = document.getElementById('simID').value.trim() || "99999";
@@ -992,7 +997,7 @@
             }
 
             await commitResult(fName, lName, sId, testDate, sPeriod, scoreVal, isPerfect, verificationHash, certBase64);
-            triggerCustomAlert("Test Submission Sent", `Simulated entry for ${fullName} (${scoreVal}%) sent to Google Sheet & Drive!`);
+            triggerCustomAlert("Test Submission Sent", `Simulated entry for ${fullName} (${scoreVal}%) dispatched! Check your Google Sheet and Drive.`);
         });
 
         document.getElementById('submitBtn').addEventListener('click', gradeQuiz);
