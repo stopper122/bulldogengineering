@@ -301,7 +301,7 @@
         let localResults = [];
         let cloudResults = [];
         let loadedResults = [];
-        let googleSheetWebhookUrl = DEFAULT_GOOGLE_SHEET_WEBHOOK;
+        let googleSheetWebhookUrl = localStorage.getItem('safety_quiz_webhook') || DEFAULT_GOOGLE_SHEET_WEBHOOK;
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'safety-quiz-persisted';
         let firebaseConfig = null;
@@ -373,31 +373,6 @@
         document.getElementById('closeAlertBtn').addEventListener('click', () => {
             document.getElementById('customAlert').classList.add('hidden');
         });
-
-        async function setupCloudService() {
-            if (!firebaseConfig) {
-                console.warn("Cloud storage environment config not found. Operating in local mode.");
-                return;
-            }
-            try {
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-
-                // Auth Before Queries (RULE 3)
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                
-                if (auth.currentUser) {
-                    setupRealtimeListener();
-                }
-            } catch (err) {
-                console.error("Cloud service initialization failed: ", err);
-            }
-        }
 
         const originalQuizData = [
             { segments: ["It is vital to your general safety that you", "blank", "and", "blank", "all safety rules."], blanks: ["learn", "obey"] },
@@ -844,6 +819,11 @@
                 return;
             }
             googleSheetWebhookUrl = url;
+            if (url) {
+                localStorage.setItem('safety_quiz_webhook', url);
+            } else {
+                localStorage.removeItem('safety_quiz_webhook');
+            }
             updateSheetStatusUI();
             triggerCustomAlert("Configuration Saved", url ? "Google Sheets webhook connected! All new submissions will sync automatically." : "Webhook URL cleared.");
         });
