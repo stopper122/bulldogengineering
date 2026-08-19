@@ -144,6 +144,29 @@
                 </select>
             </div>
 
+            <div id="storageStatusBanner" class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6 text-xs flex flex-wrap justify-between items-center gap-2">
+                <div class="flex items-center gap-2">
+                    <span id="cloudStatusDot" class="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block"></span>
+                    <span id="cloudStatusText" class="font-semibold text-slate-700">Cloud Sync: Initializing...</span>
+                </div>
+                <div id="sheetStatusText" class="text-slate-500">
+                    Google Sheets: Disconnected (Add webhook URL below to enable permanent sync)
+                </div>
+            </div>
+
+            <!-- Google Sheet Webhook Integration Settings -->
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-6">
+                <h3 class="text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    Google Sheets Sync Endpoint (Optional)
+                </h3>
+                <p class="text-xs text-slate-500 mb-3">Paste your Google Apps Script Web App URL below to automatically post quiz submissions directly to your Google Sheet in real-time.</p>
+                <div class="flex gap-2">
+                    <input type="url" id="googleSheetWebhookInput" placeholder="https://script.google.com/macros/s/.../exec" class="flex-1 p-2 border rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono">
+                    <button id="saveWebhookBtn" class="bg-slate-800 hover:bg-slate-900 text-white font-medium px-4 py-2 rounded-md text-sm transition-colors">Save Endpoint</button>
+                </div>
+            </div>
+
             <!-- Results Table -->
             <div class="overflow-x-auto border border-slate-200 rounded-lg">
                 <table class="w-full text-left border-collapse text-sm text-slate-700">
@@ -268,6 +291,9 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE TO KEEP IT PERMANENT ACROSS REFRESHES
+        const DEFAULT_GOOGLE_SHEET_WEBHOOK = ""; 
+
         // Global State Objects
         let db = null;
         let auth = null;
@@ -275,6 +301,7 @@
         let localResults = [];
         let cloudResults = [];
         let loadedResults = [];
+        let googleSheetWebhookUrl = DEFAULT_GOOGLE_SHEET_WEBHOOK;
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'safety-quiz-persisted';
         let firebaseConfig = null;
@@ -286,6 +313,56 @@
             console.warn("Firebase configuration parsing error:", err);
         }
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        async function setupCloudService() {
+            const statusDot = document.getElementById('cloudStatusDot');
+            const statusText = document.getElementById('cloudStatusText');
+            
+            updateSheetStatusUI();
+
+            if (!firebaseConfig) {
+                console.warn("Cloud storage environment config not found. Operating in local mode.");
+                if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-slate-400 inline-block";
+                if (statusText) statusText.textContent = "Cloud Sync: Standalone / Local Session Mode";
+                return;
+            }
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Auth Before Queries (RULE 3)
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                if (auth.currentUser) {
+                    if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-green-500 inline-block";
+                    if (statusText) statusText.textContent = "Cloud Sync: Connected & Live";
+                    setupRealtimeListener();
+                }
+            } catch (err) {
+                console.error("Cloud service initialization failed: ", err);
+                if (statusDot) statusDot.className = "w-2.5 h-2.5 rounded-full bg-red-500 inline-block";
+                if (statusText) statusText.textContent = "Cloud Sync: Offline (Local Mode Active)";
+            }
+        }
+
+        function updateSheetStatusUI() {
+            const sheetInput = document.getElementById('googleSheetWebhookInput');
+            const sheetText = document.getElementById('sheetStatusText');
+            if (sheetInput && googleSheetWebhookUrl) {
+                sheetInput.value = googleSheetWebhookUrl;
+            }
+            if (sheetText) {
+                sheetText.textContent = googleSheetWebhookUrl 
+                    ? "Google Sheets: Connected & Syncing Active" 
+                    : "Google Sheets: Disconnected (Add webhook URL below to enable permanent sync)";
+                sheetText.className = googleSheetWebhookUrl ? "text-green-700 font-semibold" : "text-slate-500";
+            }
+        }
 
         // Custom Modal Alert System
         function triggerCustomAlert(title, message) {
@@ -515,6 +592,11 @@
             localResults.unshift(record);
             updateCombinedResults();
 
+            // Send to Google Sheet Webhook if configured
+            if (googleSheetWebhookUrl) {
+                sendToGoogleSheet(record);
+            }
+
             // Save to Firestore if available (RULE 1 & RULE 3)
             if (db && auth?.currentUser) {
                 try {
@@ -532,6 +614,29 @@
                 } catch (err) {
                     console.error("Cloud storage commit error (record preserved locally):", err);
                 }
+            }
+        }
+
+        function sendToGoogleSheet(record) {
+            try {
+                const payload = {
+                    timestamp: new Date().toLocaleString(),
+                    name: record.name,
+                    studentID: record.studentID,
+                    period: record.period,
+                    score: record.score + '%',
+                    status: record.passed ? 'Passed' : 'Incomplete',
+                    hash: record.verificationHash
+                };
+
+                fetch(googleSheetWebhookUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(err => console.error("Google Sheets sync failed:", err));
+            } catch (err) {
+                console.error("Error sending payload to Google Sheet:", err);
             }
         }
 
@@ -731,6 +836,17 @@
         document.getElementById('teacherSearch').addEventListener('input', renderTable);
         document.getElementById('teacherPeriodFilter').addEventListener('change', renderTable);
         document.getElementById('teacherPassFilter').addEventListener('change', renderTable);
+
+        document.getElementById('saveWebhookBtn').addEventListener('click', () => {
+            const url = document.getElementById('googleSheetWebhookInput').value.trim();
+            if (url && !url.startsWith('https://script.google.com')) {
+                triggerCustomAlert("Invalid URL", "Please enter a valid Google Apps Script Web App URL.");
+                return;
+            }
+            googleSheetWebhookUrl = url;
+            updateSheetStatusUI();
+            triggerCustomAlert("Configuration Saved", url ? "Google Sheets webhook connected! All new submissions will sync automatically." : "Webhook URL cleared.");
+        });
 
         document.getElementById('openTeacherPortalBtn').addEventListener('click', () => {
             document.getElementById('passwordModal').classList.remove('hidden');
