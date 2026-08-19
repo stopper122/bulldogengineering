@@ -96,7 +96,7 @@
                 </div>
                 <h3 class="text-lg font-bold text-slate-800 mb-2" id="alertTitle">Attention</h3>
                 <p class="text-slate-600 text-sm mb-6" id="alertMessage">Message text goes here.</p>
-                <button onclick="closeCustomAlert()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                <button id="closeAlertBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
                     Acknowledge
                 </button>
             </div>
@@ -108,25 +108,24 @@
                 <h1 class="text-3xl font-bold text-slate-800 mb-1">General Safety Test</h1>
                 <p class="text-slate-600 italic">Drag words from the bank into the boxes below, or click a word then click a box.</p>
             </div>
-            <button id="openTeacherPortalBtn" class="bg-slate-800 hover:bg-slate-900 text-white font-medium py-2 px-4 rounded-lg transition-all text-sm flex items-center gap-2">
+            <button id="openTeacherPortalBtn" class="bg-slate-800 hover:bg-slate-900 text-white font-medium py-2 px-4 rounded-lg transition-all text-sm flex items-center gap-2 shadow-md">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
                 Teacher Portal
             </button>
         </header>
 
-        <!-- Teacher Portal Section (Hidden by default) -->
         <div id="teacherPortal" class="hidden bg-white rounded-xl shadow-lg border border-slate-200 p-6 mb-8 no-print animate-fade-in">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4 mb-6">
                 <div>
                     <h2 class="text-2xl font-bold text-slate-800">Teacher Control Panel</h2>
-                    <p class="text-sm text-slate-500">View real-time records and verify digital safety certificates.</p>
+                    <p class="text-sm text-slate-500">View real-time student submissions and verify safety certificates.</p>
                 </div>
                 <div class="flex gap-2 w-full md:w-auto">
-                    <button onclick="exportToCSV()" class="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+                    <button id="exportCsvBtn" class="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         Export CSV
                     </button>
-                    <button onclick="exitTeacherPortal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">
+                    <button id="exitTeacherPortalBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">
                         Back to Quiz
                     </button>
                 </div>
@@ -134,14 +133,14 @@
 
             <!-- Filters -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <input type="text" id="teacherSearch" oninput="filterResultsTable()" placeholder="Search by name or ID..." class="p-2 border rounded-md text-sm">
-                <select id="teacherPeriodFilter" onchange="filterResultsTable()" class="p-2 border rounded-md text-sm">
+                <input type="text" id="teacherSearch" placeholder="Search by name or ID..." class="p-2 border rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                <select id="teacherPeriodFilter" class="p-2 border rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">All Periods</option>
                 </select>
-                <select id="teacherPassFilter" onchange="filterResultsTable()" class="p-2 border rounded-md text-sm">
+                <select id="teacherPassFilter" class="p-2 border rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">All Scores</option>
                     <option value="passed">Passed (100%)</option>
-                    <option value="failed">Incomplete (< 100%)</option>
+                    <option value="failed">Incomplete (&lt; 100%)</option>
                 </select>
             </div>
 
@@ -161,7 +160,7 @@
                     </thead>
                     <tbody id="resultsTableBody">
                         <tr>
-                            <td colspan="7" class="p-8 text-center text-slate-400 italic">No records stored yet. Waiting for student submissions...</td>
+                            <td colspan="7" class="p-8 text-center text-slate-400 italic">No submissions collected yet.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -191,7 +190,6 @@
                 </div>
             </div>
 
-            <!-- Word Bank -->
             <div id="wordBankSection" class="bg-white rounded-xl shadow-md p-6 mb-8 border-2 border-blue-100 sticky top-4 z-10 no-print">
                 <h2 class="text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 text-center">Word Bank (Alphabetical)</h2>
                 <div id="wordBank" class="flex flex-wrap gap-2 justify-center">
@@ -199,7 +197,6 @@
                 </div>
             </div>
 
-            <!-- Quiz Section -->
             <div id="quizContainer" class="bg-white rounded-xl shadow-sm border border-slate-200 mb-8 no-print overflow-hidden">
                 <div id="questions" class="divide-y divide-slate-100 text-slate-800 text-lg">
                     <!-- Questions injected by JS -->
@@ -210,12 +207,13 @@
                         Submit for Grading & Save
                     </button>
                     <p id="scoreDisplay" class="text-xl font-bold hidden"></p>
-                    <button id="refreshBtn" class="hidden text-sm text-slate-500 hover:text-slate-800 underline mt-2" onclick="location.reload()">Reset Test & Try Again</button>
+                    <button id="resetTestBtn" class="hidden text-sm font-medium text-blue-600 hover:text-blue-800 underline mt-2">
+                        Reset Test & Try Again
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- Certificate Container -->
         <div id="certWrapper" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
             <div class="bg-white p-4 rounded-lg shadow-2xl max-w-2xl w-full overflow-auto max-h-[90vh]">
                 <div id="certificate" class="relative border-[12px] border-double border-slate-800 p-12 text-center bg-white min-w-[600px]">
@@ -242,23 +240,22 @@
                     </div>
                 </div>
                 <div class="mt-6 flex gap-4">
-                    <button onclick="downloadCert()" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition-colors">Download Certificate (PNG)</button>
-                    <button onclick="closeCert()" class="px-6 py-3 border border-slate-300 rounded-lg font-bold hover:bg-slate-50 transition-colors">Close</button>
+                    <button id="downloadCertBtn" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition-colors">Download Certificate (PNG)</button>
+                    <button id="closeCertBtn" class="px-6 py-3 border border-slate-300 rounded-lg font-bold hover:bg-slate-50 transition-colors">Close</button>
                 </div>
             </div>
         </div>
 
-        <!-- Custom Password Entry Modal (Replaces unsafe window.prompt) -->
         <div id="passwordModal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
             <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full border border-slate-100">
                 <h3 class="text-lg font-bold text-slate-800 mb-2">Teacher Authorization</h3>
                 <p class="text-slate-600 text-sm mb-4">Enter the access passkey to view dashboard data.</p>
                 <input type="password" id="portalPassword" class="w-full p-2 border rounded-md mb-4 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Passkey">
                 <div class="flex gap-2">
-                    <button onclick="submitPortalPassword()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-colors">
+                    <button id="submitPasswordBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-colors">
                         Access
                     </button>
-                    <button onclick="closePasswordModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 rounded-lg transition-colors">
+                    <button id="closePasswordModalBtn" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 rounded-lg transition-colors">
                         Cancel
                     </button>
                 </div>
@@ -269,33 +266,40 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global state objects
+        // Global State Objects
         let db = null;
         let auth = null;
         let isLocked = false;
+        let localResults = [];
+        let cloudResults = [];
         let loadedResults = [];
 
-        // Application Identifier Configurations
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'safety-quiz-persisted';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        let firebaseConfig = null;
+        try {
+            if (typeof __firebase_config !== 'undefined') {
+                firebaseConfig = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
+            }
+        } catch (err) {
+            console.warn("Firebase configuration parsing error:", err);
+        }
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        // Custom Modal Warning Dialog Handlers (Strictly avoiding Native Alerts)
+        // Custom Modal Alert System
         function triggerCustomAlert(title, message) {
             document.getElementById('alertTitle').textContent = title;
             document.getElementById('alertMessage').textContent = message;
             document.getElementById('customAlert').classList.remove('hidden');
         }
-        window.closeCustomAlert = function() {
+        document.getElementById('closeAlertBtn').addEventListener('click', () => {
             document.getElementById('customAlert').classList.add('hidden');
-        }
+        });
 
-        // Initialize Cloud Storage Database safely (RULE 3)
         async function setupCloudService() {
             if (!firebaseConfig) {
-                console.warn("Storage warning: Cloud database environment config is missing. Operating locally.");
+                console.warn("Cloud storage environment config not found. Operating in local mode.");
                 return;
             }
             try {
@@ -303,16 +307,18 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                // Auth Before Queries
+                // Auth Before Queries (RULE 3)
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
                     await signInAnonymously(auth);
                 }
                 
-                setupRealtimeListener();
+                if (auth.currentUser) {
+                    setupRealtimeListener();
+                }
             } catch (err) {
-                console.error("Cloud configuration initialization error: ", err);
+                console.error("Cloud service initialization failed: ", err);
             }
         }
 
@@ -326,7 +332,7 @@
             { segments: ["Remove all", "blank", "(watches, rings, chains, etc.) before working in the shop."], blanks: ["jewelry"] },
             { segments: ["Caution anyone you observe", "blank", "a safety rule."], blanks: ["breaking"] },
             { segments: ["The floor, aisles, and passageways should be kept", "blank", "of parts, tools, and materials."], blanks: ["clear"] },
-            { segments: ["Prevent tools and materials from", "blank", "hanging over the edges of tables and benches."], blanks: ["hanging"] },
+            { segments: ["Prevent tools and materials from", "blank", "over the edges of tables and benches."], blanks: ["hanging"] },
             { segments: ["blank", "leave vise jaws tightened together when not in use."], blanks: ["Never"] },
             { segments: ["Vise handles are to be left in a", "blank", "position."], blanks: ["vertical"] },
             { segments: ["Tools, equipment, materials, and projects are to be stored in", "blank", "locations."], blanks: ["designated"] },
@@ -347,7 +353,7 @@
             { segments: ["blank", "immediately when finished working."], blanks: ["Cleanup"] }
         ];
 
-        const shuffledQuizData = [...originalQuizData].sort(() => Math.random() - 0.5);
+        let shuffledQuizData = [];
 
         const wordCounts = {};
         originalQuizData.forEach(q => {
@@ -359,7 +365,6 @@
         const uniqueWords = Object.keys(wordCounts).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
         let selectedWord = null;
 
-        // Dynamic visual update of remaining words
         function updateWordBankVisibility() {
             if (isLocked) return;
             const currentAnswers = Array.from(document.querySelectorAll('.drop-zone'))
@@ -390,7 +395,7 @@
 
         function generateVerificationHash(name, id, date) {
             const secret = "SAFETY-PRO-2024-LOCKED";
-            const str = `${name.toUpperCase()}-${id}-${date}-${secret}`;
+            const str = `${(name||'').toUpperCase()}-${id||''}-${date||''}-${secret}`;
             let hash = 0;
             for (let i = 0; i < str.length; i++) {
                 hash = ((hash << 5) - hash) + str.charCodeAt(i);
@@ -400,10 +405,14 @@
             return `VERIFY-${absHash.slice(0,4)}-${absHash.slice(4,8)}-${absHash.slice(8,12)}`.padEnd(21, 'X');
         }
 
-        // Injecting interactive Elements
         function initQuiz() {
+            shuffledQuizData = [...originalQuizData].sort(() => Math.random() - 0.5);
+            
             const wordBank = document.getElementById('wordBank');
             const questionsContainer = document.getElementById('questions');
+
+            wordBank.innerHTML = "";
+            questionsContainer.innerHTML = "";
 
             uniqueWords.forEach(word => {
                 const span = document.createElement('span');
@@ -489,26 +498,40 @@
         }
 
         async function commitResult(name, id, date, period, score, passed, hash) {
-            if (!db) {
-                console.warn("Storage notice: Run locally. Result omitted from cloud sync.");
-                return;
-            }
-            try {
-                // RULE 1: strict collection path
-                const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'results');
-                await addDoc(collectionRef, {
-                    name,
-                    studentID: id,
-                    date,
-                    period,
-                    score,
-                    passed,
-                    verificationHash: hash,
-                    timestamp: serverTimestamp()
-                });
-                console.log("Record securely logged.");
-            } catch (err) {
-                console.error("Storage Error: Failed to write entry to database.", err);
+            const timestampNow = Math.floor(Date.now() / 1000);
+            const record = {
+                id: 'local-' + timestampNow + '-' + Math.random().toString(36).substring(2,6),
+                name,
+                studentID: id,
+                date,
+                period,
+                score,
+                passed,
+                verificationHash: hash,
+                timestamp: { seconds: timestampNow }
+            };
+
+            // Always save to local session list so Teacher Portal has immediate access
+            localResults.unshift(record);
+            updateCombinedResults();
+
+            // Save to Firestore if available (RULE 1 & RULE 3)
+            if (db && auth?.currentUser) {
+                try {
+                    const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'results');
+                    await addDoc(collectionRef, {
+                        name,
+                        studentID: id,
+                        date,
+                        period,
+                        score,
+                        passed,
+                        verificationHash: hash,
+                        timestamp: serverTimestamp()
+                    });
+                } catch (err) {
+                    console.error("Cloud storage commit error (record preserved locally):", err);
+                }
             }
         }
 
@@ -518,7 +541,7 @@
             document.querySelectorAll('.draggable').forEach(d => d.classList.add('locked'));
             document.getElementById('submitBtn').disabled = true;
             document.getElementById('submitBtn').classList.add('opacity-50', 'cursor-not-allowed');
-            document.getElementById('refreshBtn').classList.remove('hidden');
+            document.getElementById('resetTestBtn').classList.remove('hidden');
             
             document.getElementById('studentName').readOnly = true;
             document.getElementById('studentID').readOnly = true;
@@ -526,7 +549,6 @@
             document.getElementById('testDate').readOnly = true;
         }
 
-        // Main evaluation routine
         async function gradeQuiz() {
             const nameInput = document.getElementById('studentName').value.trim();
             const idInput = document.getElementById('studentID').value.trim();
@@ -534,7 +556,7 @@
             const dateInput = document.getElementById('testDate').value;
 
             if (!nameInput || !idInput || !periodInput) {
-                triggerCustomAlert("Missing Credentials", "Please enter your Name, Student ID, and Class Period before submitting your quiz.");
+                triggerCustomAlert("Missing Credentials", "Please fill in your Name, Student ID, and Class Period before submitting your quiz.");
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
@@ -597,11 +619,11 @@
             document.getElementById('certWrapper').classList.remove('hidden');
         }
 
-        window.closeCert = function() {
+        document.getElementById('closeCertBtn').addEventListener('click', () => {
             document.getElementById('certWrapper').classList.add('hidden');
-        }
+        });
 
-        window.downloadCert = function() {
+        document.getElementById('downloadCertBtn').addEventListener('click', () => {
             const cert = document.getElementById('certificate');
             html2canvas(cert, { scale: 2 }).then(canvas => {
                 const link = document.createElement('a');
@@ -609,35 +631,46 @@
                 link.href = canvas.toDataURL("image/png");
                 link.click();
             });
-        }
+        });
 
-        // Realtime sync & Teacher Panel Logic
         function setupRealtimeListener() {
             if (!db) return;
             const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'results');
             // RULE 2: No complex queries inside onSnapshot
             onSnapshot(collectionRef, (snapshot) => {
-                loadedResults = [];
+                cloudResults = [];
                 snapshot.forEach(doc => {
-                    loadedResults.push({ id: doc.id, ...doc.data() });
+                    cloudResults.push({ id: doc.id, ...doc.data() });
                 });
-                
-                // Sort client side (RULE 2 compliance)
-                loadedResults.sort((a, b) => {
-                    const timeA = a.timestamp?.seconds || 0;
-                    const timeB = b.timestamp?.seconds || 0;
-                    return timeB - timeA; 
-                });
-
-                populatePeriodDropdown();
-                renderTable();
+                updateCombinedResults();
             }, (error) => {
-                console.error("Teacher dashboard realtime sync failed: ", error);
+                console.error("Realtime update error:", error);
             });
+        }
+
+        function updateCombinedResults() {
+            // Combine cloud and local results, avoiding duplicates by verification hash or ID
+            const map = new Map();
+            cloudResults.forEach(r => map.set(r.verificationHash + '-' + r.name + '-' + r.score, r));
+            localResults.forEach(r => {
+                const key = r.verificationHash + '-' + r.name + '-' + r.score;
+                if (!map.has(key)) map.set(key, r);
+            });
+
+            loadedResults = Array.from(map.values());
+            loadedResults.sort((a, b) => {
+                const timeA = a.timestamp?.seconds || 0;
+                const timeB = b.timestamp?.seconds || 0;
+                return timeB - timeA;
+            });
+
+            populatePeriodDropdown();
+            renderTable();
         }
 
         function populatePeriodDropdown() {
             const select = document.getElementById('teacherPeriodFilter');
+            const currentSelected = select.value;
             const periods = [...new Set(loadedResults.map(r => r.period))].filter(Boolean).sort();
             
             select.innerHTML = '<option value="">All Periods</option>';
@@ -645,6 +678,7 @@
                 const opt = document.createElement('option');
                 opt.value = p;
                 opt.textContent = `Period: ${p}`;
+                if (p === currentSelected) opt.selected = true;
                 select.appendChild(opt);
             });
         }
@@ -674,7 +708,7 @@
             }
 
             filtered.forEach(r => {
-                const dateStr = r.timestamp ? new Date(r.timestamp.seconds * 1000).toLocaleString() : 'Saving...';
+                const dateStr = r.timestamp ? new Date(r.timestamp.seconds * 1000).toLocaleString() : 'Saved';
                 const statusBadge = r.passed 
                     ? `<span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Passed</span>`
                     : `<span class="bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Incomplete</span>`;
@@ -688,25 +722,23 @@
                     <td class="p-3 font-medium text-slate-600">${r.period || 'None'}</td>
                     <td class="p-3 text-center font-bold text-slate-700">${r.score}%</td>
                     <td class="p-3 text-center">${statusBadge}</td>
-                    <td class="p-3 font-mono text-xs text-slate-400 select-all">${r.verificationHash || 'LOCAL-PREV-VERIFY'}</td>
+                    <td class="p-3 font-mono text-xs text-slate-400 select-all">${r.verificationHash || 'N/A'}</td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        window.filterResultsTable = function() {
-            renderTable();
-        }
+        document.getElementById('teacherSearch').addEventListener('input', renderTable);
+        document.getElementById('teacherPeriodFilter').addEventListener('change', renderTable);
+        document.getElementById('teacherPassFilter').addEventListener('change', renderTable);
 
-        // Password access control sequence (custom prompt alternative)
         document.getElementById('openTeacherPortalBtn').addEventListener('click', () => {
             document.getElementById('passwordModal').classList.remove('hidden');
             document.getElementById('portalPassword').focus();
         });
 
-        window.submitPortalPassword = function() {
+        document.getElementById('submitPasswordBtn').addEventListener('click', () => {
             const pw = document.getElementById('portalPassword').value;
-            // Configurable secret key
             if (pw === "admin" || pw === "safetypass") {
                 document.getElementById('passwordModal').classList.add('hidden');
                 document.getElementById('portalPassword').value = "";
@@ -716,19 +748,19 @@
             } else {
                 triggerCustomAlert("Access Denied", "Incorrect teacher authentication passkey.");
             }
-        }
+        });
 
-        window.closePasswordModal = function() {
+        document.getElementById('closePasswordModalBtn').addEventListener('click', () => {
             document.getElementById('passwordModal').classList.add('hidden');
             document.getElementById('portalPassword').value = "";
-        }
+        });
 
-        window.exitTeacherPortal = function() {
+        document.getElementById('exitTeacherPortalBtn').addEventListener('click', () => {
             document.getElementById('teacherPortal').classList.add('hidden');
             document.getElementById('quizInterface').classList.remove('hidden');
-        }
+        });
 
-        window.exportToCSV = function() {
+        document.getElementById('exportCsvBtn').addEventListener('click', () => {
             if (loadedResults.length === 0) {
                 triggerCustomAlert("Empty Dataset", "There are no student results to export.");
                 return;
@@ -758,7 +790,27 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-        }
+        });
+
+        document.getElementById('resetTestBtn').addEventListener('click', () => {
+            isLocked = false;
+            document.getElementById('submitBtn').disabled = false;
+            document.getElementById('submitBtn').classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('resetTestBtn').classList.add('hidden');
+            document.getElementById('scoreDisplay').classList.add('hidden');
+
+            document.getElementById('studentName').readOnly = false;
+            document.getElementById('studentID').readOnly = false;
+            document.getElementById('period').readOnly = false;
+            document.getElementById('testDate').readOnly = false;
+
+            document.getElementById('studentName').value = "";
+            document.getElementById('studentID').value = "";
+            document.getElementById('period').value = "";
+
+            initQuiz();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
 
         // DOM Initializations
         document.getElementById('submitBtn').addEventListener('click', gradeQuiz);
