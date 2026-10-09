@@ -344,7 +344,8 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE TO KEEP IT PERMANENT ACROSS ALL COMPUTERS/REFRESHES
+        // CRITICAL: PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL BETWEEN THE QUOTES BELOW.
+        // This ensures all students' devices (Chromebooks, phones, home PCs) can reach your Google Sheet.
         const DEFAULT_GOOGLE_SHEET_WEBHOOK = ""; 
 
         // Global State Objects
@@ -355,7 +356,7 @@
         let localResults = [];
         let cloudResults = [];
         let loadedResults = [];
-        let googleSheetWebhookUrl = localStorage.getItem('safety_quiz_webhook') || DEFAULT_GOOGLE_SHEET_WEBHOOK;
+        let googleSheetWebhookUrl = DEFAULT_GOOGLE_SHEET_WEBHOOK || localStorage.getItem('safety_quiz_webhook') || "";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'safety-quiz-persisted';
         let firebaseConfig = null;
@@ -676,6 +677,10 @@
                 return;
             }
 
+            if (!googleSheetWebhookUrl) {
+                triggerCustomAlert("Configuration Notice", "Teacher Notice: The Google Sheets Webhook URL is not configured in this test file yet. Please notify your instructor.");
+            }
+
             const nameInput = `${firstNameInput} ${lastNameInput}`.trim();
             const zones = document.querySelectorAll('.drop-zone');
             let totalBlanks = 0;
@@ -781,7 +786,10 @@
         }
 
         function sendToGoogleSheet(record, certBase64 = null) {
-            if (!googleSheetWebhookUrl) return;
+            if (!googleSheetWebhookUrl) {
+                console.warn("Skipping Google Sheets sync: No webhook URL configured.");
+                return;
+            }
 
             try {
                 const payload = {
@@ -800,6 +808,7 @@
                 fetch(googleSheetWebhookUrl, {
                     method: 'POST',
                     mode: 'no-cors',
+                    keepalive: true,
                     headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify(payload)
                 })
