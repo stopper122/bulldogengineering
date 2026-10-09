@@ -213,7 +213,7 @@
         <div id="quizInterface">
             <!-- Student Info Form -->
             <div class="bg-white rounded-xl shadow-sm p-6 mb-8 border border-slate-200 no-print">
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-semibold text-slate-700">First Name</label>
                         <input type="text" id="firstName" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="First Name">
@@ -230,9 +230,38 @@
                         <label class="block text-sm font-semibold text-slate-700">Date</label>
                         <input type="date" id="testDate" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700">Period</label>
-                        <input type="text" id="period" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. 1st">
+                </div>
+                <div class="pt-3 border-t border-slate-100">
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Period (Select One)</label>
+                    <div id="periodSelectionGroup" class="flex flex-wrap items-center gap-2 sm:gap-3">
+                        <label class="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 cursor-pointer transition-colors text-sm font-medium text-slate-700 select-none">
+                            <input type="checkbox" name="periodCheckbox" value="1" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                            <span>1</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 cursor-pointer transition-colors text-sm font-medium text-slate-700 select-none">
+                            <input type="checkbox" name="periodCheckbox" value="2" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                            <span>2</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 cursor-pointer transition-colors text-sm font-medium text-slate-700 select-none">
+                            <input type="checkbox" name="periodCheckbox" value="3" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                            <span>3</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 cursor-pointer transition-colors text-sm font-medium text-slate-700 select-none">
+                            <input type="checkbox" name="periodCheckbox" value="4" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                            <span>4</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 cursor-pointer transition-colors text-sm font-medium text-slate-700 select-none">
+                            <input type="checkbox" name="periodCheckbox" value="5" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                            <span>5</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 cursor-pointer transition-colors text-sm font-medium text-slate-700 select-none">
+                            <input type="checkbox" name="periodCheckbox" value="6" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                            <span>6</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 cursor-pointer transition-colors text-sm font-medium text-slate-700 select-none">
+                            <input type="checkbox" name="periodCheckbox" value="RAWC" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                            <span>RAWC</span>
+                        </label>
                     </div>
                 </div>
             </div>
@@ -316,7 +345,7 @@
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE TO KEEP IT PERMANENT ACROSS ALL COMPUTERS/REFRESHES
-        const DEFAULT_GOOGLE_SHEET_WEBHOOK = "https://script.google.com/macros/s/AKfycbz52tTQ9uwGJYLdZ27EAOdBpWwkuqX_wVVLwc3AfxKHJBVfadeUFU4vvAjlgxaJqzXV/exec"; 
+        const DEFAULT_GOOGLE_SHEET_WEBHOOK = ""; 
 
         // Global State Objects
         let db = null;
@@ -573,6 +602,24 @@
             zone.classList.add('bg-blue-100', 'border-blue-500', 'border-solid');
         }
 
+        function getSelectedPeriod() {
+            const checked = Array.from(document.querySelectorAll('input[name="periodCheckbox"]:checked'));
+            return checked.map(cb => cb.value).join(', ').trim();
+        }
+
+        function setupPeriodCheckboxBehavior() {
+            const checkboxes = document.querySelectorAll('input[name="periodCheckbox"]');
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', () => {
+                    if (cb.checked) {
+                        checkboxes.forEach(other => {
+                            if (other !== cb) other.checked = false;
+                        });
+                    }
+                });
+            });
+        }
+
         function lockQuiz() {
             isLocked = true;
             document.querySelectorAll('.drop-zone').forEach(z => z.classList.add('locked'));
@@ -586,7 +633,7 @@
             document.getElementById('firstName').readOnly = true;
             document.getElementById('lastName').readOnly = true;
             document.getElementById('studentID').readOnly = true;
-            document.getElementById('period').readOnly = true;
+            document.querySelectorAll('input[name="periodCheckbox"]').forEach(cb => cb.disabled = true);
             document.getElementById('testDate').readOnly = true;
         }
 
@@ -597,7 +644,10 @@
             document.getElementById('firstName').readOnly = false;
             document.getElementById('lastName').readOnly = false;
             document.getElementById('studentID').readOnly = false;
-            document.getElementById('period').readOnly = false;
+            document.querySelectorAll('input[name="periodCheckbox"]').forEach(cb => {
+                cb.checked = false;
+                cb.disabled = false;
+            });
             document.getElementById('testDate').readOnly = false;
 
             const submitBtn = document.getElementById('submitBtn');
@@ -617,11 +667,11 @@
             const firstNameInput = document.getElementById('firstName').value.trim();
             const lastNameInput = document.getElementById('lastName').value.trim();
             const idInput = document.getElementById('studentID').value.trim();
-            const periodInput = document.getElementById('period').value.trim();
+            const periodInput = getSelectedPeriod();
             const dateInput = document.getElementById('testDate').value;
 
             if (!firstNameInput || !lastNameInput || !idInput || !periodInput) {
-                triggerCustomAlert("Missing Credentials", "Please fill in your First Name, Last Name, Student ID, and Class Period before submitting your quiz.");
+                triggerCustomAlert("Missing Credentials", "Please fill in your First Name, Last Name, Student ID, and select your Period before submitting your quiz.");
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
@@ -1005,6 +1055,7 @@
 
         // Run Initializations
         setupCloudService();
+        setupPeriodCheckboxBehavior();
         initQuiz();
     </script>
 </body>
