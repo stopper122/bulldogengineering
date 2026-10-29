@@ -354,8 +354,11 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // CRITICAL: PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL BETWEEN THE QUOTES BELOW.
-        // This ensures all students' devices (Chromebooks, phones, home PCs) can reach your Google Sheet.
+        // =========================================================================
+        // IMPORTANT: PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL BETWEEN THE QUOTES!
+        // Example: "https://script.google.com/macros/s/AKfycb.../exec"
+        // Without this, student devices cannot post results to your sheet.
+        // =========================================================================
         const DEFAULT_GOOGLE_SHEET_WEBHOOK = ""; 
 
         // Global State Objects
@@ -744,9 +747,11 @@
                 display.className = "text-xl font-bold text-green-600 mt-4";
                 showCertificate(nameInput, idInput, periodInput, dateInput, verificationHash);
                 
+                // Allow DOM to finish rendering certificate before snapshot
+                await new Promise(resolve => setTimeout(resolve, 300));
                 try {
                     const certElem = document.getElementById('certificate');
-                    const canvas = await html2canvas(certElem, { scale: 1.5 });
+                    const canvas = await html2canvas(certElem, { scale: 1.0, logging: false });
                     certBase64 = canvas.toDataURL("image/png");
                 } catch (err) {
                     console.error("Certificate image generation error:", err);
@@ -780,8 +785,12 @@
             localResults.unshift(record);
             updateCombinedResults();
 
-            if (googleSheetWebhookUrl) {
-                await sendToGoogleSheet(record, certBase64);
+            // Always attempt to send to webhook
+            const endpoint = googleSheetWebhookUrl || DEFAULT_GOOGLE_SHEET_WEBHOOK;
+            if (endpoint) {
+                await sendToGoogleSheet(record, certBase64, endpoint);
+            } else {
+                console.error("CRITICAL: No Webhook URL configured on student device!");
             }
 
             if (db && auth?.currentUser) {
@@ -805,8 +814,9 @@
             }
         }
 
-        async function sendToGoogleSheet(record, certBase64 = null) {
-            if (!googleSheetWebhookUrl) {
+        async function sendToGoogleSheet(record, certBase64 = null, targetUrl = null) {
+            const endpoint = targetUrl || googleSheetWebhookUrl || DEFAULT_GOOGLE_SHEET_WEBHOOK;
+            if (!endpoint) {
                 console.warn("Skipping Google Sheets sync: No webhook URL configured.");
                 return false;
             }
@@ -825,8 +835,7 @@
                     imageB64: certBase64 || ""
                 };
 
-                // CRITICAL FIX: Removed keepalive: true which rejects payloads > 64KB
-                await fetch(googleSheetWebhookUrl, {
+                await fetch(endpoint, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'text/plain' },
